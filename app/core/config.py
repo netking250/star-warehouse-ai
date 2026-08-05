@@ -324,6 +324,7 @@ class Settings(BaseSettings):
     ALERT_TRANSFER_RATE_THRESHOLD: float = 0.3
     ALERT_CONFIDENCE_THRESHOLD: float = 0.6
     ALERT_LATENCY_MS_THRESHOLD: float = 5000.0
+    SERVICE_HEALTH_URL: str = "http://localhost:8000/health"
 
     LOG_FORMAT: str = "text"
 

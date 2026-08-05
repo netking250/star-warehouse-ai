@@ -72,6 +72,7 @@ services:
       - .env
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:-devpassword}
+      SERVICE_HEALTH_URL: http://app:8000/health
     volumes:
       - ./app:/app/app
     restart: unless-stopped

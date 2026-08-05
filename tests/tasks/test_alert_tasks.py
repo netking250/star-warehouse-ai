@@ -13,6 +13,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlmodel import Session, SQLModel
 
+from app.core.config import settings
 from app.models.alert import AlertEvent, AlertRule, AlertRuleStatus, AlertSeverity, AlertStatus
 from app.tasks.alert_tasks import (
     _auto_resolve_cleared_alerts,
@@ -116,6 +117,9 @@ class TestGetMetricValue:
                 val, meta = _get_metric_value("health_status", 30)
                 assert val == 1.0
                 assert "window_seconds" in meta
+
+            request = mock_urlopen.call_args.args[0]
+            assert request.full_url == settings.SERVICE_HEALTH_URL
 
     def test_health_status_failure(self):
         with patch("urllib.request.urlopen", side_effect=Exception("Connection refused")):

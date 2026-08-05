@@ -33,7 +33,7 @@ Celery async task layer for background processing. Tasks are triggered by graph 
 | Continuous improvement | `@app/tasks/continuous_improvement_tasks.py` | CI pipeline tasks |
 | Prompt effect tracking | `@app/tasks/prompt_effect_tasks.py` | Prompt A/B effect measurement |
 | Shadow testing | `@app/tasks/shadow_tasks.py` | Shadow mode testing tasks |
-| Tracing setup | `@app/tasks/tracing_setup.py` | Celery LangSmith tracing configuration |
+| Tracing setup | `@app/celery_tracing.py` | Celery LangSmith bootstrap kept outside the task package to avoid import cycles |
 
 ## Commands
 
@@ -66,6 +66,9 @@ General Python rules are defined in the root `AGENTS.md`. Task-specific conventi
 
 ## Conventions
 
+- **Celery bootstrap boundary**: Keep helpers imported by `@app/celery_app.py` outside
+  `@app/tasks/`; importing a task submodule executes `app.tasks.__init__` and can create a
+  circular import before the Celery application exists.
 - **Async triggers**: Graph nodes trigger tasks via `apply_async` to avoid blocking SSE responses.
 - **Task naming**: Use descriptive task names: `<module>.<task_name>`.
 - **Result storage**: Store task results in Redis or database for retrieval by frontend polling.

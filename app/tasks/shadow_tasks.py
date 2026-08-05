@@ -25,6 +25,7 @@ async def _init_graphs():
     from app.agents.product import ProductAgent
     from app.agents.router import IntentRouterAgent
     from app.agents.supervisor import SupervisorAgent
+    from app.celery_tracing import setup_celery_langsmith_tracing
     from app.core.config import settings
     from app.core.llm_factory import create_openai_llm
     from app.core.redis import create_redis_client
@@ -36,7 +37,6 @@ async def _init_graphs():
     from app.memory.vector_manager import VectorMemoryManager
     from app.retrieval import create_retriever
     from app.services.order_service import OrderService
-    from app.tasks.tracing_setup import setup_celery_langsmith_tracing
     from app.tools import (
         AccountTool,
         CartTool,

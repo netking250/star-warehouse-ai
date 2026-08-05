@@ -5,9 +5,9 @@
 
 from celery import Celery
 
+from app.celery_tracing import setup_celery_langsmith_tracing
 from app.core.config import settings
 from app.observability.otel_setup import setup_celery_tracing
-from app.tasks.tracing_setup import setup_celery_langsmith_tracing
 
 # 创建 Celery 实例
 celery_app = Celery(

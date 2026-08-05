@@ -3,7 +3,16 @@
 Celery 异步任务模块
 """
 
-from app.tasks import alert_tasks, autoheal_tasks, knowledge_tasks, memory_tasks
+from app.tasks import (
+    alert_tasks,
+    autoheal,
+    autoheal_tasks,
+    checkpoint_tasks,
+    continuous_improvement_tasks,
+    knowledge_tasks,
+    memory_tasks,
+    shadow_tasks,
+)
 from app.tasks.evaluation_tasks import run_few_shot_evaluation
 from app.tasks.notifications import (
     check_quality_alerts,
@@ -20,8 +29,11 @@ from app.tasks.refund_tasks import (
 
 __all__ = [
     "alert_tasks",
+    "autoheal",
     "autoheal_tasks",
     "check_quality_alerts",
+    "checkpoint_tasks",
+    "continuous_improvement_tasks",
     "generate_monthly_report",
     "knowledge_tasks",
     "log_chat_observability",
@@ -32,4 +44,5 @@ __all__ = [
     "send_complaint_alert",
     "send_refund_sms",
     "send_status_update",
+    "shadow_tasks",
 ]

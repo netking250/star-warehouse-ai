@@ -14,6 +14,7 @@ from sqlalchemy import func
 from sqlmodel import select
 
 from app.celery_app import celery_app
+from app.core.config import settings
 from app.core.database import sync_session_maker
 from app.models.alert import AlertEvent, AlertRule, AlertRuleStatus, AlertStatus
 from app.models.observability import GraphExecutionLog
@@ -104,7 +105,7 @@ def _get_metric_value(metric: str, window_seconds: int) -> tuple[float | None, d
                 import urllib.request
 
                 req = urllib.request.Request(
-                    "http://localhost:8000/health",
+                    settings.SERVICE_HEALTH_URL,
                     method="GET",
                     headers={"Accept": "application/json"},
                 )

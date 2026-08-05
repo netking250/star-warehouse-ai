@@ -4,6 +4,7 @@ from pathlib import Path
 from asgiref.sync import async_to_sync
 
 from app.celery_app import celery_app
+from app.celery_tracing import setup_celery_langsmith_tracing
 from app.core.config import settings
 from app.core.llm_factory import create_llm
 from app.core.redis import create_redis_client
@@ -11,7 +12,6 @@ from app.core.tracing import build_llm_config
 from app.evaluation.adversarial import AdversarialRunner
 from app.evaluation.few_shot_eval import compare_few_shot_performance
 from app.intent.service import IntentRecognitionService
-from app.tasks.tracing_setup import setup_celery_langsmith_tracing
 
 logger = logging.getLogger(__name__)
 

@@ -11,12 +11,12 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, select
 
 from app.celery_app import celery_app
+from app.celery_tracing import setup_celery_langsmith_tracing
 from app.core.config import settings
 from app.core.database import sync_session_maker
 from app.memory.extractor import FactExtractor
 from app.memory.vector_manager import VectorMemoryManager
 from app.models.memory import UserFact
-from app.tasks.tracing_setup import setup_celery_langsmith_tracing
 
 logger = logging.getLogger(__name__)
 

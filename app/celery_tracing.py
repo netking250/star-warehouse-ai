@@ -11,7 +11,8 @@ logger = logging.getLogger(__name__)
 def setup_celery_langsmith_tracing() -> None:
     """Configure LangSmith environment variables for Celery workers.
 
-    Must be called before any LLM instances are created in a Celery task.
+    This module intentionally lives outside ``app.tasks`` so the Celery
+    application can configure tracing before importing task modules.
     """
     if not settings.LANGSMITH_API_KEY or not settings.LANGSMITH_CELERY_TRACING:
         return
