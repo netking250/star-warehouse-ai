@@ -70,6 +70,8 @@ General Python rules are defined in the root `AGENTS.md`. Task-specific conventi
   `@app/tasks/`; importing a task submodule executes `app.tasks.__init__` and can create a
   circular import before the Celery application exists.
 - **Async triggers**: Graph nodes trigger tasks via `apply_async` to avoid blocking SSE responses.
+- **Async database loops**: A task entered through `async_to_sync` must create and dispose its
+  async SQLAlchemy engine inside that invocation; never reuse the web process's pooled async engine.
 - **Task naming**: Use descriptive task names: `<module>.<task_name>`.
 - **Result storage**: Store task results in Redis or database for retrieval by frontend polling.
 - **Max retries**: Set reasonable max retries (3-5) with exponential backoff (2^n seconds).

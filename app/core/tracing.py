@@ -26,6 +26,21 @@ from typing import Any, cast
 
 from langchain_core.runnables import RunnableConfig
 
+from app.core.config import settings
+
+_PLACEHOLDER_API_KEY_MARKERS = ("your-", "replace-me", "changeme", "example")
+
+
+def is_placeholder_api_key(value: str) -> bool:
+    """Return whether an API key is empty or an obvious template value."""
+    normalized = value.strip().lower()
+    return not normalized or any(marker in normalized for marker in _PLACEHOLDER_API_KEY_MARKERS)
+
+
+def is_langsmith_tracing_enabled() -> bool:
+    """Return whether LangSmith has a usable API key."""
+    return not is_placeholder_api_key(settings.LANGSMITH_API_KEY.get_secret_value())
+
 
 def build_llm_config(
     *,

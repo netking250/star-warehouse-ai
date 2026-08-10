@@ -132,6 +132,7 @@ class Settings(BaseSettings):
 
     # Cache TTL settings (seconds)
     CACHE_TTL_INTENT: int = 3600  # 1 hour
+    INTENT_CACHE_VERSION: str = "v3.1"
     CACHE_TTL_PROFILE: int = 300  # 5 minutes
     CACHE_TTL_RETRIEVAL: int = 600  # 10 minutes
     CACHE_TTL_DB_CONFIG: int = 300  # 5 minutes
@@ -324,6 +325,8 @@ class Settings(BaseSettings):
     OBSERVATION_MASKING_MAX_CHARS: int = 500
     VECTOR_MEMORY_SCORE_THRESHOLD: float = 0.5
     AGENT_CONFIG_CACHE_TTL: int = 60
+    CHAT_STREAM_TIMEOUT_SECONDS: float = 45.0
+    CHECKPOINT_SCHEMA_VERSION: str = "v3.1"
 
     # Email 配置（用于告警和通知）
     SMTP_HOST: str = ""
@@ -347,7 +350,7 @@ class Settings(BaseSettings):
     LOG_FORMAT: str = "text"
 
     KNOWLEDGE_UPLOAD_DIR: str = "uploads/knowledge"
-    OTEL_EXPORTER_OTLP_ENDPOINT: str = "http://localhost:4317"
+    OTEL_EXPORTER_OTLP_ENDPOINT: str = ""
     PROMETHEUS_ENABLED: bool = False
     PROMETHEUS_URL: str = "http://localhost:9090"
     TEMPO_URL: str = "http://localhost:3200"

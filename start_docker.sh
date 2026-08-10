@@ -22,6 +22,9 @@ docker compose up -d --wait db redis qdrant
 echo "Applying database migrations..."
 docker compose run --rm --no-deps app alembic upgrade head
 
+echo "Initializing tenant vector data..."
+docker compose run --rm --no-deps app python scripts/initialize_vector_data.py
+
 echo "Recreating application containers to refresh WSL bind mounts..."
 docker compose up -d --force-recreate --no-deps celery_worker app
 

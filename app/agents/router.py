@@ -6,7 +6,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.agents.base import BaseAgent
 from app.core.config import settings
 from app.intent.few_shot_loader import load_agent_examples
-from app.intent.models import IntentCategory, IntentResult
+from app.intent.models import IntentAction, IntentCategory, IntentResult
 from app.intent.service import IntentRecognitionService
 from app.models.state import AgentProcessResult, AgentState
 
@@ -140,7 +140,10 @@ class IntentRouterAgent(BaseAgent):
                 or (next_agent == "cart" and current_agent == "cart")
             ):
                 return {
-                    "response": "系统对该问题没有足够把握，已为您转接人工客服。",
+                    # Preserve the grounded specialist answer. Transfer status is
+                    # delivered through metadata instead of replacing or appending
+                    # a second user-visible answer.
+                    "response": state.get("answer", ""),
                     "updated_state": {
                         **updated_state,
                         "needs_human_transfer": True,
@@ -200,6 +203,12 @@ class IntentRouterAgent(BaseAgent):
 
     async def _route_by_intent(self, result: IntentResult) -> str:
         from app.agents.config_loader import get_target_agent_for_intent
+
+        if (
+            result.primary_intent == IntentCategory.AFTER_SALES
+            and result.secondary_intent == IntentAction.CONSULT
+        ):
+            return "policy_agent"
 
         intent_name = (
             result.primary_intent.value

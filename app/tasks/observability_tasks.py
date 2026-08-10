@@ -6,10 +6,13 @@ from typing import Any
 from asgiref.sync import async_to_sync
 from opentelemetry import propagate, trace
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 from sqlmodel import desc, select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.celery_app import celery_app
-from app.core.database import async_session_maker
+from app.core.config import settings
 from app.models.memory import AgentConfigVersion
 from app.models.observability import GraphExecutionLog, GraphNodeLog
 from app.observability.metrics import (
@@ -40,7 +43,24 @@ async def _async_log_chat_observability(
     trace_id: str | None,
 ) -> int | None:
     """Async helper for observability logging using AsyncSession."""
-    async with async_session_maker() as session:
+    # ``async_to_sync`` creates a fresh event loop per invocation. A pooled
+    # asyncpg connection cannot safely move between those loops, so this task
+    # owns a non-pooled engine for exactly one invocation.
+    task_engine = create_async_engine(
+        settings.DATABASE_URL,
+        poolclass=NullPool,
+        connect_args={
+            "timeout": settings.DB_CONNECT_TIMEOUT,
+            "server_settings": {"application_name": "ecommerce-agent-celery", "jit": "off"},
+        },
+    )
+    task_session_maker = async_sessionmaker(
+        task_engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+    )
+    session = task_session_maker()
+    try:
         final_agent_name = final_state.get("current_agent")
 
         # Resolve agent config version
@@ -150,12 +170,17 @@ async def _async_log_chat_observability(
             except (SQLAlchemyError, OperationalError):
                 logger.exception("Failed to log token usage to database")
 
+    finally:
+        await session.close()
+        await task_engine.dispose()
+
     return execution_id
 
 
 @celery_app.task(
     bind=True,
     name="observability.log_chat_observability",
+    ignore_result=True,
     max_retries=2,
     default_retry_delay=30,
 )

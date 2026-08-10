@@ -26,6 +26,7 @@ from app.core.limiter import limiter
 from app.core.logging import generate_correlation_id, set_correlation_id
 from app.core.structured_logging import configure_logging
 from app.core.tenancy import reset_current_tenant_id, set_current_tenant_id
+from app.core.tracing import is_langsmith_tracing_enabled
 from app.observability.otel_setup import instrument_fastapi, setup_otel_tracing
 from app.websocket.manager import get_manager
 from app.websocket.redis_bridge import RedisBroadcastBridge
@@ -85,6 +86,7 @@ async def lifespan(app: FastAPI):
         redis_client = create_redis_client()
         checkpointer = OptimizedRedisCheckpoint(redis_client=redis_client)
         await checkpointer.setup()
+        app.state.checkpointer = checkpointer
 
         llm = create_openai_llm()
         eval_llm = create_openai_llm(model=settings.CONFIDENCE.EVALUATION_MODEL)
@@ -143,6 +145,22 @@ async def lifespan(app: FastAPI):
         supervisor_agent = SupervisorAgent(llm=llm)
         evaluator = ConfidenceEvaluator(llm=eval_llm)
         vector_manager = VectorMemoryManager(cache_manager=cache_manager)
+
+        # Fail fast on Qdrant connectivity and ensure manual uvicorn startup has
+        # all collections even when the Docker seed command was not used.
+        await retriever.qdrant_client.ensure_collection()
+        await vector_manager.ensure_collection()
+        from app.retrieval.client import QdrantKnowledgeClient
+
+        product_collection = QdrantKnowledgeClient(
+            url=settings.QDRANT_URL,
+            collection_name="product_catalog",
+            api_key=settings.QDRANT_API_KEY.get_secret_value() or None,
+        )
+        try:
+            await product_collection.ensure_collection()
+        finally:
+            await product_collection.aclose()
 
         app.state.intent_service = intent_service
         app.state.llm = llm
@@ -216,7 +234,8 @@ def _setup_langsmith_tracing() -> None:
     all LLM calls (via LangChain) are traced without requiring code changes
     at each call site.
     """
-    if not settings.LANGSMITH_API_KEY:
+    if not is_langsmith_tracing_enabled():
+        os.environ["LANGCHAIN_TRACING_V2"] = "false"
         return
 
     # Set required environment variables for LangChain automatic tracing

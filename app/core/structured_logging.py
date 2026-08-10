@@ -13,7 +13,7 @@ from typing import Any
 
 from opentelemetry import trace
 
-from app.core.logging import CorrelationIdFilter
+from app.core.logging import CorrelationIdFilter, SensitiveQueryFilter
 
 
 class JsonFormatter(logging.Formatter):
@@ -121,6 +121,7 @@ def configure_logging(*, log_format: str = "text") -> None:
 
     handler = logging.StreamHandler()
     handler.setFormatter(formatter)
+    handler.addFilter(SensitiveQueryFilter())
 
     root_logger = logging.getLogger()
     # Remove existing StreamHandlers to avoid duplicate output on re-configuration

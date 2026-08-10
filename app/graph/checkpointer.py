@@ -2,21 +2,19 @@
 
 from __future__ import annotations
 
-import asyncio
 import copy
 import json
 import logging
-import time
 import zlib
 from collections.abc import AsyncIterator, Sequence
-from typing import Any, cast, override
+from typing import Any, override
 
 from langchain_core.runnables import RunnableConfig
-from langgraph.checkpoint.base import BaseCheckpointSaver, Checkpoint, CheckpointTuple
+from langgraph.checkpoint.base import BaseCheckpointSaver, CheckpointTuple
 from langgraph.checkpoint.redis import AsyncRedisSaver
 
 from app.core.tenancy import namespaced_key
-from app.observability.metrics import record_checkpoint_cleanup, record_checkpoint_metrics
+from app.observability.metrics import record_checkpoint_cleanup
 
 logger = logging.getLogger(__name__)
 
@@ -51,110 +49,18 @@ class OptimizedRedisCheckpoint(BaseCheckpointSaver):
         new_versions: Any,
         stream_mode: str = "values",
     ) -> Any:
-        configurable = (config.get("configurable") or {}).copy()
-        thread_id = configurable.get("thread_id")
-        checkpoint_ns = configurable.get("checkpoint_ns", "")
-        checkpoint_id = checkpoint.get("id", "")
-
-        if not thread_id or not checkpoint_id:
-            logger.warning("Missing thread_id or checkpoint_id, falling back to base saver")
-            return await self._base_saver.aput(
-                config, checkpoint, metadata, new_versions, stream_mode
-            )
-
-        prev_checkpoint = await self.aget(
-            {"configurable": {"thread_id": thread_id, "checkpoint_ns": checkpoint_ns}}
-        )
-
-        index_key = self._index_key(thread_id, checkpoint_ns)
-        index_count = await self._redis.zcard(index_key)
-        is_base = prev_checkpoint is None or (index_count % self._base_every == 0)
-
-        if is_base:
-            payload: dict[str, Any] = {"__base__": True, "data": checkpoint}
-        else:
-            diff = self._compute_diff(prev_checkpoint, checkpoint)
-            payload = {
-                "__base__": False,
-                "parent_id": prev_checkpoint.get("id", ""),
-                "diff": diff,
-            }
-
-        raw_bytes = json.dumps(payload, default=str).encode("utf-8")
-        compressed = zlib.compress(raw_bytes, level=self._compression_level)
-
-        opt_key = self._opt_key(thread_id, checkpoint_ns, checkpoint_id)
-        await self._redis.setex(opt_key, self._ttl_seconds, compressed)
-
-        await self._redis.zadd(index_key, {checkpoint_id: time.time()})
-        await self._redis.expire(index_key, self._ttl_seconds)
-
-        record_checkpoint_metrics(
-            compressed_size=len(compressed),
-            uncompressed_size=len(raw_bytes),
-            is_base=is_base,
-        )
-
-        asyncio.create_task(
-            self._safe_base_aput(config, checkpoint, metadata, new_versions, stream_mode)
-        )
-
-        return {
-            "configurable": {
-                "thread_id": thread_id,
-                "checkpoint_ns": checkpoint_ns,
-                "checkpoint_id": checkpoint_id,
-            }
-        }
+        # The legacy JSON diff format coerced LangGraph channel-version values to
+        # strings and could make resumed graphs compare ``str`` with ``int``.
+        # Keep persistence authoritative and typed through the upstream saver.
+        return await self._base_saver.aput(config, checkpoint, metadata, new_versions, stream_mode)
 
     async def aget(self, config: Any) -> Any:
         tup = await self.aget_tuple(config)
         return tup.checkpoint if tup is not None else None
 
     async def aget_tuple(self, config: Any) -> CheckpointTuple | None:
-        configurable = config.get("configurable") or {}
-        thread_id = configurable.get("thread_id")
-        checkpoint_ns = configurable.get("checkpoint_ns", "")
-        checkpoint_id = configurable.get("checkpoint_id")
-
-        if not thread_id:
-            return None
-
-        opt_key = self._opt_key(thread_id, checkpoint_ns, checkpoint_id or "")
-        compressed = await self._redis.get(opt_key)
-
-        if compressed is not None:
-            checkpoint = await self._reconstruct_from_opt(
-                thread_id, checkpoint_ns, checkpoint_id, compressed
-            )
-            if checkpoint is not None:
-                return CheckpointTuple(
-                    config=config,
-                    checkpoint=cast(Checkpoint, checkpoint),
-                    metadata={},
-                    parent_config=None,
-                    pending_writes=None,
-                )
-
-        if not checkpoint_id:
-            latest_key = namespaced_key(f"checkpoint_latest_opt:{thread_id}:{checkpoint_ns}")
-            latest_id = await self._redis.get(latest_key)
-            if latest_id:
-                opt_key = self._opt_key(thread_id, checkpoint_ns, latest_id)
-                compressed = await self._redis.get(opt_key)
-                if compressed is not None:
-                    checkpoint = await self._reconstruct_from_opt(
-                        thread_id, checkpoint_ns, latest_id, compressed
-                    )
-                    if checkpoint is not None:
-                        return CheckpointTuple(
-                            config=config,
-                            checkpoint=cast(Checkpoint, checkpoint),
-                            metadata={},
-                            parent_config=None,
-                            pending_writes=None,
-                        )
-
+        # Do not read legacy optimized checkpoints: their JSON representation is
+        # not type safe. Existing keys remain available for explicit cleanup.
         return await self._base_saver.aget_tuple(config)
 
     async def alist(
@@ -294,22 +200,9 @@ class OptimizedRedisCheckpoint(BaseCheckpointSaver):
     def _index_key(thread_id: str, checkpoint_ns: str) -> str:
         return namespaced_key(f"ckpt_index:{thread_id}:{checkpoint_ns}")
 
-    def get_next_version(self, current: Any | None, channel: None = None) -> Any:
-        """Generate the next version ID for a channel.
-
-        Supports int and string versions.
-        """
-        if isinstance(current, str):
-            # For string versions, use a simple incrementing suffix
-            try:
-                base, num = current.rsplit("-", 1)
-                return f"{base}-{int(num) + 1}"
-            except ValueError:
-                return f"{current}-1"
-        elif current is None:
-            return 1
-        else:
-            return current + 1
+    def get_next_version(self, current: Any | None, channel: Any = None) -> Any:
+        """Generate a Redis-compatible monotonically increasing version."""
+        return self._base_saver.get_next_version(current, channel)
 
     async def aput_writes(
         self,
@@ -326,11 +219,3 @@ class OptimizedRedisCheckpoint(BaseCheckpointSaver):
             await self._base_saver.aput_writes(config, writes, task_id, task_path)
         except Exception:
             logger.exception("Base saver aput_writes failed (non-critical)")
-
-    async def _safe_base_aput(
-        self, config: Any, checkpoint: Any, metadata: Any, new_versions: Any, stream_mode: str
-    ) -> None:
-        try:
-            await self._base_saver.aput(config, checkpoint, metadata, new_versions, stream_mode)
-        except Exception:
-            logger.exception("Base saver aput failed (non-critical)")

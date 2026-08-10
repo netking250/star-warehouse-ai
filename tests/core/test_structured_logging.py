@@ -3,7 +3,7 @@ import logging
 import sys
 from unittest.mock import MagicMock, patch
 
-from app.core.logging import CorrelationIdFilter
+from app.core.logging import CorrelationIdFilter, SensitiveQueryFilter
 from app.core.structured_logging import (
     JsonFormatter,
     SafeTextFormatter,
@@ -20,6 +20,23 @@ class _CaptureHandler(logging.Handler):
 
     def emit(self, record: logging.LogRecord) -> None:
         self.records.append(record)
+
+
+def test_sensitive_query_filter_redacts_websocket_token():
+    record = logging.LogRecord(
+        name="uvicorn.access",
+        level=logging.INFO,
+        pathname=__file__,
+        lineno=1,
+        msg='%s - "%s %s HTTP/%s" %d',
+        args=("127.0.0.1", "WebSocket", "/api/v1/ws/thread?token=secret-jwt&room=chat", "1.1", 101),
+        exc_info=None,
+    )
+
+    SensitiveQueryFilter().filter(record)
+
+    assert "secret-jwt" not in record.getMessage()
+    assert "token=%5BREDACTED%5D" in record.getMessage()
 
 
 class TestJsonFormatter:

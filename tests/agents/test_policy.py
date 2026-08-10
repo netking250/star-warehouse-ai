@@ -177,6 +177,27 @@ async def test_retrieve_knowledge_returns_empty_when_grader_rejects_all(mock_loa
 
 
 @pytest.mark.asyncio
+async def test_retrieve_knowledge_recovers_lexically_matching_document(mock_load_config):
+    """An over-strict LLM grader must not discard an obvious policy match."""
+    retriever = DeterministicRetriever(
+        results=[
+            _Result("手机和家具商品目录", "products.json", 0.9),
+            _Result("退货期限为签收之日起7天，商品需保持完好", "return_policy.md", 0.8),
+        ]
+    )
+    llm = _make_self_rag_llm(grader_score="No")
+    agent = PolicyAgent(retriever=retriever, llm=llm)
+
+    data = await agent._retrieve_knowledge(
+        make_agent_state(question="星仓的退货政策是什么？", user_id=1)
+    )
+
+    assert data["chunks"] == ["退货期限为签收之日起7天，商品需保持完好"]
+    assert data["sources"] == ["return_policy.md"]
+    assert data["self_rag"].fallback_triggered is False
+
+
+@pytest.mark.asyncio
 async def test_process_self_rag_refusal_when_no_relevant_docs(mock_load_config):
     class OneResultRetriever(DeterministicRetriever):
         async def retrieve(

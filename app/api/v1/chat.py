@@ -1,8 +1,10 @@
 # app/api/v1/chat.py
 import asyncio
+import contextlib
 import json
 import logging
 import time
+import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -22,7 +24,7 @@ from app.core.config import settings
 from app.core.database import async_session_maker
 from app.core.limiter import check_user_rate_limit, limiter
 from app.core.security import get_active_user_id
-from app.core.tracing import build_llm_config
+from app.core.tracing import build_llm_config, is_langsmith_tracing_enabled
 from app.core.utils import build_thread_id, utc_now
 from app.models.memory import AgentConfigVersion
 from app.models.state import make_agent_state
@@ -311,36 +313,32 @@ async def chat(
 
         async def event_generator():
 
-            # Intent result for LangSmith metadata and observability
-            # Check Redis cache first to avoid redundant LLM calls for identical queries.
+            # IntentRecognitionService owns the complete IntentResult cache. Do
+            # not write a partial cache record from the transport layer.
             intent_service = getattr(request.app.state, "intent_service", None)
             intent_category = None
-            cache_manager = getattr(request.app.state, "cache_manager", None)
-            if cache_manager is not None:
-                cached_intent = await cache_manager.get_intent(filtered_question)
-                if cached_intent is not None:
-                    intent_category = cached_intent.get("primary_intent")
-            if intent_category is None and intent_service is not None:
+            if intent_service is not None:
                 intent_result = await intent_service.recognize(
                     query=filtered_question,
                     session_id=thread_id,
                     conversation_history=None,
                 )
                 intent_category = intent_result.primary_intent.value if intent_result else None
-                if cache_manager is not None and intent_category is not None:
-                    await cache_manager.set_intent(
-                        filtered_question,
-                        {"primary_intent": intent_category},
-                    )
 
             config: RunnableConfig = build_llm_config(
                 user_id=current_user_id,
                 thread_id=thread_id,
                 intent=intent_category,
                 extra_metadata={"trace_id": otel_trace_id},
-                tags=["chat_endpoint", "user_visible"],
+                tags=["chat_endpoint"],
             )
-            config["configurable"] = {"thread_id": thread_id}
+            config["configurable"] = {
+                "thread_id": thread_id,
+                # A graph execution may be cancelled after user-visible output
+                # while post-processing is still running. Isolate each request
+                # so the next user turn never resumes that partial execution.
+                "checkpoint_ns": f"{settings.CHECKPOINT_SCHEMA_VERSION}:{uuid.uuid4().hex}",
+            }
 
             variant_id: int | None = None
             memory_context_config: dict[str, Any] | None = None
@@ -389,6 +387,8 @@ async def chat(
             # v4.1: 用于收集最终状态中的置信度信息
             final_state = {}
             sent_answers: set[str] = set()
+            streamed_answer_nodes: set[str] = set()
+            streamed_any_answer = False
             final_answer = ""
 
             # Execution logging instrumentation
@@ -400,7 +400,12 @@ async def chat(
             langsmith_run_url: str | None = None
 
             try:
-                with tracing_v2_enabled(project_name=settings.LANGSMITH_PROJECT) as cb:
+                tracing_context = (
+                    tracing_v2_enabled(project_name=settings.LANGSMITH_PROJECT)
+                    if is_langsmith_tracing_enabled()
+                    else contextlib.nullcontext(None)
+                )
+                with tracing_context as cb:
                     async for event in app_graph.astream_events(
                         initial_state, config, version="v2"
                     ):
@@ -418,7 +423,7 @@ async def chat(
                             # 过滤内部调用（置信度评估、意图识别等）
                             metadata = event.get("metadata", {})
                             langgraph_node = metadata.get("langgraph_node", "")
-                            tags = metadata.get("tags", []) or event.get("tags", [])
+                            tags = set(metadata.get("tags", [])) | set(event.get("tags", []))
 
                             # 只转发标记为 user_visible 的输出
                             # 过滤掉 router 和内部置信度评估的调用
@@ -441,6 +446,8 @@ async def chat(
                                 if chunk:
                                     content = chunk.content
                                     if content:
+                                        streamed_any_answer = True
+                                        streamed_answer_nodes.add(langgraph_node)
                                         payload = json.dumps({"token": content}, ensure_ascii=False)
                                         yield f"data: {payload}\n\n"
 
@@ -493,9 +500,15 @@ async def chat(
                                     answer = output["answer"]
                                     if isinstance(answer, dict):
                                         answer = json.dumps(answer, ensure_ascii=False)
-                                    if answer and answer not in sent_answers:
-                                        sent_answers.add(answer)
+                                    if answer and not final_answer:
                                         final_answer = answer
+                                    if (
+                                        answer
+                                        and answer not in sent_answers
+                                        and not streamed_any_answer
+                                        and langgraph_node not in streamed_answer_nodes
+                                    ):
+                                        sent_answers.add(answer)
                                         payload = json.dumps({"token": answer}, ensure_ascii=False)
                                         yield f"data: {payload}\n\n"
 
@@ -588,19 +601,28 @@ async def chat(
                 # Propagate OTel trace context so the Celery task creates a child span.
                 trace_context: dict[str, str] = {}
                 propagate.inject(trace_context)
-                log_chat_observability.delay(
-                    thread_id=thread_id,
-                    user_id=current_user_id,
-                    intent_category=intent_category,
-                    final_state=final_state,
-                    node_latencies=node_latencies,
-                    total_latency_ms=total_latency_ms,
-                    chat_request_question=chat_request.question,
-                    variant_id=variant_id,
-                    variant_llm_model=variant_llm_model,
-                    langsmith_run_url=langsmith_run_url,
-                    trace_context=trace_context,
-                )
+                try:
+                    log_chat_observability.apply_async(
+                        kwargs={
+                            "thread_id": thread_id,
+                            "user_id": current_user_id,
+                            "intent_category": intent_category,
+                            "final_state": final_state,
+                            "node_latencies": node_latencies,
+                            "total_latency_ms": total_latency_ms,
+                            "chat_request_question": chat_request.question,
+                            "variant_id": variant_id,
+                            "variant_llm_model": variant_llm_model,
+                            "langsmith_run_url": langsmith_run_url,
+                            "trace_context": trace_context,
+                        },
+                        ignore_result=True,
+                        retry=False,
+                    )
+                except Exception:
+                    # Observability must never prevent the completed SSE response
+                    # from closing when the broker is temporarily unavailable.
+                    logger.exception("Failed to enqueue post-chat observability")
 
                 # Trigger shadow testing in background without blocking response
                 asyncio.create_task(
@@ -622,7 +644,7 @@ async def chat(
             except (ConnectionResetError, BrokenPipeError):
                 logger.info("[Chat] Client disconnected during SSE streaming")
                 return
-            except (RuntimeError, OSError):
+            except Exception:
                 logger.exception("[Chat] Unhandled error during SSE streaming")
                 record_chat_error(error_type="runtime")
                 error_payload = json.dumps(
@@ -636,18 +658,34 @@ async def chat(
 
         async def _timed_event_generator():
             """Wrap event generator with global timeout to prevent hanging requests."""
+            answer_started = False
+            done_sent = False
             try:
-                async for chunk in event_generator():
-                    yield chunk
+                async with asyncio.timeout(settings.CHAT_STREAM_TIMEOUT_SECONDS):
+                    async for chunk in event_generator():
+                        answer_started = answer_started or '"token"' in chunk
+                        done_sent = done_sent or "data: [DONE]" in chunk
+                        yield chunk
             except TimeoutError:
-                logger.warning("[Chat] Request timed out after 15s")
-                record_chat_error(error_type="timeout")
-                error_payload = json.dumps(
-                    {"error": "服务响应超时，请稍后重试或联系人工客服。"},
-                    ensure_ascii=False,
+                logger.warning(
+                    "[Chat] Request timed out after %.1fs",
+                    settings.CHAT_STREAM_TIMEOUT_SECONDS,
                 )
-                yield f"data: {error_payload}\n\n"
-                yield "data: [DONE]\n\n"
+                record_chat_error(error_type="timeout")
+                checkpointer = getattr(request.app.state, "checkpointer", None)
+                if checkpointer is not None:
+                    try:
+                        await checkpointer.aprune([thread_id], strategy="delete")
+                    except Exception:
+                        logger.exception("Failed to discard timed-out checkpoint for %s", thread_id)
+                if not answer_started:
+                    error_payload = json.dumps(
+                        {"error": "服务响应超时，请稍后重试或联系人工客服。"},
+                        ensure_ascii=False,
+                    )
+                    yield f"data: {error_payload}\n\n"
+                if not done_sent:
+                    yield "data: [DONE]\n\n"
 
         headers = {}
         if otel_trace_id:

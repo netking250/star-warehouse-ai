@@ -95,6 +95,13 @@ def test_rule_matching_policy_consult(classifier):
     assert result.secondary_intent == IntentAction.CONSULT
 
 
+def test_rule_matching_return_shipping_fee_consult(classifier):
+    result = classifier._classify_with_rules("退货运费由谁承担？")
+
+    assert result.primary_intent == IntentCategory.POLICY
+    assert result.secondary_intent == IntentAction.CONSULT
+
+
 def test_rule_matching_cart_add(classifier):
     """测试规则匹配 - 添加购物车"""
     result = classifier._classify_with_rules("把这个加入购物车")

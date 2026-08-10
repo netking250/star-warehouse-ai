@@ -13,6 +13,7 @@ def test_docker_start_script_recreates_application_containers() -> None:
 
     assert "--force-recreate --no-deps celery_worker app" in script
     assert "alembic upgrade head" in script
+    assert "python scripts/initialize_vector_data.py" in script
     assert "http://localhost:8000/health" in script
 
 

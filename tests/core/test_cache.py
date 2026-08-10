@@ -66,14 +66,14 @@ class TestCacheManagerIntent:
         await cache_manager.set_intent("查询订单", intent_data)
         mock_redis.setex.assert_called_once()
         key = mock_redis.setex.call_args[0][0]
-        assert key.startswith(namespaced_key("intent:"))
+        assert key.startswith(namespaced_key("intent:v3.1:"))
 
     @pytest.mark.asyncio
     async def test_invalidate_intent(self, cache_manager, mock_redis):
         await cache_manager.invalidate_intent("查询订单")
         mock_redis.delete.assert_called_once()
         key = mock_redis.delete.call_args[0][0]
-        assert key.startswith(namespaced_key("intent:"))
+        assert key.startswith(namespaced_key("intent:v3.1:"))
 
 
 class TestCacheManagerProfile:

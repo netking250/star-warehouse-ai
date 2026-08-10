@@ -44,6 +44,26 @@ async def test_router_routes_to_next_agent(agent):
 
 
 @pytest.mark.asyncio
+async def test_router_routes_after_sales_consultation_to_policy_agent(agent):
+    result = IntentResult(
+        primary_intent=IntentCategory.AFTER_SALES,
+        secondary_intent=IntentAction.CONSULT,
+        confidence=0.9,
+        needs_clarification=False,
+        slots={"policy_topic": "退货运费"},
+    )
+
+    with patch(
+        "app.agents.config_loader.get_target_agent_for_intent",
+        new=AsyncMock(),
+    ) as configured_route:
+        target = await agent._route_by_intent(result)
+
+    assert target == "policy_agent"
+    configured_route.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_router_returns_clarification(agent):
     agent.intent_service.recognize.return_value = IntentResult(
         primary_intent=IntentCategory.PRODUCT,
@@ -184,8 +204,9 @@ async def test_router_retry_requested_same_agent_transfers(agent):
             question="查订单",
             retry_requested=True,
             current_agent="order_agent",
+            answer="订单正在配送中",
         )
         result = await agent.process(state)
 
     assert result["updated_state"]["needs_human_transfer"] is True
-    assert "转接人工客服" in result["response"]
+    assert result["response"] == "订单正在配送中"

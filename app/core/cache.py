@@ -135,13 +135,17 @@ class CacheManager:
     # Intent cache
     # ------------------------------------------------------------------ #
 
+    @staticmethod
+    def _intent_key(query: str) -> str:
+        return f"intent:{settings.INTENT_CACHE_VERSION}:{CacheManager._hash_key(query)}"
+
     async def get_intent(self, query: str) -> dict[str, Any] | None:
         """Fetch a cached intent result for *query*.
 
         Returns:
             Parsed JSON dict or ``None`` if not cached or on error.
         """
-        key = f"intent:{self._hash_key(query)}"
+        key = self._intent_key(query)
         data = await self._redis_get(key)
         if data is not None:
             try:
@@ -154,14 +158,14 @@ class CacheManager:
 
     async def set_intent(self, query: str, result: dict[str, Any]) -> None:
         """Cache an intent result for *query*."""
-        key = f"intent:{self._hash_key(query)}"
+        key = self._intent_key(query)
         await self._redis_set(
             key, json.dumps(result, ensure_ascii=False), settings.CACHE_TTL_INTENT
         )
 
     async def invalidate_intent(self, query: str) -> None:
         """Remove a specific intent cache entry."""
-        key = f"intent:{self._hash_key(query)}"
+        key = self._intent_key(query)
         await self._redis_delete(key)
 
     # ------------------------------------------------------------------ #

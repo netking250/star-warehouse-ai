@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { useAuthStore } from '@/stores/auth'
 import type { WSMessage } from '@/types'
 
 interface UseWebSocketOptions {
@@ -7,10 +8,29 @@ interface UseWebSocketOptions {
   onMessage?: (message: WSMessage) => void
 }
 
-export function useWebSocket({ url, enabled = true, onMessage }: UseWebSocketOptions) {
+interface UseWebSocketResult {
+  isConnected: boolean
+  lastMessage: WSMessage | null
+  sendMessage: (message: WSMessage) => void
+}
+
+export function buildAuthenticatedWebSocketUrl(url: string, token: string | null): string | null {
+  if (!token) return null
+  const authenticatedUrl = new URL(url)
+  authenticatedUrl.searchParams.set('token', token)
+  return authenticatedUrl.toString()
+}
+
+export function useWebSocket({
+  url,
+  enabled = true,
+  onMessage,
+}: UseWebSocketOptions): UseWebSocketResult {
   const [isConnected, setIsConnected] = useState(false)
   const [lastMessage, setLastMessage] = useState<WSMessage | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
+  const onMessageRef = useRef(onMessage)
+  const shouldReconnectRef = useRef(false)
   const reconnectAttemptsRef = useRef(0)
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const maxReconnectAttempts = 5
@@ -21,7 +41,10 @@ export function useWebSocket({ url, enabled = true, onMessage }: UseWebSocketOpt
     }
 
     try {
-      const ws = new WebSocket(url)
+      const authenticatedUrl = buildAuthenticatedWebSocketUrl(url, useAuthStore.getState().token)
+      if (!authenticatedUrl) return
+
+      const ws = new WebSocket(authenticatedUrl)
       wsRef.current = ws
 
       ws.onopen = () => {
@@ -37,7 +60,7 @@ export function useWebSocket({ url, enabled = true, onMessage }: UseWebSocketOpt
           }
           const parsed = JSON.parse(rawData) as WSMessage
           setLastMessage(parsed)
-          onMessage?.(parsed)
+          onMessageRef.current?.(parsed)
         } catch (err) {
           console.error('[useWebSocket] Failed to parse message:', err)
         }
@@ -51,7 +74,7 @@ export function useWebSocket({ url, enabled = true, onMessage }: UseWebSocketOpt
         setIsConnected(false)
         wsRef.current = null
 
-        if (enabled && reconnectAttemptsRef.current < maxReconnectAttempts) {
+        if (shouldReconnectRef.current && reconnectAttemptsRef.current < maxReconnectAttempts) {
           const delay = Math.min(1000 * 2 ** reconnectAttemptsRef.current, 30000)
           reconnectAttemptsRef.current += 1
           reconnectTimerRef.current = setTimeout(() => {
@@ -62,14 +85,20 @@ export function useWebSocket({ url, enabled = true, onMessage }: UseWebSocketOpt
     } catch (err) {
       console.error('[useWebSocket] Failed to connect:', err)
     }
-  }, [url, enabled, onMessage])
+  }, [url, enabled])
 
   useEffect(() => {
+    onMessageRef.current = onMessage
+  }, [onMessage])
+
+  useEffect(() => {
+    shouldReconnectRef.current = enabled
     if (enabled) {
       connect()
     }
 
     return () => {
+      shouldReconnectRef.current = false
       if (reconnectTimerRef.current) {
         clearTimeout(reconnectTimerRef.current)
       }

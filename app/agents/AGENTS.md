@@ -28,7 +28,7 @@ Expert agent fleet based on `BaseAgent` ABC covering orders, policies, products,
 | Payment | `@app/agents/payment.py` + `@app/tools/payment_tool.py` | Payment query and refund processing |
 | Logistics | `@app/agents/logistics.py` + `@app/tools/logistics_tool.py` | Shipping and logistics tracking |
 | Account | `@app/agents/account.py` + `@app/tools/account_tool.py` | User account management |
-| Policy | `@app/agents/policy.py` | Policy Q&A via RAG retrieval |
+| Policy | `@app/agents/policy.py` | Policy Q&A via RAG retrieval; preserves obvious lexical matches when the LLM grader rejects every document |
 | Supervisor | `@app/agents/supervisor.py` | Serial/parallel dispatch logic |
 | Intent router | `@app/agents/router.py` | `IntentRouterAgent`; handles greeting personalization, retry logic, disabled agent fallback, and iteration limits |
 | Config hot-reload | `@app/agents/config_loader.py` | Redis-cached routing rules and system prompts (60s TTL) |

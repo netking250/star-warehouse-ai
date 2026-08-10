@@ -35,6 +35,18 @@ _ADEQUACY_CONFIDENCE_THRESHOLD = 0.6
 _FALLBACK_RESPONSE = "抱歉，根据现有信息无法回答您的问题。建议您联系人工客服获取更准确的信息。"
 
 _CITATION_PATTERN = re.compile(r"\[来源:\s*[^\]]+\]")
+_LATIN_TOKEN_PATTERN = re.compile(r"[a-z0-9]{3,}")
+_CJK_SEQUENCE_PATTERN = re.compile(r"[\u4e00-\u9fff]{2,}")
+
+
+def _has_lexical_overlap(question: str, document: str) -> bool:
+    """Detect an obvious literal match without relying on another LLM call."""
+    normalized_question = question.lower()
+    normalized_document = document.lower()
+    tokens = set(_LATIN_TOKEN_PATTERN.findall(normalized_question))
+    for sequence in _CJK_SEQUENCE_PATTERN.findall(normalized_question):
+        tokens.update(sequence[index : index + 2] for index in range(len(sequence) - 1))
+    return any(token in normalized_document for token in tokens)
 
 
 class GradeDocuments(BaseModel):
@@ -211,8 +223,21 @@ class PolicyAgent(BaseAgent):
 
         grades = await self._grade_documents(question, filtered)
         graded_filtered = [
-            doc for doc, grade in zip(filtered, grades, strict=True) if grade.binary_score == "yes"
+            doc
+            for doc, grade in zip(filtered, grades, strict=True)
+            if grade.binary_score.strip().lower() == "yes"
         ]
+        if not graded_filtered:
+            graded_filtered = [
+                document
+                for document in filtered
+                if _has_lexical_overlap(question, document.content)
+            ]
+            if graded_filtered:
+                logger.warning(
+                    "[PolicyAgent] LLM grader rejected all documents; retained %s lexical matches",
+                    len(graded_filtered),
+                )
         if not graded_filtered:
             logger.warning("[PolicyAgent] 所有文档被评分器标记为不相关")
             return {

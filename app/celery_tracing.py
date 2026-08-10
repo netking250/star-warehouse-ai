@@ -4,6 +4,7 @@ import logging
 import os
 
 from app.core.config import settings
+from app.core.tracing import is_langsmith_tracing_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +15,8 @@ def setup_celery_langsmith_tracing() -> None:
     This module intentionally lives outside ``app.tasks`` so the Celery
     application can configure tracing before importing task modules.
     """
-    if not settings.LANGSMITH_API_KEY or not settings.LANGSMITH_CELERY_TRACING:
+    if not is_langsmith_tracing_enabled() or not settings.LANGSMITH_CELERY_TRACING:
+        os.environ["LANGCHAIN_TRACING_V2"] = "false"
         return
 
     os.environ.setdefault("LANGCHAIN_TRACING_V2", "true")

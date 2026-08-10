@@ -97,7 +97,8 @@ For any other area, this root file applies.
   - `@frontend/src/apps/admin/`: B端管理后台 (dashboard, knowledge base, agent config, feedback, analytics).
   - `@frontend/src/apps/customer/`: C端用户聊天界面 (SSE streaming chat).
 - `@tests/`: Backend test suite (pytest + pytest-asyncio), organized by module.
-- `scripts/`: Seed data, ETL, and utility scripts.
+- `scripts/`: Seed data, ETL, and utility scripts. `initialize_vector_data.py` idempotently
+  seeds bundled tenant knowledge and product data when their Qdrant collections are empty.
 - `migrations/`: Alembic database migrations.
 - `data/`: Static seed data (policies, products).
 - `@docs/`: Project documentation.
@@ -107,7 +108,8 @@ For any other area, this root file applies.
 ### Setup & Run
 
 ```bash
-# Full Docker startup (recommended for WSL; recreates application containers to refresh bind mounts)
+# Full Docker startup (recommended for WSL; migrates PostgreSQL, initializes tenant vector
+# data when missing, and recreates application containers to refresh bind mounts)
 ./start_docker.sh
 
 # One-shot startup (infrastructure + backend + frontend build)

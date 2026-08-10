@@ -28,6 +28,8 @@ celery_app.conf.update(
     task_soft_time_limit=240,  # 4分钟软超时
     worker_prefetch_multiplier=4,
     worker_max_tasks_per_child=1000,
+    broker_connection_timeout=2,
+    broker_transport_options={"max_retries": 1, "socket_connect_timeout": 2},
     beat_schedule={
         "prune-vector-memory-daily": {
             "task": "memory.prune_vector_memory",

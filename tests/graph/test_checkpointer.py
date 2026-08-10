@@ -1,8 +1,7 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from app.core.tenancy import namespaced_key
 from app.graph.checkpointer import OptimizedRedisCheckpoint
 
 
@@ -65,13 +64,16 @@ class TestApplyDiff:
 
 
 @pytest.mark.asyncio
-async def test_aput_stores_base_when_no_previous():
+async def test_aput_uses_authoritative_typed_base_saver():
     redis_mock = AsyncMock()
     redis_mock.zcard.return_value = 0
     redis_mock.get.return_value = None
 
     saver = OptimizedRedisCheckpoint(redis_client=redis_mock)
     saver._base_saver = AsyncMock()
+    saver._base_saver.aput.return_value = {
+        "configurable": {"thread_id": "t1", "checkpoint_id": "c1"}
+    }
 
     config = {"configurable": {"thread_id": "t1", "checkpoint_ns": ""}}
     checkpoint = {"id": "c1", "channel_values": {"x": 1}}
@@ -79,17 +81,12 @@ async def test_aput_stores_base_when_no_previous():
     result = await saver.aput(config, checkpoint, {}, {}, "values")
 
     assert result["configurable"]["checkpoint_id"] == "c1"
-    redis_mock.setex.assert_called_once()
-    call_args = redis_mock.setex.call_args[0]
-    assert call_args[0].startswith(namespaced_key("ckpt_opt:t1::c1"))
-    assert call_args[1] == 30 * 24 * 3600
-
-    redis_mock.zadd.assert_called_once()
-    redis_mock.expire.assert_called_once()
+    saver._base_saver.aput.assert_awaited_once_with(config, checkpoint, {}, {}, "values")
+    redis_mock.setex.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_aput_stores_diff_when_previous_exists():
+async def test_aput_propagates_authoritative_write_failure():
     redis_mock = AsyncMock()
     redis_mock.zcard.return_value = 1
     redis_mock.get.side_effect = [
@@ -99,22 +96,18 @@ async def test_aput_stores_diff_when_previous_exists():
 
     saver = OptimizedRedisCheckpoint(redis_client=redis_mock)
     saver._base_saver = AsyncMock()
+    saver._base_saver.aput.side_effect = ConnectionError("redis unavailable")
 
-    prev = {"id": "c0", "channel_values": {"x": 1}}
     curr = {"id": "c1", "channel_values": {"x": 2}}
 
     config = {"configurable": {"thread_id": "t1", "checkpoint_ns": ""}}
 
-    with patch.object(saver, "aget", return_value=prev):
-        result = await saver.aput(config, curr, {}, {}, "values")
-
-    assert result["configurable"]["checkpoint_id"] == "c1"
-    assert redis_mock.setex.call_count == 1
-    assert redis_mock.zadd.call_count == 1
+    with pytest.raises(ConnectionError, match="redis unavailable"):
+        await saver.aput(config, curr, {}, {}, "values")
 
 
 @pytest.mark.asyncio
-async def test_aget_returns_base_checkpoint():
+async def test_aget_ignores_legacy_json_checkpoint():
     import json
     import zlib
 
@@ -125,16 +118,19 @@ async def test_aget_returns_base_checkpoint():
 
     saver = OptimizedRedisCheckpoint(redis_client=redis_mock)
     saver._base_saver = AsyncMock()
-    saver._base_saver.aget_tuple.return_value = None
+    base_tuple = MagicMock()
+    base_tuple.checkpoint = {"id": "typed-c1", "channel_versions": {"messages": "2.5"}}
+    saver._base_saver.aget_tuple.return_value = base_tuple
 
     config = {"configurable": {"thread_id": "t1", "checkpoint_ns": "", "checkpoint_id": "c1"}}
     result = await saver.aget(config)
 
-    assert result == {"id": "c1", "channel_values": {"x": 1}}
+    assert result == {"id": "typed-c1", "channel_versions": {"messages": "2.5"}}
+    saver._base_saver.aget_tuple.assert_awaited_once_with(config)
 
 
 @pytest.mark.asyncio
-async def test_aget_reconstructs_from_diff():
+async def test_legacy_diff_can_only_be_reconstructed_explicitly_for_cleanup():
     import json
     import zlib
 
@@ -160,9 +156,9 @@ async def test_aget_reconstructs_from_diff():
     saver._base_saver = AsyncMock()
     saver._base_saver.aget_tuple.return_value = None
 
-    config = {"configurable": {"thread_id": "t1", "checkpoint_ns": "", "checkpoint_id": "c1"}}
-    result = await saver.aget(config)
+    result = await saver._reconstruct_from_opt("t1", "", "c1", mock_get("c1"))
 
+    assert result is not None
     assert result["channel_values"] == {"x": 2}
 
 
