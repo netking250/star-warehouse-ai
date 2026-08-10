@@ -31,7 +31,11 @@ export function useWebSocket({ url, enabled = true, onMessage }: UseWebSocketOpt
 
       ws.onmessage = (event) => {
         try {
-          const parsed = JSON.parse(event.data) as WSMessage
+          const rawData: unknown = event.data
+          if (typeof rawData !== 'string') {
+            throw new TypeError('WebSocket message must be text')
+          }
+          const parsed = JSON.parse(rawData) as WSMessage
           setLastMessage(parsed)
           onMessage?.(parsed)
         } catch (err) {

@@ -486,12 +486,12 @@ export function AgentConfig() {
                                 size="sm"
                                 variant="outline"
                                 disabled={isRollingBackToVersion}
-                                onClick={() =>
-                                  rollbackToVersion({
+                                onClick={() => {
+                                  void rollbackToVersion({
                                     agentName: selectedAgent.agent_name,
                                     versionId: version.id,
                                   })
-                                }
+                                }}
                               >
                                 回滚到此版本
                               </Button>
