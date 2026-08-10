@@ -31,8 +31,7 @@ function ScoreBadge({ score }: { score: number | null | undefined }) {
   if (score == null) {
     return (
       <Badge variant="outline" className="flex items-center gap-1 w-fit">
-        <Star className="h-3 w-3" />
-        -
+        <Star className="h-3 w-3" />-
       </Badge>
     )
   }

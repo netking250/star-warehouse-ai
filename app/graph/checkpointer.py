@@ -8,12 +8,14 @@ import json
 import logging
 import time
 import zlib
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
 from typing import Any, cast, override
 
+from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.base import BaseCheckpointSaver, Checkpoint, CheckpointTuple
 from langgraph.checkpoint.redis import AsyncRedisSaver
 
+from app.core.tenancy import namespaced_key
 from app.observability.metrics import record_checkpoint_cleanup, record_checkpoint_metrics
 
 logger = logging.getLogger(__name__)
@@ -135,7 +137,7 @@ class OptimizedRedisCheckpoint(BaseCheckpointSaver):
                 )
 
         if not checkpoint_id:
-            latest_key = f"checkpoint_latest_opt:{thread_id}:{checkpoint_ns}"
+            latest_key = namespaced_key(f"checkpoint_latest_opt:{thread_id}:{checkpoint_ns}")
             latest_id = await self._redis.get(latest_key)
             if latest_id:
                 opt_key = self._opt_key(thread_id, checkpoint_ns, latest_id)
@@ -155,24 +157,27 @@ class OptimizedRedisCheckpoint(BaseCheckpointSaver):
 
         return await self._base_saver.aget_tuple(config)
 
-    async def alist(  # type: ignore[override]
+    async def alist(
         self,
-        config: Any | None = None,
+        config: RunnableConfig | None,
         *,
-        filter: Any | None = None,  # noqa: A002
-        before: Any | None = None,
+        filter: dict[str, Any] | None = None,  # noqa: A002
+        before: RunnableConfig | None = None,
         limit: int | None = None,
-    ) -> Any:
-        # ty 类型检查器对 langgraph BaseCheckpointSaver.alist 的签名解析存在误报
-        # 实际签名与父类完全一致，但 ty 认为不兼容（第三方包类型推断限制）
-        return self._base_saver.alist(config, filter=filter, before=before, limit=limit)
+    ) -> AsyncIterator[CheckpointTuple]:
+        async for checkpoint in self._base_saver.alist(
+            config, filter=filter, before=before, limit=limit
+        ):
+            yield checkpoint
 
     @override
     async def aprune(self, thread_ids: Sequence[str], *, strategy: str = "keep_latest") -> None:
         await self._base_saver.aprune(thread_ids, strategy=strategy)
 
         for thread_id in thread_ids:
-            async for key in self._redis.scan_iter(match=f"ckpt_index:{thread_id}:*"):
+            async for key in self._redis.scan_iter(
+                match=namespaced_key(f"ckpt_index:{thread_id}:*")
+            ):
                 key_str = key.decode() if isinstance(key, bytes) else key
                 ns = key_str.split(":", 2)[2]
                 await self._prune_optimized(thread_id, ns, strategy)
@@ -283,11 +288,11 @@ class OptimizedRedisCheckpoint(BaseCheckpointSaver):
 
     @staticmethod
     def _opt_key(thread_id: str, checkpoint_ns: str, checkpoint_id: str) -> str:
-        return f"ckpt_opt:{thread_id}:{checkpoint_ns}:{checkpoint_id}"
+        return namespaced_key(f"ckpt_opt:{thread_id}:{checkpoint_ns}:{checkpoint_id}")
 
     @staticmethod
     def _index_key(thread_id: str, checkpoint_ns: str) -> str:
-        return f"ckpt_index:{thread_id}:{checkpoint_ns}"
+        return namespaced_key(f"ckpt_index:{thread_id}:{checkpoint_ns}")
 
     def get_next_version(self, current: Any | None, channel: None = None) -> Any:
         """Generate the next version ID for a channel.

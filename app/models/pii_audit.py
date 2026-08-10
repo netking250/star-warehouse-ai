@@ -8,12 +8,13 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import JSON, Column, DateTime, Integer, text
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field
 
 from app.core.utils import utc_now
+from app.models.tenant import TenantScopedModel
 
 
-class PIIAuditLog(SQLModel, table=True):
+class PIIAuditLog(TenantScopedModel, table=True):
     """Audit log for PII detection events.
 
     Tracks *that* PII was detected and redacted, but never stores the

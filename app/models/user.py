@@ -6,32 +6,38 @@
 from datetime import datetime
 
 import bcrypt
-from sqlalchemy import Column, DateTime, text
-from sqlmodel import Field, SQLModel
+from sqlalchemy import Column, DateTime, UniqueConstraint, text
+from sqlmodel import Field
 
 from app.core.utils import utc_now
+from app.models.tenant import TenantScopedModel
 
 
-class User(SQLModel, table=True):
+class User(TenantScopedModel, table=True):
     """用户表"""
 
     __tablename__ = "users"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "username", name="uq_users_tenant_username"),
+        UniqueConstraint("tenant_id", "email", name="uq_users_tenant_email"),
+    )
 
     id: int | None = Field(default=None, primary_key=True)
 
     # 用户名（登录凭证）
-    username: str = Field(index=True, unique=True, max_length=50, description="用户名")
+    username: str = Field(index=True, max_length=50, description="用户名")
 
     # 密码哈希
     password_hash: str = Field(max_length=255, description="密码哈希")
 
     # 用户信息
-    email: str = Field(unique=True, index=True, description="邮箱")
+    email: str = Field(index=True, description="邮箱")
     full_name: str = Field(max_length=100, description="真实姓名")
     phone: str | None = Field(default=None, max_length=20, description="手机号")
 
     # 角色权限
     is_admin: bool = Field(default=False, description="是否为管理员")
+    role: str = Field(default="customer", max_length=32, description="细分授权角色")
     is_active: bool = Field(default=True, description="账号是否激活")
 
     # 时间戳

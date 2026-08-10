@@ -3,8 +3,15 @@
 ## 一键启动
 
 ```bash
+# WSL + Docker 完整启动（推荐）
+./start_docker.sh
+
+# 本地进程模式
 ./start.sh
 ```
+
+如果 WSL 重启后容器显示 `Up`、但应用报 `Could not import module "app.main"`，执行
+`./start_docker.sh`，脚本会重建应用容器并刷新源码挂载。
 
 ## 后端开发
 

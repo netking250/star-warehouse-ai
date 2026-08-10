@@ -1,6 +1,9 @@
+# ruff: noqa: I001
+
 import os
 import uuid
 
+import tests._db_config  # noqa: F401  must run before importing application settings
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -9,13 +12,14 @@ from sqlmodel import Session, SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 import app.models as _models  # noqa: F401  ensures all models are registered in SQLModel.metadata
-import tests._db_config  # noqa: F401, I001
 from app.core.config import settings
 from app.core.database import async_engine, sync_engine
 from app.core.limiter import limiter
 from app.core.redis import create_redis_client
+from app.core.tenancy import namespaced_collection
 from app.main import app
 from app.websocket.manager import ConnectionManager
+from tests._db_config import assert_test_database
 from tests._llm import DeterministicChatModel
 
 
@@ -39,6 +43,7 @@ def real_llm():
 
 @pytest_asyncio.fixture(scope="session", autouse=True, loop_scope="session")
 async def db_setup():
+    assert_test_database(settings.POSTGRES_DB)
     async with async_engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.drop_all)
         await conn.run_sync(SQLModel.metadata.create_all)
@@ -136,7 +141,9 @@ async def qdrant_client():
     try:
         yield client, collection_name
     finally:
-        await client.delete_collection(collection_name)
+        for candidate in (collection_name, namespaced_collection(collection_name)):
+            if await client.collection_exists(candidate):
+                await client.delete_collection(candidate)
         await client.close()
 
 

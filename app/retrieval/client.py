@@ -1,8 +1,11 @@
+import uuid
+
 from qdrant_client import AsyncQdrantClient, models
 from qdrant_client.http.exceptions import UnexpectedResponse
 from qdrant_client.models import Distance, Modifier, SparseVectorParams, VectorParams
 
 from app.core.config import settings
+from app.core.tenancy import get_current_tenant_id, namespaced_collection
 
 
 class QdrantKnowledgeClient:
@@ -14,7 +17,7 @@ class QdrantKnowledgeClient:
         api_key: str | None,
         client: AsyncQdrantClient | None = None,
     ):
-        self.collection_name = collection_name
+        self.collection_name = namespaced_collection(collection_name)
         if client is not None:
             self.client = client
         elif url == ":memory:":
@@ -49,7 +52,17 @@ class QdrantKnowledgeClient:
         await self.ensure_collection()
 
     async def upsert_chunks(self, points: list[models.PointStruct]) -> None:
-        await self.client.upsert(collection_name=self.collection_name, points=points)
+        tenant_id = get_current_tenant_id()
+        scoped_points = [
+            point.model_copy(
+                update={
+                    "id": str(uuid.uuid5(uuid.NAMESPACE_URL, f"{tenant_id}:{point.id}")),
+                    "payload": {**(point.payload or {}), "tenant_id": tenant_id},
+                }
+            )
+            for point in points
+        ]
+        await self.client.upsert(collection_name=self.collection_name, points=scoped_points)
 
     async def query_hybrid(
         self,
@@ -74,6 +87,7 @@ class QdrantKnowledgeClient:
                 ),
             ],
             query=models.RrfQuery(rrf=models.Rrf(k=settings.RETRIEVER_RRF_K)),
+            query_filter=self._tenant_filter(),
             limit=limit,
             with_payload=True,
         )
@@ -88,7 +102,18 @@ class QdrantKnowledgeClient:
             collection_name=self.collection_name,
             query=dense_vector,
             using="dense",
+            query_filter=self._tenant_filter(),
             limit=limit,
             with_payload=True,
         )
         return list(response.points)
+
+    @staticmethod
+    def _tenant_filter() -> models.Filter:
+        return models.Filter(
+            must=[
+                models.FieldCondition(
+                    key="tenant_id", match=models.MatchValue(value=get_current_tenant_id())
+                )
+            ]
+        )

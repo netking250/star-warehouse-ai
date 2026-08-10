@@ -4,9 +4,10 @@ from decimal import Decimal
 from enum import Enum
 
 from sqlalchemy import Column, DateTime, Numeric, String, Text, text
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field
 
 from app.core.utils import utc_now
+from app.models.tenant import TenantScopedModel
 
 
 # 1. 退货申请状态枚举
@@ -32,7 +33,7 @@ class RefundReason(str, Enum):
 
 
 # 3. 退货申请表
-class RefundApplication(SQLModel, table=True):
+class RefundApplication(TenantScopedModel, table=True):
     """退货申请表"""
 
     __tablename__ = "refund_applications"

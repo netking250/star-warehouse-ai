@@ -68,6 +68,7 @@ async def test_upsert_message(qdrant_client, deterministic_embedder):
     assert payload["user_id"] == 1
     assert payload["thread_id"] == "t1"
     assert payload["message_role"] == "user"
+    assert payload["tenant_id"] == "default"
 
 
 @pytest.mark.asyncio

@@ -16,7 +16,7 @@ const WELCOME_MESSAGE: Message = {
   id: 'welcome',
   role: 'assistant',
   content:
-    '您好！我是您的电商智能助手。我可以帮您：\n• 查询订单状态\n• 解答退货政策\n• 处理退款申请\n\n请问有什么可以帮您的？',
+    '你好，我是星仓AI，很高兴为你服务。无论是订单、物流、退换货，还是商品选购，我都可以帮你快速处理。',
   timestamp: new Date(),
 }
 
@@ -116,9 +116,7 @@ export function useChat(): UseChatReturn {
                 if (data === '[DONE]') {
                   setMessages((prev) =>
                     prev.map((msg) =>
-                      msg.id === assistantMessageId
-                        ? { ...msg, isStreaming: false, metadata }
-                        : msg
+                      msg.id === assistantMessageId ? { ...msg, isStreaming: false, metadata } : msg
                     )
                   )
                   setIsLoading(false)
@@ -140,7 +138,8 @@ export function useChat(): UseChatReturn {
                       ...metadata,
                       confidence_score: meta.confidence_score ?? metadata?.confidence_score,
                       confidence_signals: meta.confidence_signals ?? metadata?.confidence_signals,
-                      needs_human_transfer: meta.needs_human_transfer ?? metadata?.needs_human_transfer,
+                      needs_human_transfer:
+                        meta.needs_human_transfer ?? metadata?.needs_human_transfer,
                       transfer_reason: meta.transfer_reason ?? metadata?.transfer_reason,
                       audit_level: meta.audit_level ?? metadata?.audit_level,
                       current_agent: meta.current_agent ?? metadata?.current_agent,
@@ -210,9 +209,7 @@ export function useChat(): UseChatReturn {
         }
 
         setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === messageId ? { ...msg, feedbackSentiment: sentiment } : msg
-          )
+          prev.map((msg) => (msg.id === messageId ? { ...msg, feedbackSentiment: sentiment } : msg))
         )
       } catch (error) {
         console.error('Failed to submit feedback:', error)

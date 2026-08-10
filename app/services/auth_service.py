@@ -14,14 +14,22 @@ from app.models.user import User
 class AuthService:
     """Service layer for authentication operations."""
 
-    async def authenticate_user(self, session: AsyncSession, username: str, password: str) -> User:
+    async def authenticate_user(
+        self,
+        session: AsyncSession,
+        username: str,
+        password: str,
+        tenant_id: str = "default",
+    ) -> User:
         """
         Query user by username and verify credentials.
 
         Raises:
             HTTPException: 401 if user not found or password wrong, 403 if inactive.
         """
-        result = await session.exec(select(User).where(User.username == username))
+        result = await session.exec(
+            select(User).where(User.username == username, User.tenant_id == tenant_id)
+        )
         user = result.first()
 
         if not user:

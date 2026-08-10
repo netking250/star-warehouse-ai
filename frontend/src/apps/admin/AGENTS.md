@@ -20,38 +20,39 @@ Admin dashboard SPA. Vite multi-page entry via `admin.html`, served by FastAPI a
 
 ## Key Files
 
-| Concern             | File / Directory                                              | Notes                                                                             |
-| ------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| Pages               | `@frontend/src/apps/admin/pages/Login.tsx`                     | Admin login                                                                       |
-| Pages               | `@frontend/src/apps/admin/pages/Dashboard.tsx`                 | Main dashboard                                                                    |
-| Pages               | `@frontend/src/apps/admin/pages/KnowledgeBase.tsx`             | Knowledge base management                                                         |
-| Pages               | `@frontend/src/apps/admin/pages/AgentConfig.tsx`               | Agent routing & config                                                            |
-| Pages               | `@frontend/src/apps/admin/pages/Feedback.tsx`                  | User feedback management                                                          |
-| Pages               | `@frontend/src/apps/admin/pages/MetricsPage.tsx`               | Metrics & analytics page                                                          |
-| Business components | `@frontend/src/apps/admin/components/DecisionPanel.tsx`        | Human-in-the-loop task decisions                                                  |
-| Business components | `@frontend/src/apps/admin/components/TaskList.tsx`             | Task queue list                                                                   |
-| Business components | `@frontend/src/apps/admin/components/TaskDetail.tsx`           | Task detail view                                                                  |
-| Business components | `@frontend/src/apps/admin/components/ConversationLogs.tsx`     | Conversation audit logs                                                           |
-| Business components | `@frontend/src/apps/admin/components/AgentConfigEditor.tsx`    | Config editor with hot-reload                                                     |
-| Business components | `@frontend/src/apps/admin/components/KnowledgeBaseManager.tsx` | KB upload & sync                                                                  |
-| Business components | `@frontend/src/apps/admin/components/ComplaintQueue.tsx`       | Complaint queue                                                                   |
-| Business components | `@frontend/src/apps/admin/components/ExperimentManager.tsx`    | A/B experiment manager                                                            |
-| Business components | `@frontend/src/apps/admin/components/AnalyticsV2.tsx`          | Analytics dashboard                                                               |
-| Business components | `@frontend/src/apps/admin/components/Performance.tsx`          | Performance metrics                                                               |
-| Business components | `@frontend/src/apps/admin/components/EvaluationViewer.tsx`     | Offline evaluation results viewer                                                 |
-| Business components | `@frontend/src/apps/admin/components/FeedbackManager.tsx`      | Feedback management                                                               |
-| Shared UI           | `@frontend/src/apps/admin/components/NotificationToast.tsx`    | Toast notifications                                                               |
-| Shared UI           | `@frontend/src/components/ui/`                                 | shadcn/ui base components (Button, Card, Input, Sheet, etc.)                      |
-| Error handling      | `@frontend/src/components/ErrorBoundary.tsx`                   | React error boundary                                                              |
-| API layer           | `@frontend/src/lib/api.ts`                                     | Centralized `fetch` wrapper with interceptors                                     |
-| Query client        | `@frontend/src/lib/query-client.ts`                            | TanStack Query client configuration                                               |
-| Risk utilities      | `@frontend/src/lib/risk.ts`                                    | Risk assessment utilities                                                         |
-| Utils               | `@frontend/src/lib/utils.ts`                                   | General utility functions                                                         |
+| Concern             | File / Directory                                               | Notes                                                                                                                                                                                                                    |
+| ------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Pages               | `@frontend/src/apps/admin/pages/Login.tsx`                     | Admin login                                                                                                                                                                                                              |
+| Pages               | `@frontend/src/apps/admin/pages/Dashboard.tsx`                 | Main dashboard                                                                                                                                                                                                           |
+| Pages               | `@frontend/src/apps/admin/pages/KnowledgeBase.tsx`             | Knowledge base management                                                                                                                                                                                                |
+| Pages               | `@frontend/src/apps/admin/pages/AgentConfig.tsx`               | Agent routing & config                                                                                                                                                                                                   |
+| Pages               | `@frontend/src/apps/admin/pages/Feedback.tsx`                  | User feedback management                                                                                                                                                                                                 |
+| Pages               | `@frontend/src/apps/admin/pages/MetricsPage.tsx`               | Metrics & analytics page                                                                                                                                                                                                 |
+| Business components | `@frontend/src/apps/admin/components/DecisionPanel.tsx`        | Human-in-the-loop task decisions                                                                                                                                                                                         |
+| Business components | `@frontend/src/apps/admin/components/TaskList.tsx`             | Task queue list                                                                                                                                                                                                          |
+| Business components | `@frontend/src/apps/admin/components/TaskDetail.tsx`           | Task detail view                                                                                                                                                                                                         |
+| Business components | `@frontend/src/apps/admin/components/ConversationLogs.tsx`     | Conversation audit logs                                                                                                                                                                                                  |
+| Business components | `@frontend/src/apps/admin/components/AgentConfigEditor.tsx`    | Config editor with hot-reload                                                                                                                                                                                            |
+| Business components | `@frontend/src/apps/admin/components/KnowledgeBaseManager.tsx` | KB upload & sync                                                                                                                                                                                                         |
+| Business components | `@frontend/src/apps/admin/components/ComplaintQueue.tsx`       | Complaint queue                                                                                                                                                                                                          |
+| Business components | `@frontend/src/apps/admin/components/ExperimentManager.tsx`    | A/B experiment manager                                                                                                                                                                                                   |
+| Business components | `@frontend/src/apps/admin/components/AnalyticsV2.tsx`          | Analytics dashboard                                                                                                                                                                                                      |
+| Business components | `@frontend/src/apps/admin/components/Performance.tsx`          | Performance metrics                                                                                                                                                                                                      |
+| Business components | `@frontend/src/apps/admin/components/EvaluationViewer.tsx`     | Offline evaluation results viewer                                                                                                                                                                                        |
+| Business components | `@frontend/src/apps/admin/components/FeedbackManager.tsx`      | Feedback management                                                                                                                                                                                                      |
+| Shared UI           | `@frontend/src/apps/admin/components/NotificationToast.tsx`    | Toast notifications                                                                                                                                                                                                      |
+| Shared UI           | `@frontend/src/components/ui/`                                 | shadcn/ui base components (Button, Card, Input, Sheet, etc.)                                                                                                                                                             |
+| Brand UI            | `@frontend/src/components/brand/StarWarehouseLogo.tsx`         | Shared 星仓AI mark for admin and customer surfaces                                                                                                                                                                       |
+| Error handling      | `@frontend/src/components/ErrorBoundary.tsx`                   | React error boundary                                                                                                                                                                                                     |
+| API layer           | `@frontend/src/lib/api.ts`                                     | Centralized `fetch` wrapper with interceptors                                                                                                                                                                            |
+| Query client        | `@frontend/src/lib/query-client.ts`                            | TanStack Query client configuration                                                                                                                                                                                      |
+| Risk utilities      | `@frontend/src/lib/risk.ts`                                    | Risk assessment utilities                                                                                                                                                                                                |
+| Utils               | `@frontend/src/lib/utils.ts`                                   | General utility functions                                                                                                                                                                                                |
 | Server state hooks  | `@frontend/src/hooks/`                                         | TanStack Query hooks (useAuth, useAgentConfig, useTasks, useComplaints, useFeedback, useMetricsDashboard, useKnowledgeBase, useEvaluation, useAnalytics, useNotifications, useMetrics, useConversations, useExperiments) |
-| WebSocket           | `@frontend/src/hooks/useWebSocket.ts`                          | WebSocket connection & message listener                                           |
-| Auth state          | `@frontend/src/stores/auth.ts`                                 | Zustand store for auth                                                            |
-| Router              | `@frontend/src/apps/admin/App.tsx`                             | React Router configuration                                                        |
-| App mount           | `@frontend/src/apps/admin/main.tsx`                            | Vite multi-page entry point                                                       |
+| WebSocket           | `@frontend/src/hooks/useWebSocket.ts`                          | WebSocket connection & message listener                                                                                                                                                                                  |
+| Auth state          | `@frontend/src/stores/auth.ts`                                 | Zustand store for auth                                                                                                                                                                                                   |
+| Router              | `@frontend/src/apps/admin/App.tsx`                             | React Router configuration                                                                                                                                                                                               |
+| App mount           | `@frontend/src/apps/admin/main.tsx`                            | Vite multi-page entry point                                                                                                                                                                                              |
 
 ## Commands
 
@@ -96,6 +97,7 @@ General frontend rules are defined in the root `AGENTS.md`. Admin-specific conve
 - **Hot-reload config**: Agent config edits are written to the backend and take effect immediately (Redis cache invalidation). No service restart required.
 - **Vite proxy**: In dev mode, `/api` is proxied to `localhost:8000`; no manual CORS handling needed.
 - **Merge requirements**: All merges require `npm run build`, `npm run lint`, `npm run format`, and `npm run test:e2e` to pass.
+- **Brand consistency**: Reuse `StarWarehouseLogo` and shared brand tokens; keep the operations workspace information-dense and responsive.
 
 ## State Management
 
@@ -103,11 +105,11 @@ The admin frontend is a multi-page dashboard with complex CRUD operations across
 
 ### Why Zustand + TanStack Query
 
-| Concern | Solution | Rationale |
-|---------|----------|-----------|
-| Global auth state | Zustand (`@frontend/src/stores/auth.ts`) | Auth token and user identity are needed by every page. Zustand provides lightweight, synchronous access without re-fetching. |
-| Server state caching | TanStack Query (`@frontend/src/hooks/`) | Domain data (tasks, complaints, metrics, configs) is fetched from the API, cached, and synchronized across routes. TanStack Query handles background refetching, cache invalidation, optimistic updates, and request deduplication automatically. |
-| Complex CRUD | TanStack Query mutations | Knowledge base uploads, agent config edits, and experiment updates require server-side synchronization that local state cannot provide. |
+| Concern              | Solution                                 | Rationale                                                                                                                                                                                                                                         |
+| -------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Global auth state    | Zustand (`@frontend/src/stores/auth.ts`) | Auth token and user identity are needed by every page. Zustand provides lightweight, synchronous access without re-fetching.                                                                                                                      |
+| Server state caching | TanStack Query (`@frontend/src/hooks/`)  | Domain data (tasks, complaints, metrics, configs) is fetched from the API, cached, and synchronized across routes. TanStack Query handles background refetching, cache invalidation, optimistic updates, and request deduplication automatically. |
+| Complex CRUD         | TanStack Query mutations                 | Knowledge base uploads, agent config edits, and experiment updates require server-side synchronization that local state cannot provide.                                                                                                           |
 
 This split was chosen over a single global store because server state and client auth state have different lifecycles. Server state is transient and must stay in sync with the backend. Auth state is stable for the session and does not need background refetching. Keeping them separate makes server state predictable and client state minimal.
 

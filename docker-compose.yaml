@@ -71,7 +71,10 @@ services:
     env_file:
       - .env
     environment:
+      POSTGRES_SERVER: db
+      REDIS_HOST: redis
       REDIS_PASSWORD: ${REDIS_PASSWORD:-devpassword}
+      QDRANT_URL: http://qdrant:6333
       SERVICE_HEALTH_URL: http://app:8000/health
     volumes:
       - ./app:/app/app
@@ -97,9 +100,24 @@ services:
     env_file:
       - .env
     environment:
+      POSTGRES_SERVER: db
+      REDIS_HOST: redis
       REDIS_PASSWORD: ${REDIS_PASSWORD:-devpassword}
+      QDRANT_URL: http://qdrant:6333
     volumes:
       - ./app:/app/app
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
     restart: unless-stopped
 
 volumes:

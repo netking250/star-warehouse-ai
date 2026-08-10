@@ -162,7 +162,10 @@ function PromptEffectReportList({ agentName }: { agentName: string }) {
                   置信度: {report.avg_confidence !== null ? report.avg_confidence.toFixed(4) : '-'}
                 </div>
                 <div>
-                  接管率: {report.transfer_rate != null ? `${(report.transfer_rate * 100).toFixed(2)}%` : '-'}
+                  接管率:{' '}
+                  {report.transfer_rate != null
+                    ? `${(report.transfer_rate * 100).toFixed(2)}%`
+                    : '-'}
                 </div>
                 <div>
                   延迟: {report.avg_latency_ms !== null ? report.avg_latency_ms.toFixed(2) : '-'} ms

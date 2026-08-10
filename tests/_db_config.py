@@ -1,6 +1,22 @@
 import os
 
 
+def assert_test_database(database_name: str) -> None:
+    """Reject destructive test setup against a non-test database.
+
+    Args:
+        database_name: PostgreSQL database selected by application settings.
+
+    Raises:
+        RuntimeError: If the database name does not use the required test prefix.
+    """
+    if not database_name.startswith("test_"):
+        raise RuntimeError(
+            f"Refusing destructive test setup for non-test database {database_name!r}; "
+            "the database name must start with 'test_'."
+        )
+
+
 def _configure_test_database() -> None:
     """在导入 app 模块前配置测试数据库，确保测试数据隔离。"""
     # 如果已设置 TEST_DATABASE_URL，直接提取数据库名并覆盖 POSTGRES_DB

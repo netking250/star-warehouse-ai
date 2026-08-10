@@ -25,6 +25,7 @@ from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.logging import generate_correlation_id, set_correlation_id
 from app.core.structured_logging import configure_logging
+from app.core.tenancy import reset_current_tenant_id, set_current_tenant_id
 from app.observability.otel_setup import instrument_fastapi, setup_otel_tracing
 from app.websocket.manager import get_manager
 from app.websocket.redis_bridge import RedisBroadcastBridge
@@ -243,6 +244,16 @@ def _rate_limit_handler(request: Request, exc: Exception) -> Response:
 
 
 app.add_exception_handler(RateLimitExceeded, _rate_limit_handler)
+
+
+@app.middleware("http")
+async def tenant_context_middleware(request: Request, call_next):
+    """Start every request in the default tenant and prevent context leakage."""
+    token = set_current_tenant_id("default")
+    try:
+        return await call_next(request)
+    finally:
+        reset_current_tenant_id(token)
 
 
 @app.middleware("http")

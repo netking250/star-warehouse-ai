@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { useAuthStore } from '@/stores/auth'
 import { apiFetch } from '@/lib/api'
@@ -10,10 +11,22 @@ interface LoginResponse {
   username: string
   full_name: string
   is_admin: boolean
+  tenant_id: string
+  roles: string[]
+  scopes: string[]
+  session_id: string
 }
 
 export function useAuth() {
-  const { user, isAuthenticated, logout } = useAuthStore()
+  const { user, isAuthenticated, logout: clearAuth } = useAuthStore()
+
+  const logout = useCallback(async (): Promise<void> => {
+    try {
+      await apiFetch('/logout', { method: 'POST', skip401Redirect: true })
+    } finally {
+      clearAuth()
+    }
+  }, [clearAuth])
 
   const {
     mutateAsync: login,
@@ -44,6 +57,10 @@ export function useAuth() {
         full_name: data.full_name,
         role: data.is_admin ? 'ADMIN' : 'USER',
         is_admin: data.is_admin,
+        tenant_id: data.tenant_id,
+        roles: data.roles,
+        scopes: data.scopes,
+        session_id: data.session_id,
       }
       useAuthStore.getState().setAuth(data.access_token, userObj)
     },

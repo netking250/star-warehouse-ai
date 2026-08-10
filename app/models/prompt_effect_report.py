@@ -3,12 +3,13 @@
 from datetime import datetime
 
 from sqlalchemy import Column, DateTime, text
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field
 
 from app.core.utils import utc_now
+from app.models.tenant import TenantScopedModel
 
 
-class PromptEffectReport(SQLModel, table=True):
+class PromptEffectReport(TenantScopedModel, table=True):
     """Monthly prompt engineering effect report."""
 
     __tablename__ = "prompt_effect_reports"

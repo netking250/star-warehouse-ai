@@ -4,6 +4,7 @@ from typing import Any
 from qdrant_client import AsyncQdrantClient, models
 
 from app.core.config import settings
+from app.core.tenancy import get_current_tenant_id, namespaced_collection
 from app.models.state import AgentState
 from app.tools.base import BaseTool, ToolResult
 
@@ -19,12 +20,14 @@ class ProductTool(BaseTool):
         qdrant_client: AsyncQdrantClient | None = None,
         rewriter: Any | None = None,
         embedder: Any | None = None,
-        collection_name: str = "product_catalog",
+        collection_name: str | None = None,
     ):
         self._qdrant = qdrant_client
         self._rewriter = rewriter
         self._embedder = embedder
-        self.collection_name = collection_name
+        self.collection_name = (
+            namespaced_collection("product_catalog") if collection_name is None else collection_name
+        )
 
     async def _get_client(self) -> AsyncQdrantClient:
         if self._qdrant is None:
@@ -54,7 +57,11 @@ class ProductTool(BaseTool):
 
         client = await self._get_client()
 
-        conditions: list[Any] = []
+        conditions: list[Any] = [
+            models.FieldCondition(
+                key="tenant_id", match=models.MatchValue(value=get_current_tenant_id())
+            )
+        ]
         if category is not None:
             conditions.append(
                 models.FieldCondition(key="category", match=models.MatchValue(value=category))
@@ -71,7 +78,7 @@ class ProductTool(BaseTool):
                 rng["lte"] = float(max_price)
             conditions.append(models.FieldCondition(key="price", range=models.Range(**rng)))
 
-        query_filter = models.Filter(must=conditions) if conditions else None
+        query_filter = models.Filter(must=conditions)
 
         try:
             exists = await client.collection_exists(self.collection_name)

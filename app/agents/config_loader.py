@@ -6,13 +6,14 @@ from sqlmodel import desc, select
 from app.core.config import settings
 from app.core.database import async_session_maker
 from app.core.redis import create_redis_client
+from app.core.tenancy import namespaced_key
 from app.models.memory import AgentConfig, RoutingRule
 
 logger = logging.getLogger(__name__)
 
 
 def _cache_key(agent_name: str) -> str:
-    return f"agent_config:{agent_name}"
+    return namespaced_key(f"agent_config:{agent_name}")
 
 
 async def _get_cached(agent_name: str) -> dict | None:

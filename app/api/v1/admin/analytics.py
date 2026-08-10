@@ -10,6 +10,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.database import get_session
 from app.core.security import get_admin_user_id
+from app.core.tenancy import get_current_tenant_id
 from app.models.observability import GraphExecutionLog
 from app.services.online_eval import OnlineEvalService
 
@@ -85,10 +86,12 @@ async def get_complaint_root_causes(
             """
             SELECT category, COUNT(*) as cnt
             FROM complaint_tickets
+            WHERE tenant_id = :tenant_id
             GROUP BY category
             ORDER BY cnt DESC
             """
-        )
+        ),
+        {"tenant_id": get_current_tenant_id()},
     )
     rows = result.mappings().all()
     return [RootCauseItem(category=r["category"], count=r["cnt"]) for r in rows]

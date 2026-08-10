@@ -1,6 +1,8 @@
 import re
 from datetime import UTC, datetime
 
+from app.core.tenancy import get_current_tenant_id
+
 
 def utc_now() -> datetime:
     return datetime.now(UTC)
@@ -11,7 +13,7 @@ def clamp_score(score: float) -> float:
 
 
 def build_thread_id(user_id: int, client_thread_id: str) -> str:
-    prefix = f"{user_id}__"
+    prefix = f"{get_current_tenant_id()}__{user_id}__"
     if client_thread_id.startswith(prefix):
         return client_thread_id[:128]
     safe_id = re.sub(r"[^a-zA-Z0-9_.-]", "_", client_thread_id)

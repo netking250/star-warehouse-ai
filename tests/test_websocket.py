@@ -2,35 +2,52 @@ import pytest
 from starlette.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
+from app.core.redis import get_redis_client
 from app.core.security import create_access_token
 from app.core.utils import build_thread_id
 from app.main import app
 from app.websocket.manager import ConnectionManager
 
 
+class FakeRedis:
+    def __init__(self):
+        self.values = {}
+
+    async def mget(self, *keys):
+        return [self.values.get(key) for key in keys]
+
+    async def setex(self, key, ttl, value):
+        self.values[key] = value
+
+
 class TestBuildThreadId:
     def test_adds_user_prefix(self):
-        assert build_thread_id(42, "thread-abc") == "42__thread-abc"
+        assert build_thread_id(42, "thread-abc") == "default__42__thread-abc"
 
     def test_sanitizes_unsafe_characters(self):
-        assert build_thread_id(1, "thread/abc@!") == "1__thread_abc__"
+        assert build_thread_id(1, "thread/abc@!") == "default__1__thread_abc__"
 
     def test_idempotent_when_already_prefixed(self):
-        scoped = "99__existing"
+        scoped = "default__99__existing"
         assert build_thread_id(99, scoped) == scoped
 
     def test_truncates_long_id(self):
         long_id = "x" * 200
         result = build_thread_id(1, long_id)
         assert len(result) <= 128
-        assert result.startswith("1__")
+        assert result.startswith("default__1__")
 
 
 class TestWebsocketSecurity:
     @pytest.fixture(autouse=True)
     def setup_client(self):
         app.state.manager = ConnectionManager()
+        redis = FakeRedis()
+        app.state.redis_client = redis
+        app.dependency_overrides[get_redis_client] = lambda: redis
         self.client = TestClient(app)
+        yield
+        app.dependency_overrides.pop(get_redis_client, None)
 
     def test_connect_user_scopes_thread_id(self):
         """WebSocket endpoint 应通过 build_thread_id 限定 thread_id。"""
@@ -95,3 +112,16 @@ class TestWebsocketSecurity:
 
         assert exc_info.value.code == 1008
         assert exc_info.value.reason == "Authentication failed"
+
+    def test_revoked_token_cannot_open_websocket(self):
+        token = create_access_token(user_id=8, is_admin=False)
+        response = self.client.post("/api/v1/logout", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 204
+
+        with (
+            pytest.raises(WebSocketDisconnect) as exc_info,
+            self.client.websocket_connect(f"/api/v1/ws/revoked?token={token}") as websocket,
+        ):
+            websocket.receive_text()
+
+        assert exc_info.value.code == 1008

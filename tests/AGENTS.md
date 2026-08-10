@@ -99,6 +99,7 @@ General Python rules are defined in the root `AGENTS.md`. Test-specific conventi
 - **Flat structure**: Tests do not strictly mirror `app/` subpackage paths.
 - **Naming**: Descriptive test names that convey scenario and expected outcome.
 - **Fixture reuse**: Use session-scoped fixtures from `@tests/conftest.py` to avoid repeated DB connection overhead.
+- **Database isolation**: Import `tests._db_config` before any `app` module. Destructive setup is allowed only when `POSTGRES_DB` starts with `test_`.
 
 ## Anti-Patterns
 

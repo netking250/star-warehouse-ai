@@ -22,8 +22,9 @@ Core infrastructure and cross-cutting concerns: configuration, security, databas
 |------|------|-------|
 | Cache | `@app/core/cache.py` | `CacheManager` with 7 cache types (intent, profile, retrieval, facts, preferences, summaries, vector_search) + Redis connection pooling + circuit breaker + Prometheus metrics |
 | Configuration | `@app/core/config.py` | `Settings` with nested `ConfidenceSettings`; single source of truth for env vars. Uses `_create_settings()` factory to avoid top-level instantiation errors during static analysis |
-| Security | `@app/core/security.py` | JWT token creation/validation, OAuth2 scheme, password hashing |
-| Database | `@app/core/database.py` | AsyncSession makers, engine configuration |
+| Security | `@app/core/security.py` | JWT validation, immutable `AuthContext`, tenant claims, RBAC roles/scopes, authorization dependencies |
+| Tenancy | `@app/core/tenancy.py` | Async tenant context plus Redis/Qdrant namespace helpers |
+| Database | `@app/core/database.py` | AsyncSession makers, engine configuration, automatic tenant read/write enforcement |
 | Redis | `@app/core/redis.py` | Redis client creation and connection pooling |
 | LLM factory | `@app/core/llm_factory.py` | LLM instance creation (OpenAI, DashScope, etc.) |
 | Structured logging | `@app/core/structured_logging.py` | `JsonFormatter` with trace_id/span_id/correlation_id support, Filebeat/Fluentd integration |
@@ -61,6 +62,8 @@ General Python rules are defined in the root `AGENTS.md`. Core-specific conventi
 - **Settings factory**: `_create_settings()` wraps `Settings()` instantiation to defer runtime env-file loading and avoid false positives during static analysis.
 - **Type checker compatibility**: `config.py` suppresses `ty: ignore[missing-argument]` on `Settings()` because `ty` does not understand `pydantic-settings` env-file defaulting. This follows root `AGENTS.md` Invariant #4 (Type Safety): suppression is allowed for third-party compatibility issues when scoped to the smallest region and annotated with the reason.
 - **Correlation IDs**: Use `logging.py` utilities to propagate correlation IDs across async boundaries.
+- **Authorization context**: Protected APIs must depend on `get_active_auth_context`, `get_active_user_id`, `get_admin_user_id`, `require_roles`, or `require_scopes` so Redis token revocation is enforced. Signature-only helpers are for token parsing and compatibility tests, not route protection.
+- **Storage namespaces**: Construct Redis keys with `namespaced_key()` and Qdrant collection names with `namespaced_collection()`; never compose shared-storage keys without environment and tenant scope.
 - **Secret management**: Never log secrets or tokens; use `SecretStr` in Pydantic models.
 - **LLM caching**: Cache LLM instances in `llm_factory.py` to avoid repeated initialization.
 

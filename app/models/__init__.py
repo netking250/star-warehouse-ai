@@ -14,7 +14,7 @@ from app.models.complaint import (
     ComplaintTicket,
     ExpectedResolution,
 )
-from app.models.evaluation import MessageFeedback, QualityScore
+from app.models.evaluation import ConfidenceAudit, MessageFeedback, QualityScore
 from app.models.experiment import Experiment, ExperimentAssignment, ExperimentVariant
 from app.models.knowledge_document import KnowledgeDocument
 from app.models.memory import (
@@ -58,6 +58,7 @@ __all__ = [
     "ComplaintCategory",
     "ComplaintStatus",
     "ComplaintTicket",
+    "ConfidenceAudit",
     "Experiment",
     "ExperimentAssignment",
     "ExperimentVariant",

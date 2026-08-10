@@ -90,9 +90,7 @@ export function GrafanaEmbed({
             <p className="text-sm text-muted-foreground mt-1">
               请检查 Grafana 服务是否正常运行 ({grafanaUrl})
             </p>
-            <p className="text-xs text-muted-foreground mt-2">
-              Dashboard UID: {dashboardUid}
-            </p>
+            <p className="text-xs text-muted-foreground mt-2">Dashboard UID: {dashboardUid}</p>
           </div>
         </CardContent>
       </Card>

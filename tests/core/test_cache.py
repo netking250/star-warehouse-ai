@@ -9,6 +9,7 @@ import pytest
 import redis.asyncio as aioredis
 
 from app.core.cache import CacheManager
+from app.core.tenancy import namespaced_key
 
 
 def _make_async_iter(items):
@@ -65,14 +66,14 @@ class TestCacheManagerIntent:
         await cache_manager.set_intent("查询订单", intent_data)
         mock_redis.setex.assert_called_once()
         key = mock_redis.setex.call_args[0][0]
-        assert key.startswith("intent:")
+        assert key.startswith(namespaced_key("intent:"))
 
     @pytest.mark.asyncio
     async def test_invalidate_intent(self, cache_manager, mock_redis):
         await cache_manager.invalidate_intent("查询订单")
         mock_redis.delete.assert_called_once()
         key = mock_redis.delete.call_args[0][0]
-        assert key.startswith("intent:")
+        assert key.startswith(namespaced_key("intent:"))
 
 
 class TestCacheManagerProfile:
@@ -96,12 +97,12 @@ class TestCacheManagerProfile:
         profile = {"user_id": 1, "membership_level": "gold"}
         await cache_manager.set_profile(1, profile)
         mock_redis.setex.assert_called_once()
-        assert mock_redis.setex.call_args[0][0] == "profile:1"
+        assert mock_redis.setex.call_args[0][0] == namespaced_key("profile:1")
 
     @pytest.mark.asyncio
     async def test_invalidate_profile(self, cache_manager, mock_redis):
         await cache_manager.invalidate_profile(1)
-        mock_redis.delete.assert_called_once_with("profile:1")
+        mock_redis.delete.assert_called_once_with(namespaced_key("profile:1"))
 
     @pytest.mark.asyncio
     async def test_invalidate_all_profiles(self, cache_manager, mock_redis):
@@ -132,7 +133,7 @@ class TestCacheManagerRetrieval:
         await cache_manager.set_retrieval("退货政策", chunks)
         mock_redis.setex.assert_called_once()
         key = mock_redis.setex.call_args[0][0]
-        assert key.startswith("retrieval:")
+        assert key.startswith(namespaced_key("retrieval:"))
 
     @pytest.mark.asyncio
     async def test_invalidate_all_retrieval(self, cache_manager, mock_redis):
@@ -169,12 +170,12 @@ class TestCacheManagerDbConfig:
         config = {"pool_size": 20, "max_overflow": 10}
         await cache_manager.set_db_config("connection_pool", config)
         mock_redis.setex.assert_called_once()
-        assert mock_redis.setex.call_args[0][0] == "db_config:connection_pool"
+        assert mock_redis.setex.call_args[0][0] == namespaced_key("db_config:connection_pool")
 
     @pytest.mark.asyncio
     async def test_invalidate_db_config(self, cache_manager, mock_redis):
         await cache_manager.invalidate_db_config("connection_pool")
-        mock_redis.delete.assert_called_once_with("db_config:connection_pool")
+        mock_redis.delete.assert_called_once_with(namespaced_key("db_config:connection_pool"))
 
     @pytest.mark.asyncio
     async def test_invalidate_all_db_configs(self, cache_manager, mock_redis):
@@ -187,13 +188,13 @@ class TestCacheManagerBulkInvalidation:
     @pytest.mark.asyncio
     async def test_invalidate_all(self, cache_manager, mock_redis):
         async def _scan_iter(match):
-            if match == "intent:*":
+            if match == namespaced_key("intent:*"):
                 yield "intent:a"
-            elif match == "profile:*":
+            elif match == namespaced_key("profile:*"):
                 yield "profile:b"
-            elif match == "retrieval:*":
+            elif match == namespaced_key("retrieval:*"):
                 yield "retrieval:c"
-            elif match == "db_config:*":
+            elif match == namespaced_key("db_config:*"):
                 yield "db_config:d"
 
         mock_redis.scan_iter = _scan_iter

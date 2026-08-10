@@ -406,6 +406,8 @@ class GDPRComplianceManager:
     async def _delete_user_vectors(self, vector_manager: Any, user_id: int) -> int:
         from qdrant_client import models
 
+        from app.core.tenancy import get_current_tenant_id
+
         await vector_manager.ensure_collection()
         total_deleted = 0
         offset = None
@@ -415,6 +417,14 @@ class GDPRComplianceManager:
                 limit=1000,
                 offset=offset,
                 with_payload=True,
+                scroll_filter=models.Filter(
+                    must=[
+                        models.FieldCondition(
+                            key="tenant_id",
+                            match=models.MatchValue(value=get_current_tenant_id()),
+                        )
+                    ]
+                ),
             )
             if not batch:
                 break
@@ -436,6 +446,8 @@ class GDPRComplianceManager:
     async def _delete_user_structured_memory(self, db_session: Any, user_id: int) -> int:
         from sqlalchemy import text
 
+        from app.core.tenancy import get_current_tenant_id
+
         tables = [
             "user_profiles",
             "user_preferences",
@@ -444,8 +456,12 @@ class GDPRComplianceManager:
         ]
         total_deleted = 0
         for table in tables:
-            stmt = text(f"DELETE FROM {table} WHERE user_id = :user_id")  # noqa: S608
-            result = await db_session.exec(stmt)
+            stmt = text(  # noqa: S608
+                f"DELETE FROM {table} WHERE user_id = :user_id AND tenant_id = :tenant_id"
+            )
+            result = await db_session.exec(
+                stmt, params={"user_id": user_id, "tenant_id": get_current_tenant_id()}
+            )
             total_deleted += result.rowcount if hasattr(result, "rowcount") else 0
         await db_session.commit()
         return total_deleted

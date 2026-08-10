@@ -21,7 +21,7 @@ from app.context.pii_filter import log_pii_detection, pii_filter
 from app.core.config import settings
 from app.core.database import async_session_maker
 from app.core.limiter import check_user_rate_limit, limiter
-from app.core.security import get_current_user_id
+from app.core.security import get_active_user_id
 from app.core.tracing import build_llm_config
 from app.core.utils import build_thread_id, utc_now
 from app.models.memory import AgentConfigVersion
@@ -264,7 +264,7 @@ async def _run_shadow_in_background(
 async def chat(
     request: Request,
     chat_request: ChatRequest,
-    current_user_id: int = Depends(get_current_user_id),
+    current_user_id: int = Depends(get_active_user_id),
 ):
     """
     聊天接口：支持订单查询和政策咨询
@@ -689,7 +689,7 @@ class SubmitFeedbackRequest(BaseModel):
 @router.post("/feedback")
 async def submit_feedback(
     request: SubmitFeedbackRequest,
-    current_user_id: int = Depends(get_current_user_id),
+    current_user_id: int = Depends(get_active_user_id),
 ):
     async with async_session_maker() as session:
         feedback = await _feedback_service.submit_feedback(

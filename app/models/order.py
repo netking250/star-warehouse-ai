@@ -3,10 +3,11 @@ from datetime import datetime
 from decimal import Decimal
 from enum import Enum
 
-from sqlalchemy import JSON, Column, DateTime, Numeric, String, text
-from sqlmodel import Field, SQLModel
+from sqlalchemy import JSON, Column, DateTime, Numeric, String, UniqueConstraint, text
+from sqlmodel import Field
 
 from app.core.utils import utc_now
+from app.models.tenant import TenantScopedModel
 
 
 # 1. 使用 Enum 管理状态
@@ -19,11 +20,12 @@ class OrderStatus(str, Enum):
 
 
 # 2. 订单模型
-class Order(SQLModel, table=True):
+class Order(TenantScopedModel, table=True):
     __tablename__ = "orders"
+    __table_args__ = (UniqueConstraint("tenant_id", "order_sn", name="uq_orders_tenant_order_sn"),)
 
     id: int | None = Field(default=None, primary_key=True)
-    order_sn: str = Field(unique=True, index=True, max_length=32)
+    order_sn: str = Field(index=True, max_length=32)
 
     # 关联用户 - 只用外键，避免循环导入
     user_id: int = Field(foreign_key="users.id", ondelete="RESTRICT")

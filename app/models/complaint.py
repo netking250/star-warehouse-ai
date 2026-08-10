@@ -4,9 +4,10 @@ from datetime import datetime
 from enum import Enum
 
 from sqlalchemy import Column, DateTime, text
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field
 
 from app.core.utils import utc_now
+from app.models.tenant import TenantScopedModel
 
 
 class ComplaintCategory(str, Enum):
@@ -44,7 +45,7 @@ class ExpectedResolution(str, Enum):
     COMPENSATION = "compensation"
 
 
-class ComplaintTicket(SQLModel, table=True):
+class ComplaintTicket(TenantScopedModel, table=True):
     """投诉工单表"""
 
     __tablename__ = "complaint_tickets"

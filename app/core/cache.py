@@ -19,6 +19,7 @@ from typing import Any
 import redis.asyncio as aioredis
 
 from app.core.config import settings
+from app.core.tenancy import namespaced_key
 from app.observability.metrics import (
     record_cache_hit,
     record_cache_miss,
@@ -76,6 +77,7 @@ class CacheManager:
             set_cache_hit_ratio(cache_name, ratio)
 
     async def _redis_get(self, key: str) -> str | None:
+        key = namespaced_key(key)
         start = time.perf_counter()
         try:
             value = await self.redis.get(key)
@@ -93,6 +95,7 @@ class CacheManager:
         value: str,
         ttl: int,
     ) -> None:
+        key = namespaced_key(key)
         start = time.perf_counter()
         try:
             await self.redis.setex(key, ttl, value)
@@ -103,6 +106,7 @@ class CacheManager:
             logger.warning("Redis SET failed for %s: %s", key, exc)
 
     async def _redis_delete(self, key: str) -> None:
+        key = namespaced_key(key)
         start = time.perf_counter()
         try:
             await self.redis.delete(key)
@@ -113,6 +117,7 @@ class CacheManager:
             logger.warning("Redis DELETE failed for %s: %s", key, exc)
 
     async def _redis_delete_pattern(self, pattern: str) -> None:
+        pattern = namespaced_key(pattern)
         start = time.perf_counter()
         try:
             keys: list[str] = []

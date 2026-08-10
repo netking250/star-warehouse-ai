@@ -5,9 +5,10 @@ from enum import Enum
 from typing import Any
 
 from sqlalchemy import JSON, Column, DateTime, Float, text
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field
 
 from app.core.utils import utc_now
+from app.models.tenant import TenantScopedModel
 
 
 class SentimentEnum(str, Enum):
@@ -27,7 +28,34 @@ class ScoreTypeEnum(str, Enum):
     OVERALL = "overall"
 
 
-class MessageFeedback(SQLModel, table=True):
+class ConfidenceAudit(TenantScopedModel, table=True):
+    """Confidence decision audit record."""
+
+    __tablename__ = "confidence_audits"
+
+    id: int | None = Field(default=None, primary_key=True)
+    thread_id: str = Field(index=True, max_length=64)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    query: str
+    confidence_score: float
+    rag_score: float | None = None
+    llm_score: float | None = None
+    emotion_score: float | None = None
+    signals_metadata: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
+    audit_level: str = Field(max_length=16)
+    transfer_reason: str | None = None
+    created_at: datetime = Field(
+        default_factory=utc_now,
+        sa_column=Column(
+            DateTime(timezone=True), nullable=False, server_default=text("CURRENT_TIMESTAMP")
+        ),
+    )
+    reviewed_at: datetime | None = None
+    reviewed_by: int | None = None
+    review_result: str | None = Field(default=None, max_length=16)
+
+
+class MessageFeedback(TenantScopedModel, table=True):
     """Message feedback table (explicit feedback)."""
 
     __tablename__ = "message_feedbacks"
@@ -55,7 +83,7 @@ class MessageFeedback(SQLModel, table=True):
     )
 
 
-class QualityScore(SQLModel, table=True):
+class QualityScore(TenantScopedModel, table=True):
     """Daily quality score table (aggregated explicit + implicit signals)."""
 
     __tablename__ = "quality_scores"
@@ -118,7 +146,7 @@ class QualityScore(SQLModel, table=True):
     )
 
 
-class ShadowTestResult(SQLModel, table=True):
+class ShadowTestResult(TenantScopedModel, table=True):
     """Shadow testing comparison result stored in database."""
 
     __tablename__ = "shadow_test_results"
@@ -147,7 +175,7 @@ class ShadowTestResult(SQLModel, table=True):
     )
 
 
-class AdversarialTestRun(SQLModel, table=True):
+class AdversarialTestRun(TenantScopedModel, table=True):
     """Adversarial test suite execution record."""
 
     __tablename__ = "adversarial_test_runs"

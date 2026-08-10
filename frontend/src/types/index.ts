@@ -5,6 +5,10 @@ export interface User {
   full_name?: string
   role: 'ADMIN' | 'USER'
   is_admin?: boolean
+  tenant_id?: string
+  roles?: string[]
+  scopes?: string[]
+  session_id?: string
 }
 
 export interface Task {

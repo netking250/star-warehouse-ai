@@ -11,6 +11,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.context.pii_filter import log_pii_detection, pii_filter
 from app.core.cache import CacheManager
 from app.core.config import settings
+from app.core.tenancy import get_current_tenant_id, namespaced_collection
 from app.retrieval.embeddings import create_embedding_model
 
 logger = logging.getLogger(__name__)
@@ -19,7 +20,7 @@ logger = logging.getLogger(__name__)
 class VectorMemoryManager:
     """Manages conversation memory vectors in Qdrant's `conversation_memory` collection."""
 
-    COLLECTION_NAME = "conversation_memory"
+    COLLECTION_NAME = namespaced_collection("conversation_memory")
 
     def __init__(self, client=None, embedder=None, cache_manager: CacheManager | None = None):
         if client is None:
@@ -92,6 +93,7 @@ class VectorMemoryManager:
 
         point_id = str(uuid.uuid4())
         payload: dict[str, object] = {
+            "tenant_id": get_current_tenant_id(),
             "user_id": user_id,
             "thread_id": thread_id,
             "message_role": message_role,
@@ -134,9 +136,13 @@ class VectorMemoryManager:
 
         must_conditions: list = [
             models.FieldCondition(
+                key="tenant_id",
+                match=models.MatchValue(value=get_current_tenant_id()),
+            ),
+            models.FieldCondition(
                 key="user_id",
                 match=models.MatchValue(value=user_id),
-            )
+            ),
         ]
         if message_role is not None:
             must_conditions.append(
@@ -186,6 +192,14 @@ class VectorMemoryManager:
                     limit=1000,
                     offset=offset,
                     with_payload=True,
+                    scroll_filter=models.Filter(
+                        must=[
+                            models.FieldCondition(
+                                key="tenant_id",
+                                match=models.MatchValue(value=get_current_tenant_id()),
+                            )
+                        ]
+                    ),
                 )
             except UnexpectedResponse as exc:
                 if exc.status_code == 404:

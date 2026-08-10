@@ -2,6 +2,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from app.core.tenancy import namespaced_key
 from app.graph.checkpointer import OptimizedRedisCheckpoint
 
 
@@ -80,7 +81,7 @@ async def test_aput_stores_base_when_no_previous():
     assert result["configurable"]["checkpoint_id"] == "c1"
     redis_mock.setex.assert_called_once()
     call_args = redis_mock.setex.call_args[0]
-    assert call_args[0].startswith("ckpt_opt:t1::c1")
+    assert call_args[0].startswith(namespaced_key("ckpt_opt:t1::c1"))
     assert call_args[1] == 30 * 24 * 3600
 
     redis_mock.zadd.assert_called_once()
@@ -194,7 +195,8 @@ async def test_aprune_calls_base_saver_and_cleans_optimized():
 
     redis_mock.scan_iter = _scan_iter
 
-    pipe_mock = AsyncMock()
+    pipe_mock = MagicMock()
+    pipe_mock.execute = AsyncMock()
     redis_mock.pipeline = MagicMock(return_value=pipe_mock)
 
     saver = OptimizedRedisCheckpoint(redis_client=redis_mock)
@@ -216,7 +218,8 @@ async def test_aprune_keep_latest_retains_most_recent():
 
     redis_mock.scan_iter = _scan_iter
 
-    pipe_mock = AsyncMock()
+    pipe_mock = MagicMock()
+    pipe_mock.execute = AsyncMock()
     redis_mock.pipeline = MagicMock(return_value=pipe_mock)
 
     saver = OptimizedRedisCheckpoint(redis_client=redis_mock)

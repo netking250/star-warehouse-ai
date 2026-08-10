@@ -5,9 +5,10 @@ from enum import Enum
 from typing import Any
 
 from sqlalchemy import JSON, Column, DateTime, text
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field
 
 from app.core.utils import utc_now
+from app.models.tenant import TenantScopedModel
 
 
 class ExperimentStatus(str, Enum):
@@ -19,7 +20,7 @@ class ExperimentStatus(str, Enum):
     COMPLETED = "completed"
 
 
-class Experiment(SQLModel, table=True):
+class Experiment(TenantScopedModel, table=True):
     """实验表"""
 
     __tablename__ = "experiments"
@@ -54,7 +55,7 @@ class Experiment(SQLModel, table=True):
     )
 
 
-class ExperimentVariant(SQLModel, table=True):
+class ExperimentVariant(TenantScopedModel, table=True):
     """实验变体表"""
 
     __tablename__ = "experiment_variants"
@@ -98,7 +99,7 @@ class ExperimentVariant(SQLModel, table=True):
     )
 
 
-class ExperimentAssignment(SQLModel, table=True):
+class ExperimentAssignment(TenantScopedModel, table=True):
     """实验用户分配表"""
 
     __tablename__ = "experiment_assignments"
@@ -116,7 +117,7 @@ class ExperimentAssignment(SQLModel, table=True):
     )
 
 
-class ExperimentMetrics(SQLModel, table=True):
+class ExperimentMetrics(TenantScopedModel, table=True):
     __tablename__ = "experiment_metrics"
 
     id: int | None = Field(default=None, primary_key=True)

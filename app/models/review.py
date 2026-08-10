@@ -2,9 +2,10 @@ from datetime import datetime
 from enum import Enum
 
 from sqlalchemy import JSON, Column, DateTime, text
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field
 
 from app.core.utils import utc_now
+from app.models.tenant import TenantScopedModel
 
 
 class ReviewStatus(str, Enum):
@@ -14,7 +15,7 @@ class ReviewStatus(str, Enum):
     ESCALATED = "escalated"
 
 
-class ReviewTicket(SQLModel, table=True):
+class ReviewTicket(TenantScopedModel, table=True):
     __tablename__ = "review_tickets"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -49,7 +50,7 @@ class ReviewTicket(SQLModel, table=True):
     transfer_reason: str | None = Field(default=None, max_length=64)
 
 
-class ReviewerMetrics(SQLModel, table=True):
+class ReviewerMetrics(TenantScopedModel, table=True):
     __tablename__ = "reviewer_metrics"
 
     id: int | None = Field(default=None, primary_key=True)

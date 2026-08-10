@@ -9,7 +9,8 @@ from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconn
 from opentelemetry import trace
 
 from app.core.logging import generate_correlation_id, set_correlation_id
-from app.core.security import extract_bearer_token, get_current_user_id_ws, verify_admin_token
+from app.core.redis import get_redis_client
+from app.core.security import extract_bearer_token, get_admin_user_id_ws, get_current_user_id_ws
 from app.core.utils import build_thread_id
 
 router = APIRouter()
@@ -45,7 +46,8 @@ async def websocket_endpoint(
             return
         try:
             # 验证 Token
-            user_id = await get_current_user_id_ws(token)
+            redis = getattr(websocket.app.state, "redis_client", None) or await get_redis_client()
+            user_id = await get_current_user_id_ws(token, redis)
             span.set_attribute("websocket.user_id", user_id)
         except HTTPException as exc:
             if exc.status_code in (401, 403):
@@ -110,7 +112,8 @@ async def admin_websocket_endpoint(
             await websocket.close(code=1008, reason="Missing authentication token")
             return
         try:
-            token_admin_id = verify_admin_token(token)
+            redis = getattr(websocket.app.state, "redis_client", None) or await get_redis_client()
+            token_admin_id = await get_admin_user_id_ws(token, redis)
         except HTTPException:
             logger.warning(" [WS] 管理员认证失败")
             await websocket.close(code=1008, reason="Authentication failed")

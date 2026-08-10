@@ -21,12 +21,15 @@ E-commerce Smart Agent 是一个先进的全栈智能客服系统，旨在通过
 ## 快速开始
 
 ```bash
-# 启动整个系统（后端 + 前端构建 + 基础设施）
-./start.sh
+# WSL + Docker：启动完整系统（推荐）
+./start_docker.sh
 
-# 启动 Celery Worker（推荐：自动等待依赖服务就绪）
-./start_worker.sh
+# WSL 本地进程 + Docker 基础设施
+./start.sh
 ```
+
+`start_docker.sh` 会构建镜像、等待基础设施、执行数据库迁移，并强制重建应用容器，
+以避免 WSL 重启后旧容器继续使用失效的源码目录挂载。
 
 启动后访问：
 - API: http://localhost:8000

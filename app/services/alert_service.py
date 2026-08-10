@@ -19,6 +19,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
 from app.core.email import send_email
+from app.core.tenancy import namespaced_key
 from app.models.alert import (
     AlertChannel,
     AlertEvent,
@@ -237,7 +238,7 @@ class AlertService:
         metadata: dict[str, Any] | None = None,
     ) -> AlertEvent | None:
         """Fire an alert event if not suppressed."""
-        cache_key = f"alert:suppressed:{rule.id}:{rule.name}"
+        cache_key = namespaced_key(f"alert:suppressed:{rule.id}:{rule.name}")
         now = datetime.now(UTC)
 
         # Check suppression outside the lock to avoid blocking on Redis I/O.
@@ -573,7 +574,7 @@ class AlertService:
         metadata: dict[str, Any] | None = None,
     ) -> AlertEvent | None:
         """Fire an alert event synchronously for Celery tasks."""
-        cache_key = f"alert:suppressed:{rule.id}:{rule.name}"
+        cache_key = namespaced_key(f"alert:suppressed:{rule.id}:{rule.name}")
         now = datetime.now(UTC)
 
         suppressed = False

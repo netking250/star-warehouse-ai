@@ -53,7 +53,7 @@ function CSATTrendCard() {
                           : 'destructive'
                     }
                   >
-                      {trend.avg_score != null ? trend.avg_score.toFixed(2) : '-'}
+                    {trend.avg_score != null ? trend.avg_score.toFixed(2) : '-'}
                   </Badge>
                 </div>
               </div>

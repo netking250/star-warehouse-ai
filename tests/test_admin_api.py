@@ -16,6 +16,15 @@ from app.models.user import User
 from app.tasks.refund_tasks import process_refund_payment
 
 
+@pytest.fixture(autouse=True)
+def _mock_dispatched_admin_tasks(monkeypatch):
+    """Keep API assertions deterministic while testing task bodies separately."""
+    monkeypatch.setattr(
+        "app.services.admin_service.process_refund_payment.delay", lambda **kwargs: None
+    )
+    monkeypatch.setattr("app.services.admin_service.send_refund_sms.delay", lambda **kwargs: None)
+
+
 async def create_admin_user() -> tuple[User, str]:
     unique = uuid.uuid4().hex[:8]
     username = f"admin_{unique}"

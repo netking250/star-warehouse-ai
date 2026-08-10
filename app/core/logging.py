@@ -21,5 +21,10 @@ def set_correlation_id(cid: str) -> None:
     correlation_id.set(cid)
 
 
+def get_correlation_id() -> str:
+    """Return the active request correlation ID."""
+    return correlation_id.get() or "-"
+
+
 def generate_correlation_id() -> str:
     return uuid.uuid4().hex[:16]

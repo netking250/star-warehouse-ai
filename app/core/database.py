@@ -1,13 +1,49 @@
 # app/core/database.py
 from collections.abc import AsyncGenerator, Generator
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session as SQLAlchemySession
+from sqlalchemy.orm import sessionmaker, with_loader_criteria
 from sqlmodel import Session
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
+from app.core.tenancy import TenantIsolationError, get_current_tenant_id
+from app.models.tenant import TenantScopedModel
+
+
+@event.listens_for(SQLAlchemySession, "do_orm_execute")
+def _enforce_tenant_select(execute_state) -> None:
+    """Inject the active tenant predicate into every ORM SELECT."""
+    if not execute_state.is_select or execute_state.execution_options.get("skip_tenant_scope"):
+        return
+    tenant_id = get_current_tenant_id()
+    statement = execute_state.statement
+    for mapper in execute_state.all_mappers:
+        model = mapper.class_
+        if not issubclass(model, TenantScopedModel):
+            continue
+        statement = statement.options(
+            with_loader_criteria(
+                model,
+                lambda scoped_model: scoped_model.tenant_id == tenant_id,
+                include_aliases=True,
+            )
+        )
+    execute_state.statement = statement
+
+
+@event.listens_for(SQLAlchemySession, "before_flush")
+def _enforce_tenant_writes(session: SQLAlchemySession, _flush_context, _instances) -> None:
+    """Reject inserts and updates that target another tenant."""
+    active_tenant = get_current_tenant_id()
+    for record in session.new.union(session.dirty):
+        if isinstance(record, TenantScopedModel) and record.tenant_id != active_tenant:
+            raise TenantIsolationError(
+                f"Cannot write tenant {record.tenant_id!r} while scoped to {active_tenant!r}"
+            )
+
 
 _async_connect_args = {
     "timeout": settings.DB_CONNECT_TIMEOUT,

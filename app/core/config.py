@@ -60,6 +60,7 @@ class ConfidenceSettings(BaseSettings):
 class Settings(BaseSettings):
     PROJECT_NAME: str
     API_V1_STR: str
+    ENVIRONMENT: str = "development"
 
     # Database
     POSTGRES_SERVER: str
@@ -203,6 +204,11 @@ class Settings(BaseSettings):
     ALGORITHM: str
     # Token 有效期（分钟），默认 1 天
     ACCESS_TOKEN_EXPIRE_MINUTES: int
+    JWT_ISSUER: str = "star-warehouse-ai"
+    JWT_AUDIENCE: str = "star-warehouse-api"
+    OIDC_USERINFO_URL: str = ""
+    OIDC_TIMEOUT_SECONDS: float = 5.0
+    OIDC_ALLOW_INSECURE_HTTP: bool = False
 
     # CORS 配置
     CORS_ORIGINS: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])

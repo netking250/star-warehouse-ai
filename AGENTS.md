@@ -105,6 +105,9 @@ For any other area, this root file applies.
 ### Setup & Run
 
 ```bash
+# Full Docker startup (recommended for WSL; recreates application containers to refresh bind mounts)
+./start_docker.sh
+
 # One-shot startup (infrastructure + backend + frontend build)
 ./start.sh
 

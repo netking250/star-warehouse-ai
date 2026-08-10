@@ -9,6 +9,7 @@ from app.core.config import settings
 from app.core.database import get_session
 from app.core.redis import create_redis_client
 from app.core.security import get_admin_user_id
+from app.core.tenancy import namespaced_key
 from app.models.memory import AgentConfig, AgentConfigAuditLog, AgentConfigVersion, RoutingRule
 from app.models.multi_intent_log import MultiIntentDecisionLog
 from app.models.prompt_effect_report import PromptEffectReport
@@ -34,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 
 def _cache_key(agent_name: str) -> str:
-    return f"agent_config:{agent_name}"
+    return namespaced_key(f"agent_config:{agent_name}")
 
 
 async def _get_cached_config(redis, agent_name: str) -> dict | None:

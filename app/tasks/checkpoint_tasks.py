@@ -7,6 +7,7 @@ from asgiref.sync import async_to_sync
 
 from app.celery_app import celery_app
 from app.core.redis import create_redis_client
+from app.core.tenancy import namespaced_key
 from app.observability.metrics import record_checkpoint_cleanup
 
 logger = logging.getLogger(__name__)
@@ -19,9 +20,10 @@ async def _cleanup_checkpoints_async() -> dict[str, Any]:
     try:
         total_removed = 0
 
-        async for key in redis_client.scan_iter(match="ckpt_index:*"):
+        async for key in redis_client.scan_iter(match=namespaced_key("ckpt_index:*")):
             key_str = key.decode() if isinstance(key, bytes) else key
-            parts = key_str.split(":")
+            logical_key = key_str.split(":", 2)[2]
+            parts = logical_key.split(":")
             if len(parts) < 3:
                 continue
             thread_id = parts[1]
@@ -33,7 +35,7 @@ async def _cleanup_checkpoints_async() -> dict[str, Any]:
                 pipe = redis_client.pipeline()
                 for cid in to_remove:
                     cid_str = cid.decode() if isinstance(cid, bytes) else cid
-                    opt_key = f"ckpt_opt:{thread_id}:{checkpoint_ns}:{cid_str}"
+                    opt_key = namespaced_key(f"ckpt_opt:{thread_id}:{checkpoint_ns}:{cid_str}")
                     pipe.delete(opt_key)
                 pipe.zrem(key_str, *to_remove)
                 await pipe.execute()

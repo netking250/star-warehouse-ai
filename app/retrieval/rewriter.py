@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from redis.exceptions import RedisError
 
 from app.core.config import settings
+from app.core.tenancy import namespaced_key
 from app.core.tracing import build_llm_config
 
 logger = logging.getLogger(__name__)
@@ -108,7 +109,7 @@ class QueryRewriter:
         if not self.redis or not settings.CONFIDENCE.ENABLE_CACHE:
             return None
         try:
-            cached = await self.redis.get(cache_key)
+            cached = await self.redis.get(namespaced_key(cache_key))
             if cached:
                 if isinstance(cached, bytes):
                     cached = cached.decode("utf-8")
@@ -121,7 +122,7 @@ class QueryRewriter:
         if not self.redis or not settings.CONFIDENCE.ENABLE_CACHE:
             return
         try:
-            await self.redis.setex(cache_key, self.cache_ttl_seconds, value)
+            await self.redis.setex(namespaced_key(cache_key), self.cache_ttl_seconds, value)
         except (RedisError, ConnectionError, OSError):
             logger.exception("Failed to write query rewrite cache")
 

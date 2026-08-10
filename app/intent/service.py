@@ -9,6 +9,7 @@ import redis.asyncio as aioredis
 from langchain_core.language_models.chat_models import BaseChatModel
 
 from app.core.cache import CacheManager
+from app.core.tenancy import namespaced_key
 from app.intent.clarification import ClarificationEngine, ClarificationResponse
 from app.intent.classifier import IntentClassifier
 from app.intent.models import ClarificationState, IntentAction, IntentCategory, IntentResult
@@ -131,7 +132,7 @@ class IntentRecognitionService:
 
     async def _load_session_state(self, session_id: str) -> ClarificationState | None:
         try:
-            key = f"intent:session:{session_id}"
+            key = namespaced_key(f"intent:session:{session_id}")
             data = await self.redis.get(key)
             if data:
                 return ClarificationState.model_validate_json(data)
@@ -141,7 +142,7 @@ class IntentRecognitionService:
 
     async def _save_session_state(self, state: ClarificationState) -> None:
         try:
-            key = f"intent:session:{state.session_id}"
+            key = namespaced_key(f"intent:session:{state.session_id}")
             await self.redis.setex(key, self.session_cache_ttl, state.model_dump_json())
         except aioredis.RedisError as e:
             logger.warning(f"Failed to save session state: {e}")

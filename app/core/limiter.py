@@ -8,6 +8,7 @@ from fastapi import HTTPException, Request, status
 from slowapi import Limiter
 
 from app.core.config import settings
+from app.core.tenancy import namespaced_key
 from app.observability.metrics import record_rate_limit_hit
 
 
@@ -48,7 +49,7 @@ async def check_user_rate_limit(
         HTTPException: 429 Too Many Requests if limit exceeded.
     """
     window_key = int(time.time()) // window_seconds
-    key = f"rate_limit:user:{user_id}:{window_key}"
+    key = namespaced_key(f"rate_limit:user:{user_id}:{window_key}")
 
     pipe = redis.pipeline()
     pipe.incr(key)

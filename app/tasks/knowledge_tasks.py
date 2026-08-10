@@ -17,6 +17,7 @@ from app.celery_app import celery_app
 from app.core.config import settings
 from app.core.database import sync_session_maker
 from app.core.redis import create_redis_client
+from app.core.tenancy import namespaced_key
 from app.core.utils import utc_now
 from app.models.knowledge_document import KnowledgeDocument
 from app.retrieval.client import QdrantKnowledgeClient
@@ -31,7 +32,7 @@ def _invalidate_retrieval_cache() -> None:
 
         async def _do_invalidate() -> None:
             keys: list[str] = []
-            async for key in client.scan_iter(match="retrieval:*"):
+            async for key in client.scan_iter(match=namespaced_key("retrieval:*")):
                 keys.append(key)
             if keys:
                 await client.delete(*keys)

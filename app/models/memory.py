@@ -1,13 +1,14 @@
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import JSON, Column, DateTime, text
-from sqlmodel import Field, SQLModel
+from sqlalchemy import JSON, Column, DateTime, UniqueConstraint, text
+from sqlmodel import Field
 
 from app.core.utils import utc_now
+from app.models.tenant import TenantScopedModel
 
 
-class UserProfile(SQLModel, table=True):
+class UserProfile(TenantScopedModel, table=True):
     """用户画像表"""
 
     __tablename__ = "user_profiles"
@@ -38,7 +39,7 @@ class UserProfile(SQLModel, table=True):
     )
 
 
-class UserPreference(SQLModel, table=True):
+class UserPreference(TenantScopedModel, table=True):
     """用户偏好表"""
 
     __tablename__ = "user_preferences"
@@ -66,7 +67,7 @@ class UserPreference(SQLModel, table=True):
     )
 
 
-class InteractionSummary(SQLModel, table=True):
+class InteractionSummary(TenantScopedModel, table=True):
     """对话摘要表"""
 
     __tablename__ = "interaction_summaries"
@@ -96,7 +97,7 @@ class InteractionSummary(SQLModel, table=True):
     )
 
 
-class UserFact(SQLModel, table=True):
+class UserFact(TenantScopedModel, table=True):
     """用户事实表"""
 
     __tablename__ = "user_facts"
@@ -128,13 +129,16 @@ class UserFact(SQLModel, table=True):
     )
 
 
-class AgentConfig(SQLModel, table=True):
+class AgentConfig(TenantScopedModel, table=True):
     """Agent 配置表"""
 
     __tablename__ = "agent_configs"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "agent_name", name="uq_agent_configs_tenant_name"),
+    )
 
     id: int | None = Field(default=None, primary_key=True)
-    agent_name: str = Field(unique=True, index=True, max_length=32, description="Agent 名称")
+    agent_name: str = Field(index=True, max_length=32, description="Agent 名称")
     system_prompt: str | None = Field(default=None, description="系统提示词")
     previous_system_prompt: str | None = Field(
         default=None, description="上一次系统提示词，用于回滚"
@@ -154,7 +158,7 @@ class AgentConfig(SQLModel, table=True):
     )
 
 
-class RoutingRule(SQLModel, table=True):
+class RoutingRule(TenantScopedModel, table=True):
     """路由规则表"""
 
     __tablename__ = "routing_rules"
@@ -187,7 +191,7 @@ class RoutingRule(SQLModel, table=True):
     )
 
 
-class AgentConfigVersion(SQLModel, table=True):
+class AgentConfigVersion(TenantScopedModel, table=True):
     """Agent 配置版本快照表"""
 
     __tablename__ = "agent_config_versions"
@@ -208,7 +212,7 @@ class AgentConfigVersion(SQLModel, table=True):
     )
 
 
-class AgentConfigAuditLog(SQLModel, table=True):
+class AgentConfigAuditLog(TenantScopedModel, table=True):
     """Agent 配置变更审计日志表"""
 
     __tablename__ = "agent_config_audit_logs"

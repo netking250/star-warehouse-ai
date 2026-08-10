@@ -9,9 +9,10 @@ from enum import Enum
 from typing import Any
 
 from sqlalchemy import JSON, Column, DateTime, String, text
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field
 
 from app.core.utils import utc_now
+from app.models.tenant import TenantScopedModel
 
 
 class MessageType(str, Enum):
@@ -35,7 +36,7 @@ class MessageStatus(str, Enum):
     FAILED = "failed"  # 发送失败
 
 
-class MessageCard(SQLModel, table=True):
+class MessageCard(TenantScopedModel, table=True):
     """结构化消息表 - 支持富媒体卡片"""
 
     __tablename__ = "message_cards"

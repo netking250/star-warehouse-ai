@@ -52,13 +52,10 @@ export function FeedbackWidget({
     }
   }, [autoTrigger, confidenceScore])
 
-  const handleSentimentClick = useCallback(
-    (sentiment: 'up' | 'down') => {
-      setSelectedSentiment(sentiment)
-      setIsExpanded(true)
-    },
-    []
-  )
+  const handleSentimentClick = useCallback((sentiment: 'up' | 'down') => {
+    setSelectedSentiment(sentiment)
+    setIsExpanded(true)
+  }, [])
 
   const handleSubmit = useCallback(() => {
     if (!selectedSentiment) return
@@ -148,7 +145,10 @@ export function FeedbackWidget({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor={`feedback-comment-${messageId}`} className="text-xs font-medium text-gray-700">
+            <Label
+              htmlFor={`feedback-comment-${messageId}`}
+              className="text-xs font-medium text-gray-700"
+            >
               详细说明（可选）
             </Label>
             <Textarea
@@ -163,12 +163,7 @@ export function FeedbackWidget({
           </div>
 
           <div className="flex items-center justify-end gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleCancel}
-              className="h-7 text-xs"
-            >
+            <Button variant="ghost" size="sm" onClick={handleCancel} className="h-7 text-xs">
               <X className="h-3 w-3 mr-1" />
               取消
             </Button>

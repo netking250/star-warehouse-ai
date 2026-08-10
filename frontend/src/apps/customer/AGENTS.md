@@ -19,20 +19,21 @@ Customer-facing chat SPA. Vite multi-page entry via `index.html`, served by Fast
 
 ## Key Files
 
-| Task         | File                                                        | Notes                                                  |
-| ------------ | ----------------------------------------------------------- | ------------------------------------------------------ |
-| Page routing | `@frontend/src/apps/customer/App.tsx`                        | Single-route chat interface (React Router)             |
-| App mount    | `@frontend/src/apps/customer/main.tsx`                       | Vite multi-page mount point                            |
-| Chat logic   | `@frontend/src/apps/customer/hooks/useChat.ts`               | SSE streaming, message state management                |
-| Message list | `@frontend/src/apps/customer/components/ChatMessageList.tsx` | Message rendering                                      |
-| Chat input   | `@frontend/src/apps/customer/components/ChatInput.tsx`       | User input box                                         |
-| User feedback | `@frontend/src/apps/customer/components/FeedbackWidget.tsx` | User feedback widget for chat messages (thumbs up/down, rating) |
-| Shared UI    | `@frontend/src/components/ui/`                               | shadcn/ui components (Button, Input, ScrollArea, etc.) |
-| API wrapper  | `@frontend/src/lib/api.ts`                                   | Unified `fetch` with request header factory            |
-| Query client | `@frontend/src/lib/query-client.ts`                          | TanStack Query client configuration                    |
-| Risk utilities | `@frontend/src/lib/risk.ts`                                | Risk assessment utilities                              |
-| Utils        | `@frontend/src/lib/utils.ts`                                 | General utility functions                              |
-| Shared types | `@frontend/src/types/index.ts`                               | Message types and common TypeScript types              |
+| Task           | File                                                         | Notes                                                           |
+| -------------- | ------------------------------------------------------------ | --------------------------------------------------------------- |
+| Page routing   | `@frontend/src/apps/customer/App.tsx`                        | Single-route chat interface (React Router)                      |
+| App mount      | `@frontend/src/apps/customer/main.tsx`                       | Vite multi-page mount point                                     |
+| Chat logic     | `@frontend/src/apps/customer/hooks/useChat.ts`               | SSE streaming, message state management                         |
+| Message list   | `@frontend/src/apps/customer/components/ChatMessageList.tsx` | Message rendering                                               |
+| Chat input     | `@frontend/src/apps/customer/components/ChatInput.tsx`       | User input box                                                  |
+| User feedback  | `@frontend/src/apps/customer/components/FeedbackWidget.tsx`  | User feedback widget for chat messages (thumbs up/down, rating) |
+| Shared UI      | `@frontend/src/components/ui/`                               | shadcn/ui components (Button, Input, ScrollArea, etc.)          |
+| Brand UI       | `@frontend/src/components/brand/StarWarehouseLogo.tsx`       | Shared 星仓AI mark; reuse instead of duplicating logos          |
+| API wrapper    | `@frontend/src/lib/api.ts`                                   | Unified `fetch` with request header factory                     |
+| Query client   | `@frontend/src/lib/query-client.ts`                          | TanStack Query client configuration                             |
+| Risk utilities | `@frontend/src/lib/risk.ts`                                  | Risk assessment utilities                                       |
+| Utils          | `@frontend/src/lib/utils.ts`                                 | General utility functions                                       |
+| Shared types   | `@frontend/src/types/index.ts`                               | Message types and common TypeScript types                       |
 
 ## Commands
 
@@ -78,6 +79,7 @@ General frontend rules are defined in the root `AGENTS.md`. Customer-specific co
 - **API proxy**: In dev mode, Vite proxies `/api` to `localhost:8000`.
 - **Type reuse**: Message types are defined in `@frontend/src/types/index.ts`.
 - **Single source of truth**: All chat-related state (message list, loading, error) is managed in `hooks/useChat.ts`.
+- **Brand consistency**: Reuse `StarWarehouseLogo` and the shared brand tokens in `globals.css` for customer-facing identity.
 
 ## State Management
 
@@ -85,11 +87,11 @@ The customer frontend is a single-page chat interface. All state (message list, 
 
 ### Why Component-Local useState + useChat.ts
 
-| Concern | Solution | Rationale |
-|---------|----------|-----------|
-| Chat session state | `useChat.ts` custom hook | Encapsulates SSE stream handling, message ordering, and retry logic in one place. |
-| UI state | Component-local `useState` | Input focus, scroll position, and modal visibility are short-lived and private to each component. |
-| Session-local state | No global store needed | Chat messages are tied to the current browser session and discarded on refresh. There is no cross-page data sharing and no complex entity caching. |
+| Concern             | Solution                   | Rationale                                                                                                                                          |
+| ------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Chat session state  | `useChat.ts` custom hook   | Encapsulates SSE stream handling, message ordering, and retry logic in one place.                                                                  |
+| UI state            | Component-local `useState` | Input focus, scroll position, and modal visibility are short-lived and private to each component.                                                  |
+| Session-local state | No global store needed     | Chat messages are tied to the current browser session and discarded on refresh. There is no cross-page data sharing and no complex entity caching. |
 
 The `useChat.ts` pattern was chosen over a global store like Zustand or TanStack Query because session-local chat state is short-lived and does not benefit from cross-component caching or server-state synchronization. A global store would add indirection without solving any real coordination problem.
 

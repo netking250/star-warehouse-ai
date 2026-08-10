@@ -3,7 +3,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { AlertTriangle, TrendingUp, TrendingDown, Activity, Clock, Shield, Zap, Calendar, BarChart3, LayoutDashboard } from 'lucide-react'
+import {
+  AlertTriangle,
+  TrendingUp,
+  TrendingDown,
+  Activity,
+  Clock,
+  Shield,
+  Zap,
+  Calendar,
+  BarChart3,
+  LayoutDashboard,
+} from 'lucide-react'
 
 import {
   useDashboardSummary,
@@ -20,7 +31,10 @@ import { GrafanaPanelGrid } from '../components/GrafanaPanelGrid'
 type TimeRange = '24h' | '7d' | '30d'
 type ViewMode = 'grafana' | 'legacy'
 
-const timeRangeConfig: Record<TimeRange, { hours: number; days: number; label: string; grafanaFrom: string }> = {
+const timeRangeConfig: Record<
+  TimeRange,
+  { hours: number; days: number; label: string; grafanaFrom: string }
+> = {
   '24h': { hours: 24, days: 1, label: '最近24小时', grafanaFrom: 'now-24h' },
   '7d': { hours: 168, days: 7, label: '最近7天', grafanaFrom: 'now-7d' },
   '30d': { hours: 720, days: 30, label: '最近30天', grafanaFrom: 'now-30d' },
@@ -57,7 +71,11 @@ function SummaryCard({
   )
 }
 
-function AlertsPanel({ alerts, isLoading, error }: {
+function AlertsPanel({
+  alerts,
+  isLoading,
+  error,
+}: {
   alerts: ReturnType<typeof useDashboardAlerts>['data']
   isLoading: boolean
   error: ReturnType<typeof useDashboardAlerts>['error']
@@ -149,7 +167,11 @@ function AlertsPanel({ alerts, isLoading, error }: {
   )
 }
 
-function IntentAccuracyCard({ trends, isLoading, error }: {
+function IntentAccuracyCard({
+  trends,
+  isLoading,
+  error,
+}: {
   trends: ReturnType<typeof useIntentAccuracyTrend>['data']
   isLoading: boolean
   error: ReturnType<typeof useIntentAccuracyTrend>['error']
@@ -199,7 +221,11 @@ function IntentAccuracyCard({ trends, isLoading, error }: {
   )
 }
 
-function TransferReasonsCard({ reasons, isLoading, error }: {
+function TransferReasonsCard({
+  reasons,
+  isLoading,
+  error,
+}: {
   reasons: ReturnType<typeof useTransferReasons>['data']
   isLoading: boolean
   error: ReturnType<typeof useTransferReasons>['error']
@@ -246,7 +272,11 @@ function TransferReasonsCard({ reasons, isLoading, error }: {
   )
 }
 
-function TokenUsageCard({ usage, isLoading, error }: {
+function TokenUsageCard({
+  usage,
+  isLoading,
+  error,
+}: {
   usage: ReturnType<typeof useTokenUsage>['data']
   isLoading: boolean
   error: ReturnType<typeof useTokenUsage>['error']
@@ -290,7 +320,11 @@ function TokenUsageCard({ usage, isLoading, error }: {
   )
 }
 
-function LatencyTrendCard({ trends, isLoading, error }: {
+function LatencyTrendCard({
+  trends,
+  isLoading,
+  error,
+}: {
   trends: ReturnType<typeof useLatencyTrend>['data']
   isLoading: boolean
   error: ReturnType<typeof useLatencyTrend>['error']
@@ -331,7 +365,11 @@ function LatencyTrendCard({ trends, isLoading, error }: {
   )
 }
 
-function RAGPrecisionCard({ items, isLoading, error }: {
+function RAGPrecisionCard({
+  items,
+  isLoading,
+  error,
+}: {
   items: ReturnType<typeof useRAGPrecision>['data']
   isLoading: boolean
   error: ReturnType<typeof useRAGPrecision>['error']
@@ -357,7 +395,9 @@ function RAGPrecisionCard({ items, isLoading, error }: {
               <div key={index} className="flex items-center justify-between text-sm">
                 <span className="font-medium">{item.date.slice(0, 10)}</span>
                 <div className="flex items-center gap-4">
-                  <span className="text-muted-foreground">avg: {item.avg_score != null ? item.avg_score.toFixed(2) : '-'}</span>
+                  <span className="text-muted-foreground">
+                    avg: {item.avg_score != null ? item.avg_score.toFixed(2) : '-'}
+                  </span>
                   <span className="text-muted-foreground">{item.count} queries</span>
                 </div>
               </div>
@@ -371,7 +411,11 @@ function RAGPrecisionCard({ items, isLoading, error }: {
   )
 }
 
-function HallucinationRateCard({ items, isLoading, error }: {
+function HallucinationRateCard({
+  items,
+  isLoading,
+  error,
+}: {
   items: ReturnType<typeof useHallucinationRate>['data']
   isLoading: boolean
   error: ReturnType<typeof useHallucinationRate>['error']
@@ -398,7 +442,9 @@ function HallucinationRateCard({ items, isLoading, error }: {
                 <span className="font-medium">{item.date.slice(0, 10)}</span>
                 <div className="flex items-center gap-4">
                   <span className="text-muted-foreground">
-                    {item.hallucination_rate != null ? `${(item.hallucination_rate * 100).toFixed(1)}%` : '-'}
+                    {item.hallucination_rate != null
+                      ? `${(item.hallucination_rate * 100).toFixed(1)}%`
+                      : '-'}
                   </span>
                   <span className="text-muted-foreground">{item.sampled_count} sampled</span>
                 </div>
@@ -413,21 +459,45 @@ function HallucinationRateCard({ items, isLoading, error }: {
   )
 }
 
-function LegacyMetricsView({
-  timeRange,
-}: {
-  timeRange: TimeRange
-}) {
+function LegacyMetricsView({ timeRange }: { timeRange: TimeRange }) {
   const config = timeRangeConfig[timeRange]
 
   const { data: summary, isLoading: summaryLoading } = useDashboardSummary(config.hours)
-  const { data: intentAccuracy, isLoading: intentLoading, error: intentError } = useIntentAccuracyTrend(config.hours)
-  const { data: transferReasons, isLoading: transferLoading, error: transferError } = useTransferReasons(config.days)
-  const { data: tokenUsage, isLoading: tokenLoading, error: tokenError } = useTokenUsage(config.days)
-  const { data: latencyTrend, isLoading: latencyLoading, error: latencyError } = useLatencyTrend(config.hours)
-  const { data: ragPrecision, isLoading: ragLoading, error: ragError } = useRAGPrecision(config.days)
-  const { data: hallucinationRate, isLoading: hallLoading, error: hallError } = useHallucinationRate(config.days)
-  const { data: alerts, isLoading: alertsLoading, error: alertsError } = useDashboardAlerts(config.hours)
+  const {
+    data: intentAccuracy,
+    isLoading: intentLoading,
+    error: intentError,
+  } = useIntentAccuracyTrend(config.hours)
+  const {
+    data: transferReasons,
+    isLoading: transferLoading,
+    error: transferError,
+  } = useTransferReasons(config.days)
+  const {
+    data: tokenUsage,
+    isLoading: tokenLoading,
+    error: tokenError,
+  } = useTokenUsage(config.days)
+  const {
+    data: latencyTrend,
+    isLoading: latencyLoading,
+    error: latencyError,
+  } = useLatencyTrend(config.hours)
+  const {
+    data: ragPrecision,
+    isLoading: ragLoading,
+    error: ragError,
+  } = useRAGPrecision(config.days)
+  const {
+    data: hallucinationRate,
+    isLoading: hallLoading,
+    error: hallError,
+  } = useHallucinationRate(config.days)
+  const {
+    data: alerts,
+    isLoading: alertsLoading,
+    error: alertsError,
+  } = useDashboardAlerts(config.hours)
 
   return (
     <>
@@ -516,13 +586,21 @@ function LegacyMetricsView({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <TransferReasonsCard reasons={transferReasons} isLoading={transferLoading} error={transferError} />
+        <TransferReasonsCard
+          reasons={transferReasons}
+          isLoading={transferLoading}
+          error={transferError}
+        />
         <TokenUsageCard usage={tokenUsage} isLoading={tokenLoading} error={tokenError} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <RAGPrecisionCard items={ragPrecision} isLoading={ragLoading} error={ragError} />
-        <HallucinationRateCard items={hallucinationRate} isLoading={hallLoading} error={hallError} />
+        <HallucinationRateCard
+          items={hallucinationRate}
+          isLoading={hallLoading}
+          error={hallError}
+        />
       </div>
 
       <LatencyTrendCard trends={latencyTrend} isLoading={latencyLoading} error={latencyError} />
@@ -535,7 +613,11 @@ export function MetricsPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('grafana')
   const config = timeRangeConfig[timeRange]
 
-  const { data: alerts, isLoading: alertsLoading, error: alertsError } = useDashboardAlerts(config.hours)
+  const {
+    data: alerts,
+    isLoading: alertsLoading,
+    error: alertsError,
+  } = useDashboardAlerts(config.hours)
 
   return (
     <div className="space-y-6 p-4 overflow-auto">
@@ -588,11 +670,7 @@ export function MetricsPage() {
               </CardContent>
             </Card>
           </div>
-          <GrafanaPanelGrid
-            timeRangeFrom={config.grafanaFrom}
-            timeRangeTo="now"
-            theme="light"
-          />
+          <GrafanaPanelGrid timeRangeFrom={config.grafanaFrom} timeRangeTo="now" theme="light" />
         </TabsContent>
 
         <TabsContent value="legacy">

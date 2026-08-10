@@ -8,6 +8,7 @@ from sqlalchemy import func, text
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.core.tenancy import get_current_tenant_id
 from app.core.utils import utc_now
 from app.models.token_usage import (
     OptimizationSuggestion,
@@ -232,11 +233,11 @@ class TokenTracker:
             """
             SELECT user_id, SUM(total_tokens) as daily_total
             FROM token_usage_logs
-            WHERE created_at >= :since
+            WHERE created_at >= :since AND tenant_id = :tenant_id
             GROUP BY user_id
             HAVING SUM(total_tokens) > 100000
             """
-        ).bindparams(since=today_start)
+        ).bindparams(since=today_start, tenant_id=get_current_tenant_id())
         result = await self.session.exec(stmt)  # type: ignore
         for row in result.mappings().all():
             alerts.append(

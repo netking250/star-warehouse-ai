@@ -69,6 +69,8 @@ General Python rules are defined in the root `AGENTS.md`. API-specific conventio
 - **Versioning**: All routes under `/api/v1/` prefix.
 - **SSE format**: Chat responses use SSE with `data:` prefix and JSON payload.
 - **Auth**: Use OAuth2 bearer tokens; validate in dependency functions.
+- **Tenant context**: Prefer `AuthContext = Depends(get_active_auth_context)` when tenant, role, scope, session, or correlation data is needed. Never accept `tenant_id` from an untrusted request body when it is already available in the token.
+- **Revocation**: Every protected REST/SSE/WebSocket entry point must check Redis-backed token revocation; do not use signature-only JWT helpers as route dependencies.
 - **Admin routes**: All admin routes under `/api/v1/admin/` with admin auth requirements.
 - **Rate limiting**: Chat endpoint enforces dual rate limits: 60 req/min per IP (slowapi) and 10 req/min per user (Redis-based fixed window). Per-user limits are checked before LLM calls to prevent abuse.
 

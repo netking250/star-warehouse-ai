@@ -1,6 +1,7 @@
 import pytest
 import pytest_asyncio
 
+from app.core.tenancy import namespaced_key
 from app.models.state import make_agent_state
 from app.tools.cart_tool import CartTool
 
@@ -21,7 +22,7 @@ async def test_cart_tool_query_empty(cart_tool, redis_client):
     assert result.output["items"] == []
     assert result.output["total"] == 0.0
 
-    key = f"{cart_tool._key_prefix}cart:{user_id}"
+    key = f"{cart_tool._key_prefix}{namespaced_key(f'cart:{user_id}')}"
     raw = await redis_client.get(key)
     assert raw is None
 
@@ -47,7 +48,7 @@ async def test_cart_tool_add_item(cart_tool, redis_client):
     assert result.output["quantity"] == 2
     assert result.output["total"] == 199.0
 
-    key = f"{cart_tool._key_prefix}cart:{user_id}"
+    key = f"{cart_tool._key_prefix}{namespaced_key(f'cart:{user_id}')}"
     raw = await redis_client.get(key)
     assert raw is not None
 
@@ -55,7 +56,7 @@ async def test_cart_tool_add_item(cart_tool, redis_client):
 @pytest.mark.asyncio
 async def test_cart_tool_remove_item(cart_tool, redis_client):
     user_id = 1
-    key = f"{cart_tool._key_prefix}cart:{user_id}"
+    key = f"{cart_tool._key_prefix}{namespaced_key(f'cart:{user_id}')}"
     await redis_client.setex(
         key,
         86400,
@@ -78,7 +79,7 @@ async def test_cart_tool_remove_item(cart_tool, redis_client):
 @pytest.mark.asyncio
 async def test_cart_tool_modify_quantity(cart_tool, redis_client):
     user_id = 1
-    key = f"{cart_tool._key_prefix}cart:{user_id}"
+    key = f"{cart_tool._key_prefix}{namespaced_key(f'cart:{user_id}')}"
     await redis_client.setex(
         key,
         86400,

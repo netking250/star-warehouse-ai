@@ -9,9 +9,10 @@ from datetime import datetime
 from enum import Enum
 
 from sqlalchemy import Column, DateTime, text
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field
 
 from app.core.utils import utc_now
+from app.models.tenant import TenantScopedModel
 
 
 class AlertSeverity(str, Enum):
@@ -47,7 +48,7 @@ class AlertChannel(str, Enum):
     OPSGENIE = "opsgenie"
 
 
-class AlertRule(SQLModel, table=True):
+class AlertRule(TenantScopedModel, table=True):
     """Configurable alert rule definition."""
 
     __tablename__ = "alert_rules"
@@ -101,7 +102,7 @@ class AlertRule(SQLModel, table=True):
     )
 
 
-class AlertEvent(SQLModel, table=True):
+class AlertEvent(TenantScopedModel, table=True):
     """Individual alert event (firing or resolved)."""
 
     __tablename__ = "alert_events"
@@ -144,7 +145,7 @@ class AlertEvent(SQLModel, table=True):
     )
 
 
-class AlertNotification(SQLModel, table=True):
+class AlertNotification(TenantScopedModel, table=True):
     """Record of notification delivery attempts."""
 
     __tablename__ = "alert_notifications"

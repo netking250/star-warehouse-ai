@@ -8,7 +8,20 @@
 - Redis 7+
 - Qdrant 1.16+
 
-## 一键启动（推荐首次使用）
+## WSL + Docker 一键启动（推荐）
+
+```bash
+cp .env.example .env
+# 编辑 .env，填写模型 API Key 和安全配置
+./start_docker.sh
+```
+
+该脚本会构建应用镜像、启动并等待 PostgreSQL/Redis/Qdrant、执行数据库迁移，
+再强制重建 FastAPI 与 Celery 容器。强制重建用于刷新 WSL bind mount，避免旧容器恢复后看不到源码。
+
+## WSL 本地开发模式
+
+需要让 FastAPI 和 Celery 直接运行在 WSL 中时，使用：
 
 ```bash
 ./start.sh

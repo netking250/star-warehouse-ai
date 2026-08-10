@@ -1,6 +1,7 @@
 import pytest
 from qdrant_client import models
 
+from app.core.tenancy import tenant_scope
 from app.retrieval.client import QdrantKnowledgeClient
 
 
@@ -16,7 +17,7 @@ async def test_ensure_collection_creates_collection(qdrant_client):
     await knowledge_client.ensure_collection()
 
     collections = await client.get_collections()
-    assert collection_name in [c.name for c in collections.collections]
+    assert knowledge_client.collection_name in [c.name for c in collections.collections]
 
 
 @pytest.mark.asyncio
@@ -61,3 +62,27 @@ async def test_query_hybrid_returns_scored_points_with_payloads(qdrant_client):
     for r in results:
         assert r.payload is not None
         assert "content" in r.payload
+        assert r.payload["tenant_id"] == "default"
+
+
+@pytest.mark.asyncio
+async def test_queries_never_return_another_tenants_chunks(qdrant_client):
+    client, collection_name = qdrant_client
+    knowledge_client = QdrantKnowledgeClient(
+        url="", collection_name=collection_name, api_key="", client=client
+    )
+    await knowledge_client.ensure_collection()
+    point = models.PointStruct(
+        id=1,
+        vector={
+            "dense": [0.1] * 1024,
+            "sparse": models.SparseVector(indices=[0], values=[1.0]),
+        },
+        payload={"content": "blue-only"},
+    )
+    with tenant_scope("tenant-blue"):
+        await knowledge_client.upsert_chunks([point])
+    with tenant_scope("tenant-green"):
+        results = await knowledge_client.query_dense([0.1] * 1024)
+
+    assert results == []

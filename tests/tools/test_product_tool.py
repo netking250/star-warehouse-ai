@@ -49,6 +49,7 @@ async def test_product_tool_search_returns_products(qdrant_client):
                 id=1,
                 vector={"dense": [0.1] * 1024},
                 payload={
+                    "tenant_id": "default",
                     "name": "智能手机 Pro",
                     "description": "旗舰手机",
                     "price": 4999.0,
@@ -88,6 +89,7 @@ async def test_product_tool_direct_answer_from_attributes(qdrant_client):
                 id=1,
                 vector={"dense": [0.1] * 1024},
                 payload={
+                    "tenant_id": "default",
                     "name": "智能手机 Pro",
                     "description": "旗舰手机",
                     "price": 4999.0,
@@ -127,6 +129,7 @@ async def test_product_tool_with_filters(qdrant_client):
                 id=1,
                 vector={"dense": [0.1] * 1024},
                 payload={
+                    "tenant_id": "default",
                     "name": "智能手机 Pro",
                     "description": "旗舰手机",
                     "price": 4999.0,
@@ -140,6 +143,7 @@ async def test_product_tool_with_filters(qdrant_client):
                 id=2,
                 vector={"dense": [0.2] * 1024},
                 payload={
+                    "tenant_id": "default",
                     "name": "普通耳机",
                     "description": "有线耳机",
                     "price": 99.0,
@@ -182,6 +186,7 @@ async def test_product_tool_uses_rewriter_when_available(qdrant_client):
                 id=1,
                 vector={"dense": [0.1] * 1024},
                 payload={
+                    "tenant_id": "default",
                     "name": "智能手机 Pro",
                     "description": "旗舰手机",
                     "price": 4999.0,

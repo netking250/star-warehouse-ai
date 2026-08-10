@@ -3,12 +3,13 @@
 from datetime import datetime
 
 from sqlalchemy import Column, DateTime, text
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field
 
 from app.core.utils import utc_now
+from app.models.tenant import TenantScopedModel
 
 
-class GraphExecutionLog(SQLModel, table=True):
+class GraphExecutionLog(TenantScopedModel, table=True):
     """Log entry for a complete graph execution."""
 
     __tablename__ = "graph_execution_logs"
@@ -39,7 +40,7 @@ class GraphExecutionLog(SQLModel, table=True):
     trace_id: str | None = Field(default=None, max_length=32, description="OpenTelemetry trace ID")
 
 
-class GraphNodeLog(SQLModel, table=True):
+class GraphNodeLog(TenantScopedModel, table=True):
     """Log entry for an individual node execution within a graph run."""
 
     __tablename__ = "graph_node_logs"
@@ -56,7 +57,7 @@ class GraphNodeLog(SQLModel, table=True):
     )
 
 
-class SupervisorDecision(SQLModel, table=True):
+class SupervisorDecision(TenantScopedModel, table=True):
     """Log entry for a supervisor routing decision."""
 
     __tablename__ = "supervisor_decisions"

@@ -40,6 +40,10 @@ async def test_login_success_returns_token_response(client):
     assert data["user_id"] == user_id
     assert data["username"] == username
     assert data["is_admin"] is False
+    assert data["tenant_id"] == "default"
+    assert data["roles"] == ["customer"]
+    assert "chat:use" in data["scopes"]
+    assert data["session_id"]
 
 
 @pytest.mark.asyncio
@@ -123,6 +127,8 @@ async def test_register_success_creates_user_and_returns_token(client):
     assert data["token_type"] == "bearer"
     assert data["username"] == username
     assert data["is_admin"] is False
+    assert data["tenant_id"] == "default"
+    assert data["roles"] == ["customer"]
 
     async with async_session_maker() as session:
         result = await session.exec(select(User).where(User.username == username))
@@ -224,6 +230,9 @@ async def test_me_valid_token_returns_user_info(client):
     assert data["full_name"] == "Me Test"
     assert data["phone"] == "13900139000"
     assert data["is_admin"] is False
+    assert data["tenant_id"] == "default"
+    assert data["roles"] == ["customer"]
+    assert "chat:use" in data["scopes"]
 
 
 @pytest.mark.asyncio

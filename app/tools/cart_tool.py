@@ -5,6 +5,7 @@ import redis.asyncio as aioredis
 from redis.exceptions import RedisError
 
 from app.core.config import settings
+from app.core.tenancy import namespaced_key
 from app.models.state import AgentState
 from app.tools.base import BaseTool, ToolResult
 
@@ -35,7 +36,7 @@ class CartTool(BaseTool):
         price = float(slots.get("price", 0) or kwargs.get("price", 0))
 
         redis = await self._get_redis()
-        key = f"{self._key_prefix}cart:{user_id}"
+        key = f"{self._key_prefix}{namespaced_key(f'cart:{user_id}')}"
 
         try:
             if action == "QUERY":
@@ -119,7 +120,7 @@ class CartTool(BaseTool):
         data = await redis.get(key)
         if data:
             return json.loads(data)
-        return {"user_id": key.split(":", 1)[1], "items": [], "total": 0.0}
+        return {"user_id": key.rsplit(":", 1)[1], "items": [], "total": 0.0}
 
     async def _save_cart(self, redis: aioredis.Redis, key: str, cart: dict) -> None:
         await redis.setex(key, 86400, json.dumps(cart))

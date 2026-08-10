@@ -1,12 +1,13 @@
 from datetime import datetime
 
 from sqlalchemy import Column, DateTime, text
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field
 
 from app.core.utils import utc_now
+from app.models.tenant import TenantScopedModel
 
 
-class KnowledgeDocument(SQLModel, table=True):
+class KnowledgeDocument(TenantScopedModel, table=True):
     __tablename__ = "knowledge_documents"
 
     id: int | None = Field(default=None, primary_key=True)

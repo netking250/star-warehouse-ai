@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.database import get_session
-from app.core.security import get_current_user_id
+from app.core.security import get_active_user_id
 from app.schemas.status import StatusResponse
 from app.services.status_service import StatusService
 
@@ -18,7 +18,7 @@ router = APIRouter()
 @router.get("/status/{thread_id}", response_model=StatusResponse)
 async def get_thread_status(
     thread_id: str,
-    current_user_id: int = Depends(get_current_user_id),
+    current_user_id: int = Depends(get_active_user_id),
     session: AsyncSession = Depends(get_session),
     service: StatusService = Depends(StatusService),
 ):

@@ -2,12 +2,13 @@ from datetime import datetime
 from enum import Enum
 
 from sqlalchemy import JSON, Column, DateTime, text
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field
 
 from app.core.utils import utc_now
+from app.models.tenant import TenantScopedModel
 
 
-class TokenUsageLog(SQLModel, table=True):
+class TokenUsageLog(TenantScopedModel, table=True):
     __tablename__ = "token_usage_logs"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -36,7 +37,7 @@ class OptimizationSuggestionStatus(str, Enum):
     DISMISSED = "dismissed"
 
 
-class OptimizationSuggestion(SQLModel, table=True):
+class OptimizationSuggestion(TenantScopedModel, table=True):
     __tablename__ = "optimization_suggestions"
 
     id: int | None = Field(default=None, primary_key=True)

@@ -10,9 +10,10 @@ from typing import Any
 
 from sqlalchemy import JSON, Column, DateTime, String, Text, text
 from sqlalchemy import Enum as SAEnum
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field
 
 from app.core.utils import utc_now
+from app.models.tenant import TenantScopedModel
 
 
 class RiskLevel(str, Enum):
@@ -41,7 +42,7 @@ class AuditTriggerType(str, Enum):
     MANUAL = "MANUAL"  # 用户主动要求
 
 
-class AuditLog(SQLModel, table=True):
+class AuditLog(TenantScopedModel, table=True):
     """审计日志表 - 记录所有需要人工介入的决策"""
 
     __tablename__ = "audit_logs"

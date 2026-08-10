@@ -3,12 +3,13 @@
 from datetime import datetime
 
 from sqlalchemy import Column, DateTime, text
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field
 
 from app.core.utils import utc_now
+from app.models.tenant import TenantScopedModel
 
 
-class MultiIntentDecisionLog(SQLModel, table=True):
+class MultiIntentDecisionLog(TenantScopedModel, table=True):
     """Log entry for LLM-assisted multi-intent independence decisions."""
 
     __tablename__ = "multi_intent_decision_logs"

@@ -56,17 +56,23 @@ export function initWebVitals(config: WebVitalsConfig = {}): void {
     return
   }
 
-  onCLS((metric: CLSMetric) => {
-    void sendMetric(buildPayload('CLS', metric.value, metric.rating, context), endpoint)
-  }, { reportAllChanges: false })
+  onCLS(
+    (metric: CLSMetric) => {
+      void sendMetric(buildPayload('CLS', metric.value, metric.rating, context), endpoint)
+    },
+    { reportAllChanges: false }
+  )
 
   onFID((metric: FIDMetric) => {
     void sendMetric(buildPayload('FID', metric.value, metric.rating, context), endpoint)
   })
 
-  onLCP((metric: LCPMetric) => {
-    void sendMetric(buildPayload('LCP', metric.value, metric.rating, context), endpoint)
-  }, { reportAllChanges: false })
+  onLCP(
+    (metric: LCPMetric) => {
+      void sendMetric(buildPayload('LCP', metric.value, metric.rating, context), endpoint)
+    },
+    { reportAllChanges: false }
+  )
 
   onFCP((metric: FCPMetric) => {
     void sendMetric(buildPayload('FCP', metric.value, metric.rating, context), endpoint)
