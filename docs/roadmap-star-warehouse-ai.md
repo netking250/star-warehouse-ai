@@ -7,7 +7,8 @@
 - V1 已完成：品牌、用户工作台、运营控制台和统一视觉基线。
 - V2.1 已完成：统一 `AuthContext`、租户声明、RBAC 角色/scope、JWT `aud/iss/jti`、会话上下文和用户表身份字段。
 - V2.2 已完成：业务表租户迁移、查询/写入强制隔离、Redis/Qdrant 命名空间、Token 即时吊销与企业 OIDC IdP 适配。
-- V3 待实施：业务系统 Port/Adapter、统一 DTO 与上游韧性策略。
+- V3 已完成：10 类业务系统 Port、统一 DTO/错误模型、四种运行模式、上游韧性策略和边界契约测试。
+- V4 下一版：知识库对象存储、版本化摄取、审批发布、回滚删除和引用溯源闭环。
 
 ## V1：品牌与体验基线
 
@@ -42,6 +43,14 @@
 - 先接只读查询，再接购物车等低风险写操作。
 
 验收：上游异常有契约测试，Agent 无法绕过 Adapter 修改业务数据。
+
+### V3 交付说明
+
+- 建立 Identity、Product、Inventory、Order、Payment、Invoice、Logistics、Cart、Refund、Notification 共 10 类 Port，并统一跨系统 DTO 与错误码。
+- 提供 Local、Sandbox、Mock 和 Production HTTP 实现；通过 `BUSINESS_ADAPTER_MODE` 在启动期完成依赖组合，Agent 无需感知运行模式。
+- Production HTTP Adapter 强制传递可信的租户、用户和关联 ID，默认要求 HTTPS，并对超时、限流、上游故障执行受控重试、熔断和元数据审计。
+- 账户、商品、购物车、物流、支付及订单读取已迁移到 Port；高风险退款写入仍保留既有规则和审核流程，等待 V5 的 `preview → confirm → execute` 命令边界。
+- 新增架构守卫、HTTP 契约、Sandbox 租户隔离、Mock 故障注入以及超时/重试/熔断测试。
 
 ## V4：知识库生命周期
 

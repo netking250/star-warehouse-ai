@@ -48,6 +48,7 @@ async def lifespan(app: FastAPI):
             "Please restrict CORS_ORIGINS to specific domains."
         )
 
+    from app.adapters import build_adapters
     from app.agents.account import AccountAgent
     from app.agents.cart import CartAgent
     from app.agents.complaint import ComplaintAgent
@@ -98,6 +99,7 @@ async def lifespan(app: FastAPI):
         retriever = create_retriever(
             llm=llm, redis_client=redis_client, cache_manager=cache_manager
         )
+        adapters = build_adapters(redis_client, rewriter=retriever.rewriter)
 
         app.state.manager = get_manager()
 
@@ -116,15 +118,22 @@ async def lifespan(app: FastAPI):
         listener_task = asyncio.create_task(_redis_listener())
 
         tool_registry = ToolRegistry()
-        tool_registry.register(LogisticsTool())
-        tool_registry.register(AccountTool())
-        tool_registry.register(PaymentTool())
-        tool_registry.register(ProductTool(rewriter=retriever.rewriter))
-        tool_registry.register(CartTool())
+        tool_registry.register(LogisticsTool(logistics_port=adapters.logistics))
+        tool_registry.register(AccountTool(identity_port=adapters.identity))
+        tool_registry.register(
+            PaymentTool(
+                payment_port=adapters.payment,
+                invoice_port=adapters.invoice,
+                order_port=adapters.order,
+                refund_port=adapters.refund,
+            )
+        )
+        tool_registry.register(ProductTool(product_port=adapters.product))
+        tool_registry.register(CartTool(cart_port=adapters.cart))
         tool_registry.register(ComplaintTool())
         app.state.tool_registry = tool_registry
         policy_agent = PolicyAgent(retriever=retriever, llm=llm)
-        order_agent = OrderAgent(order_service=OrderService(), llm=llm)
+        order_agent = OrderAgent(order_service=OrderService(order_port=adapters.order), llm=llm)
         logistics_agent = LogisticsAgent(tool_registry=tool_registry, llm=llm)
         account_agent = AccountAgent(tool_registry=tool_registry, llm=llm)
         payment_agent = PaymentAgent(tool_registry=tool_registry, llm=llm)
@@ -140,6 +149,7 @@ async def lifespan(app: FastAPI):
         app.state.vector_manager = vector_manager
         app.state.redis_client = redis_client
         app.state.cache_manager = cache_manager
+        app.state.adapters = adapters
 
         from app.services.alert_service import AlertService
 
@@ -192,6 +202,9 @@ async def lifespan(app: FastAPI):
         with contextlib.suppress(NameError):
             if vector_manager is not None:
                 await vector_manager.aclose()
+        with contextlib.suppress(NameError):
+            if adapters is not None:
+                await adapters.aclose()
         await async_engine.dispose()
 
 

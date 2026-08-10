@@ -27,7 +27,7 @@ Business logic services that orchestrate domain operations. Services sit between
 | Experiment assigner | `@app/services/experiment_assigner.py` | User variant assignment for experiments |
 | Experiment management | `@app/services/experiment.py` | A/B experiment lifecycle management |
 | Online evaluation | `@app/services/online_eval.py` | Real-time evaluation from user feedback |
-| Order service | `@app/services/order_service.py` | Order management and query |
+| Order service | `@app/services/order_service.py` | OrderPort-backed query; controlled refund workflow |
 | Refund service | `@app/services/refund_service.py` | Refund processing workflows |
 | Review queue | `@app/services/review_queue.py` | Human review tickets with SLA tracking |
 | Status service | `@app/services/status_service.py` | Thread status polling |
@@ -61,6 +61,7 @@ General Python rules are defined in the root `AGENTS.md`. Service-specific conve
 - **Transaction boundary**: Each service method should represent a single transaction boundary.
 - **Idempotency**: Design service operations to be idempotent where possible.
 - **DTOs**: Use Pydantic models for service inputs/outputs rather than raw dicts.
+- **Business-system boundary**: External or authoritative business reads use `@app/adapters/ports.py`; keep high-risk writes inside controlled domain workflows until command adapters are introduced.
 
 ## Anti-Patterns
 

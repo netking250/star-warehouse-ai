@@ -1,82 +1,37 @@
-import logging
-from contextlib import nullcontext
-from datetime import datetime
+"""Account tool backed exclusively by the identity port."""
 
-from sqlmodel import select
-
-from app.core.database import async_session_maker
+from app.adapters.context import current_adapter_context
+from app.adapters.errors import AdapterError
+from app.adapters.local import LocalIdentityAdapter
+from app.adapters.ports import IdentityPort
 from app.models.state import AgentState
-from app.models.user import User
 from app.tools.base import BaseTool, ToolResult
-
-logger = logging.getLogger(__name__)
 
 _MEMBERSHIP_LEVELS = ["普通会员", "银卡", "金卡", "钻石"]
 
 
 class AccountTool(BaseTool):
-    """查询用户账户信息、会员等级、优惠券"""
+    """Query customer account information through an identity adapter."""
 
     name = "account"
     description = "查询用户账户信息、会员等级、优惠券"
 
+    def __init__(self, identity_port: IdentityPort | None = None) -> None:
+        self._identity = identity_port
+
     async def execute(self, state: AgentState, session=None, **kwargs) -> ToolResult:
-        _ = kwargs
+        """Return the trusted account projection for the current user."""
+        del kwargs
         user_id = state.get("user_id")
         if user_id is None:
-            return ToolResult(
-                output={"error": "无法识别用户身份，请重新登录。"},
-                confidence=1.0,
-                source="account_tool",
-            )
-
-        session_cm = nullcontext(session) if session is not None else async_session_maker()
-        async with session_cm as sess:
-            result = await sess.exec(select(User).where(User.id == user_id))
-            user = result.one_or_none()
-
-            if user is None:
-                return ToolResult(
-                    output={"error": f"未找到用户 ID {user_id} 的账户信息。"},
-                    confidence=1.0,
-                    source="account_tool",
-                )
-
-            membership_level = self._compute_membership_level(user)
-            account_balance = self._compute_account_balance(user)
-            coupons = self._compute_coupons(user)
-
-            output = {
-                "username": user.username,
-                "email": user.email,
-                "full_name": user.full_name,
-                "phone": user.phone,
-                "membership_level": membership_level,
-                "account_balance": account_balance,
-                "coupons": coupons,
-            }
-
-            return ToolResult(output=output, confidence=1.0, source="account_tool")
-
-    def _compute_membership_level(self, user: User) -> str:
-        if user.id is not None:
-            index = user.id % len(_MEMBERSHIP_LEVELS)
-            return _MEMBERSHIP_LEVELS[index]
-        return _MEMBERSHIP_LEVELS[0]
-
-    def _compute_account_balance(self, user: User) -> float:
-        base = 128.50
-        if user.id is not None:
-            return round(base + (user.id * 10.25), 2)
-        return base
-
-    def _compute_coupons(self, user: User) -> list[dict[str, str]]:
-        year = datetime.now().year + 1
-        if user.id is not None and user.id % 2 == 0:
-            return [
-                {"name": "满100减10", "expiry": f"{year}-12-31"},
-                {"name": "免运费券", "expiry": f"{year}-11-30"},
-            ]
-        return [
-            {"name": "满100减10", "expiry": f"{year}-12-31"},
-        ]
+            return ToolResult(output={"error": "无法识别用户身份，请重新登录。"})
+        port = self._identity or LocalIdentityAdapter(session)
+        try:
+            account = await port.get_account(current_adapter_context(user_id))
+        except AdapterError:
+            return ToolResult(output={"error": "账户服务暂时不可用，请稍后重试。"})
+        if account is None:
+            return ToolResult(output={"error": f"未找到用户 ID {user_id} 的账户信息。"})
+        output = account.model_dump(mode="json")
+        output["account_balance"] = float(account.account_balance)
+        return ToolResult(output=output, source="account_tool")

@@ -1,14 +1,17 @@
-import logging
+"""Product tool backed exclusively by the product port."""
+
+from decimal import Decimal
 from typing import Any
 
-from qdrant_client import AsyncQdrantClient, models
+from qdrant_client import AsyncQdrantClient
 
-from app.core.config import settings
-from app.core.tenancy import get_current_tenant_id, namespaced_collection
+from app.adapters.context import current_adapter_context
+from app.adapters.contracts import ProductDTO, ProductQuery
+from app.adapters.errors import AdapterError, AdapterErrorCode
+from app.adapters.local import QdrantProductAdapter
+from app.adapters.ports import ProductPort
 from app.models.state import AgentState
 from app.tools.base import BaseTool, ToolResult
-
-logger = logging.getLogger(__name__)
 
 
 class ProductTool(BaseTool):
@@ -21,130 +24,75 @@ class ProductTool(BaseTool):
         rewriter: Any | None = None,
         embedder: Any | None = None,
         collection_name: str | None = None,
-    ):
-        self._qdrant = qdrant_client
-        self._rewriter = rewriter
-        self._embedder = embedder
-        self.collection_name = (
-            namespaced_collection("product_catalog") if collection_name is None else collection_name
+        product_port: ProductPort | None = None,
+    ) -> None:
+        local = QdrantProductAdapter(
+            client=qdrant_client,
+            rewriter=rewriter,
+            embedder=embedder,
+            collection_name=collection_name,
         )
-
-    async def _get_client(self) -> AsyncQdrantClient:
-        if self._qdrant is None:
-            self._qdrant = AsyncQdrantClient(
-                url=settings.QDRANT_URL,
-                api_key=settings.QDRANT_API_KEY.get_secret_value()
-                if settings.QDRANT_API_KEY
-                else None,
-                timeout=settings.QDRANT_TIMEOUT,
-            )
-        return self._qdrant
+        self._product = product_port or local
+        self.collection_name = local.collection_name
 
     async def execute(self, state: AgentState, **kwargs) -> ToolResult:
+        """Search tenant-owned products through the configured adapter."""
         slots = state.get("slots") or {}
-        query = slots.get("product_query") or slots.get("query") or state.get("question", "")
-        category = slots.get("category") or kwargs.get("category")
-        min_price = slots.get("min_price") or kwargs.get("min_price")
-        max_price = slots.get("max_price") or kwargs.get("max_price")
-        in_stock = slots.get("in_stock") or kwargs.get("in_stock")
-
-        if self._rewriter is not None:
-            query = await self._rewriter.rewrite(
-                query,
-                conversation_history=state.get("history"),
-                memory_context=state.get("memory_context"),
-            )
-
-        client = await self._get_client()
-
-        conditions: list[Any] = [
-            models.FieldCondition(
-                key="tenant_id", match=models.MatchValue(value=get_current_tenant_id())
-            )
-        ]
-        if category is not None:
-            conditions.append(
-                models.FieldCondition(key="category", match=models.MatchValue(value=category))
-            )
-        if in_stock is not None:
-            conditions.append(
-                models.FieldCondition(key="in_stock", match=models.MatchValue(value=bool(in_stock)))
-            )
-        if min_price is not None or max_price is not None:
-            rng: dict[str, Any] = {}
-            if min_price is not None:
-                rng["gte"] = float(min_price)
-            if max_price is not None:
-                rng["lte"] = float(max_price)
-            conditions.append(models.FieldCondition(key="price", range=models.Range(**rng)))
-
-        query_filter = models.Filter(must=conditions)
-
+        user_id = state.get("user_id")
+        if user_id is None:
+            return ToolResult(output={"status": "error", "reason": "无法识别用户身份"})
+        query_text = str(
+            slots.get("product_query") or slots.get("query") or state.get("question", "")
+        )
+        query = ProductQuery(
+            query=query_text,
+            category=slots.get("category") or kwargs.get("category"),
+            min_price=self._decimal(slots.get("min_price") or kwargs.get("min_price")),
+            max_price=self._decimal(slots.get("max_price") or kwargs.get("max_price")),
+            in_stock=slots.get("in_stock")
+            if slots.get("in_stock") is not None
+            else kwargs.get("in_stock"),
+            conversation_history=list(state.get("history") or []),
+        )
         try:
-            exists = await client.collection_exists(self.collection_name)
-            if not exists:
-                return ToolResult(output={"status": "not_found", "reason": "商品目录尚未初始化"})
-
-            query_vector = await self._embed_query(query)
-            results = await client.query_points(
-                collection_name=self.collection_name,
-                query=query_vector,
-                using="dense",
-                limit=5,
-                with_payload=True,
-                with_vectors=False,
-                query_filter=query_filter,
-            )
-
-            products = []
-            for point in results.points:
-                payload = point.payload or {}
-                products.append(
-                    {
-                        "id": point.id,
-                        "name": payload.get("name", ""),
-                        "description": payload.get("description", ""),
-                        "price": payload.get("price"),
-                        "category": payload.get("category", ""),
-                        "sku": payload.get("sku", ""),
-                        "in_stock": payload.get("in_stock", False),
-                        "attributes": payload.get("attributes", {}),
-                        "score": point.score,
-                    }
-                )
-
-            direct_answer = self._try_direct_answer(query, products)
+            products = await self._product.search(query, current_adapter_context(user_id))
+        except AdapterError as error:
             return ToolResult(
                 output={
-                    "status": "success",
-                    "products": products,
-                    "direct_answer": direct_answer,
-                    "query": query,
+                    "status": "not_found" if error.code == AdapterErrorCode.NOT_FOUND else "error",
+                    "reason": str(error)
+                    if error.code == AdapterErrorCode.NOT_FOUND
+                    else "商品服务暂时不可用，请稍后重试",
                 }
             )
-        except (RuntimeError, OSError, ConnectionError):
-            logger.exception("Product search failed")
-            return ToolResult(output={"status": "error", "reason": "商品搜索失败，请稍后重试"})
+        payloads = [self._output(product) for product in products]
+        return ToolResult(
+            output={
+                "status": "success" if payloads else "not_found",
+                "products": payloads,
+                "direct_answer": self._try_direct_answer(query_text, payloads),
+                "query": query_text,
+            }
+        )
 
-    async def _embed_query(self, query: str) -> list[float]:
-        if self._embedder is not None:
-            return await self._embedder.aembed_query(query)
-        try:
-            from app.retrieval.embeddings import create_embedding_model
+    @staticmethod
+    def _decimal(value: object) -> Decimal | None:
+        return Decimal(str(value)) if value is not None else None
 
-            gen = create_embedding_model()
-            vector = await gen.aembed_query(query)
-            return vector
-        except (ImportError, OSError):
-            return [0.0] * settings.EMBEDDING_DIM
+    @staticmethod
+    def _output(product: ProductDTO) -> dict[str, Any]:
+        data = product.model_dump(mode="json")
+        data["id"] = data.pop("product_id")
+        if product.price is not None:
+            data["price"] = float(product.price)
+        return data
 
-    def _try_direct_answer(self, query: str, products: list[dict]) -> str | None:
+    @staticmethod
+    def _try_direct_answer(query: str, products: list[dict]) -> str | None:
         if not products:
             return None
         top = products[0]
         attrs = top.get("attributes") or {}
-        query_lower = query.lower()
-
         attribute_keywords = {
             "屏幕": "屏幕",
             "刷新率": "刷新率",
@@ -158,9 +106,7 @@ class ProductTool(BaseTool):
             "颜色": "颜色",
             "材质": "材质",
         }
-
-        for keyword, attr_key in attribute_keywords.items():
-            if keyword in query_lower and attr_key in attrs:
-                return f"{top['name']} 的{keyword}为 {attrs[attr_key]}。"
-
+        for keyword, attribute in attribute_keywords.items():
+            if keyword in query.lower() and attribute in attrs:
+                return f"{top['name']} 的{keyword}为 {attrs[attribute]}。"
         return None

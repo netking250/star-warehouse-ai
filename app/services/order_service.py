@@ -4,11 +4,13 @@ import logging
 from typing import Any
 
 from sqlalchemy.exc import SQLAlchemyError
-from sqlmodel import desc, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.adapters.context import current_adapter_context
+from app.adapters.errors import AdapterError
+from app.adapters.local import LocalOrderAdapter
+from app.adapters.ports import OrderPort
 from app.core.database import async_session_maker
-from app.models.order import Order
 from app.models.state import AgentProcessResult
 from app.services.refund_service import (
     RefundRiskService,
@@ -24,21 +26,14 @@ logger = logging.getLogger(__name__)
 class OrderService:
     """订单服务层：封装订单查询与退款申请的数据库交互和副作用"""
 
-    async def _get_order_for_user_body(
-        self, order_sn: str | None, user_id: int, session: AsyncSession
-    ) -> dict | None:
-        if order_sn:
-            order = await get_order_by_sn(order_sn, user_id, session)
-        else:
-            stmt = (
-                select(Order)
-                .where(Order.user_id == user_id)
-                .order_by(desc(Order.created_at))
-                .limit(1)
-            )
-            result = await session.exec(stmt)
-            order = result.first()
+    def __init__(self, order_port: OrderPort | None = None) -> None:
+        self._order_port = order_port
 
+    async def _get_order_for_user_body(
+        self, order_sn: str | None, user_id: int, session: AsyncSession | None
+    ) -> dict | None:
+        port = self._order_port or LocalOrderAdapter(session)
+        order = await port.get_order(order_sn, current_adapter_context(user_id))
         return order.model_dump() if order else None
 
     async def get_order_for_user(
@@ -46,12 +41,21 @@ class OrderService:
     ) -> dict | None:
         """查询用户订单，返回序列化后的字典或 None。"""
         try:
+            if self._order_port is not None:
+                return await self._get_order_for_user_body(order_sn, user_id, None)
             if session is None:
                 async with async_session_maker() as session:
                     return await self._get_order_for_user_body(order_sn, user_id, session)
             return await self._get_order_for_user_body(order_sn, user_id, session)
         except SQLAlchemyError:
             logger.exception("[OrderService] Database error querying order")
+            raise
+        except AdapterError as error:
+            logger.warning(
+                "[OrderService] Adapter error querying order service=%s code=%s",
+                error.service,
+                error.code,
+            )
             raise
 
     async def _handle_refund_request_body(

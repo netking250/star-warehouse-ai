@@ -37,6 +37,21 @@ QDRANT_API_KEY=...
 QDRANT_COLLECTION_NAME=knowledge_chunks
 ```
 
+## 业务系统适配器
+
+`local` 使用项目内 PostgreSQL/Redis/Qdrant，`sandbox` 使用确定性内存数据，`production` 调用企业业务 API。生产模式默认只接受 HTTPS。
+
+```bash
+BUSINESS_ADAPTER_MODE=local
+BUSINESS_API_BASE_URL=
+BUSINESS_API_TOKEN=
+BUSINESS_API_ALLOW_INSECURE_HTTP=false
+BUSINESS_API_TIMEOUT_SECONDS=5
+BUSINESS_API_MAX_RETRIES=2
+BUSINESS_API_CIRCUIT_FAILURE_THRESHOLD=5
+BUSINESS_API_CIRCUIT_RECOVERY_SECONDS=30
+```
+
 ## Reranker / Rewriter
 
 可选，不填时使用默认值。

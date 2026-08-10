@@ -1,9 +1,9 @@
-from contextlib import nullcontext
+"""Logistics tool backed exclusively by the logistics port."""
 
-from sqlmodel import select
-
-from app.core.database import async_session_maker
-from app.models.order import Order
+from app.adapters.context import current_adapter_context
+from app.adapters.errors import AdapterError
+from app.adapters.local import LocalLogisticsAdapter, LocalOrderAdapter
+from app.adapters.ports import LogisticsPort
 from app.models.state import AgentState
 from app.tools.base import BaseTool, ToolResult
 
@@ -12,27 +12,21 @@ class LogisticsTool(BaseTool):
     name = "logistics"
     description = "查询订单物流状态"
 
+    def __init__(self, logistics_port: LogisticsPort | None = None) -> None:
+        self._logistics = logistics_port
+
     async def execute(self, state: AgentState, session=None, **kwargs) -> ToolResult:
+        """Query user-owned tracking data through the configured adapter."""
         slots = state.get("slots") or {}
         order_sn = slots.get("order_sn") or kwargs.get("order_sn")
         user_id = state.get("user_id")
-
-        session_cm = nullcontext(session) if session is not None else async_session_maker()
-        async with session_cm as sess:
-            result = await sess.exec(
-                select(Order).where(Order.order_sn == order_sn, Order.user_id == user_id)
-            )
-            order = result.one_or_none()
-
-        if order:
-            return ToolResult(
-                output={
-                    "tracking_number": order.tracking_number or "暂无",
-                    "carrier": "顺丰速运",
-                    "status": "运输中",
-                    "latest_update": "快件已到达【北京顺义集散中心】",
-                    "estimated_delivery": "2024-01-20",
-                }
-            )
-
-        return ToolResult(output={"status": "未找到订单"})
+        if user_id is None or not order_sn:
+            return ToolResult(output={"status": "未找到订单"})
+        port = self._logistics or LocalLogisticsAdapter(LocalOrderAdapter(session))
+        try:
+            tracking = await port.get_tracking(str(order_sn), current_adapter_context(user_id))
+        except AdapterError:
+            return ToolResult(output={"status": "物流服务暂时不可用，请稍后重试"})
+        return ToolResult(
+            output=tracking.model_dump(mode="json") if tracking else {"status": "未找到订单"}
+        )

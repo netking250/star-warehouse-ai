@@ -89,7 +89,7 @@ The `IntentRouterAgent` (`@app/agents/router.py`) produces these intent strings 
 ## Anti-Patterns
 
 - **Cross-layer coupling**: `supervisor.py` should minimize direct imports from `@app/graph/parallel.py`; prefer dependency injection for dispatch planning.
-- **Direct DB access in agents**: Agents should not bypass the tool/service layer to access the database directly.
+- **Business-system bypass**: Agents must not access the database, Redis, Qdrant, HTTP gateways, or Adapter implementations directly; use injected tools/services that depend on Ports.
 - **Stale AGENTS.md**: Adding a new agent without updating this file and the corresponding test suite.
 
 ## Related Files

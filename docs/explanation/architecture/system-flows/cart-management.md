@@ -9,7 +9,8 @@ sequenceDiagram
     participant Supervisor as supervisor_node
     participant Node as cart (Subgraph)
     participant Tool as CartTool
-    participant Redis as Redis cart:{user_id}
+    participant Port as CartPort
+    participant Source as Local Redis / Cart API
 
     User->>CUI: "给我加一部智能手机到购物车"
     CUI->>API: POST /api/v1/chat (SSE)
@@ -19,8 +20,10 @@ sequenceDiagram
     Supervisor-->>Graph: Send(cart)
     Graph->>Node: cart Subgraph
     Node->>Tool: process(action=ADD)
-    Tool->>Redis: SET cart:{user_id} (JSON, TTL=86400)
-    Redis-->>Tool: OK
+    Tool->>Port: add_item(item, AdapterContext)
+    Port->>Source: tenant/user-scoped write
+    Source-->>Port: updated cart
+    Port-->>Tool: canonical CartDTO
     Tool-->>Node: "已添加"
     Node-->>Graph: sub_answers
     Graph->>Graph: synthesis_node

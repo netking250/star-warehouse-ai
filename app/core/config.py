@@ -1,4 +1,6 @@
 # app/core/config.py
+from typing import Literal
+
 from pydantic import Field, PostgresDsn, RedisDsn, SecretStr, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -209,6 +211,16 @@ class Settings(BaseSettings):
     OIDC_USERINFO_URL: str = ""
     OIDC_TIMEOUT_SECONDS: float = 5.0
     OIDC_ALLOW_INSECURE_HTTP: bool = False
+
+    # Business-system adapters
+    BUSINESS_ADAPTER_MODE: Literal["local", "sandbox", "production"] = "local"
+    BUSINESS_API_BASE_URL: str = ""
+    BUSINESS_API_TOKEN: SecretStr = SecretStr("")
+    BUSINESS_API_ALLOW_INSECURE_HTTP: bool = False
+    BUSINESS_API_TIMEOUT_SECONDS: float = Field(default=5.0, gt=0)
+    BUSINESS_API_MAX_RETRIES: int = Field(default=2, ge=0, le=10)
+    BUSINESS_API_CIRCUIT_FAILURE_THRESHOLD: int = Field(default=5, ge=1)
+    BUSINESS_API_CIRCUIT_RECOVERY_SECONDS: float = Field(default=30.0, gt=0)
 
     # CORS 配置
     CORS_ORIGINS: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])

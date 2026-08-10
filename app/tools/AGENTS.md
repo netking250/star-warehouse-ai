@@ -22,12 +22,12 @@ The tool layer provides a unified interface for agents to perform I/O operations
 |------|------|-------|
 | Base class | `@app/tools/base.py` | `BaseTool` ABC; `ToolResult` (Pydantic BaseModel) |
 | Tool registry | `@app/tools/registry.py` | `ToolRegistry` for dynamic tool discovery |
-| Product tool | `@app/tools/product_tool.py` | Qdrant semantic retrieval for product catalog |
-| Cart tool | `@app/tools/cart_tool.py` | Redis-persisted cart operations with 24h TTL |
+| Product tool | `@app/tools/product_tool.py` | ProductPort-backed catalog retrieval |
+| Cart tool | `@app/tools/cart_tool.py` | CartPort-backed low-risk cart operations |
 | Complaint tool | `@app/tools/complaint_tool.py` | Complaint ticket creation and management |
-| Payment tool | `@app/tools/payment_tool.py` | Payment query and refund processing |
-| Logistics tool | `@app/tools/logistics_tool.py` | Shipping and logistics tracking |
-| Account tool | `@app/tools/account_tool.py` | User account management |
+| Payment tool | `@app/tools/payment_tool.py` | Payment/Invoice/Order/Refund Port projections |
+| Logistics tool | `@app/tools/logistics_tool.py` | LogisticsPort-backed tracking |
+| Account tool | `@app/tools/account_tool.py` | IdentityPort-backed account projection |
 
 ## Commands
 
@@ -43,6 +43,7 @@ General Python rules are defined in the root `AGENTS.md`. Tool-specific conventi
 - **Type hints**: Mandatory on all `BaseTool` subclass methods and `ToolResult` fields.
 - **Docstrings**: Google-style docstrings for all public tool classes and `execute()` methods.
 - **No sync I/O**: Tools must not perform synchronous blocking calls; all external access is `async`.
+- **Business boundary**: Tools access authoritative business data only through protocols in `@app/adapters/ports.py`.
 - **Error handling**: Tools must catch specific exceptions and return `ToolResult(output={"error": str(e)}, confidence=0.0)` rather than raising.
 
 ## Testing Patterns
@@ -62,6 +63,7 @@ General Python rules are defined in the root `AGENTS.md`. Tool-specific conventi
 ## Anti-Patterns
 
 - **Direct DB access from agents**: Agents should use tools, not access the database directly.
+- **Direct infrastructure access**: Tools must not call SQL, Redis, Qdrant, ERP/OMS, payment, or logistics clients directly; implement that I/O in an Adapter.
 - **Unregistered tools**: Tools that are not registered in `ToolRegistry` cannot be discovered by agents.
 - **Synchronous I/O in tools**: All external calls must be `async` to avoid blocking the event loop.
 

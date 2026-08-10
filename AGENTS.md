@@ -25,6 +25,7 @@ Use the right `AGENTS.md` for the area you're working in:
 - **Intent recognition** (`@app/intent/**`) → [`app/intent/AGENTS.md`](app/intent/AGENTS.md)
 - **Memory system** (`@app/memory/**`) → [`app/memory/AGENTS.md`](app/memory/AGENTS.md)
 - **Tools** (`@app/tools/**`) → [`app/tools/AGENTS.md`](app/tools/AGENTS.md)
+- **Business adapters** (`@app/adapters/**`) → [`app/adapters/AGENTS.md`](app/adapters/AGENTS.md)
 - **Retrieval** (`@app/retrieval/**`) → [`app/retrieval/AGENTS.md`](app/retrieval/AGENTS.md)
 - **Evaluation** (`@app/evaluation/**`) → [`app/evaluation/AGENTS.md`](app/evaluation/AGENTS.md)
 - **Observability** (`@app/observability/**`) → [`app/observability/AGENTS.md`](app/observability/AGENTS.md)
@@ -57,6 +58,7 @@ For any other area, this root file applies.
   - `@app/memory/`: Multi-tier memory system (structured PostgreSQL, vector Qdrant, fact extraction, summarization, compaction).
     - `@app/memory/structured_manager.py` - Structured memory manager for user profiles/preferences/facts.
   - `@app/tools/`: Tool layer for agents (product, cart, logistics, payment, account, complaint tools + registry).
+  - `@app/adapters/`: Business-system Ports, canonical DTOs, local/sandbox/mock/production implementations, and resilience policies.
   - `@app/tasks/`: Celery async tasks (memory, notifications, knowledge, refund, evaluation, continuous improvement, prompt effects, shadow testing).
     - `@app/tasks/alert_tasks.py` - Evaluate alert rules, check service health.
     - `@app/tasks/autoheal.py` - Self-healing orchestration module.

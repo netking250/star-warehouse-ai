@@ -83,6 +83,12 @@ flowchart TB
         RULES["Refund Rules\u003cbr/\u003e退货规则引擎"]
     end
 
+    subgraph AdapterLayer["🔌 业务系统适配层"]
+        PORTS["10 Business Ports\u003cbr/\u003eIdentity / Product / Inventory / Order / Payment\u003cbr/\u003eInvoice / Logistics / Cart / Refund / Notification"]
+        ADAPTERS["Local / Sandbox / Mock / Production HTTP\u003cbr/\u003e统一 DTO、错误、超时、重试、熔断、审计"]
+        PORTS --> ADAPTERS
+    end
+
     subgraph TaskLayer["⏳ 任务层 (Celery)"]
         CELERY["Celery Worker\u003cbr/\u003e异步任务队列"]
         REFUND_TASKS["Refund Tasks\u003cbr/\u003e- 发送短信\u003cbr/\u003e- 处理退款\u003cbr/\u003e- 通知管理员"]
@@ -150,6 +156,7 @@ flowchart TB
     subgraph External["🌐 外部服务"]
         LLM["LLM API\u003cbr/\u003e通义千问/Qwen"]
         EMBED["Embedding API\u003cbr/\u003e文本嵌入"]
+        BUSINESS["ERP / OMS / 商品 / 库存 / 支付 / 物流 API"]
     end
 
     CUI <-->|"HTTP/SSE"| API
@@ -194,6 +201,10 @@ flowchart TB
 
     REFUND_SVC --> RULES
     REFUND_SVC --> DB
+    Subgraphs --> PORTS
+    ServiceLayer --> PORTS
+    ADAPTERS --> BUSINESS
+    ADAPTERS --> DataLayer
 
     ServiceLayer -->|"高风险触发"| CELERY
     CELERY --> REFUND_TASKS
@@ -226,10 +237,11 @@ E-commerce Smart Agent v4.1 采用多层架构：
 3. **核心层**：Pydantic 配置管理、SQLModel 数据库连接、JWT 安全认证、Token 预算与观察掩码、置信度信号计算
 4. **Agent 层**：LangGraph 工作流编排，包含 Supervisor 调度、并行执行、记忆注入、置信度评估
 5. **服务层**：Refund Service 处理退货规则与风控逻辑
-6. **任务层**：Celery 异步队列处理退款、短信、知识库同步、记忆抽取
-7. **记忆层**：PostgreSQL 结构化记忆 + Qdrant 向量记忆
-8. **安全层**：4 层输出内容审核（规则匹配、正则检测、语义相似度、LLM 评判）
-9. **数据层**：PostgreSQL 业务数据 + Qdrant 向量数据 + Redis 缓存
-10. **外部层**：通义千问/Qwen LLM 与 Embedding 服务
+6. **业务系统适配层**：10 类 Port 隔离 Agent 与权威业务系统，统一 DTO、错误与韧性策略；Local/Sandbox/Mock/Production 可在启动期替换
+7. **任务层**：Celery 异步队列处理退款、短信、知识库同步、记忆抽取
+8. **记忆层**：PostgreSQL 结构化记忆 + Qdrant 向量记忆
+9. **安全层**：4 层输出内容审核（规则匹配、正则检测、语义相似度、LLM 评判）
+10. **数据层**：PostgreSQL 业务数据 + Qdrant 向量数据 + Redis 缓存
+11. **外部层**：通义千问/Qwen、Embedding 服务及生产 ERP/OMS 等权威业务 API
 
 > 详细的技术栈说明请参考 [技术栈详情](../../reference/tech-stack-detail.md)。

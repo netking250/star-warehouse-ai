@@ -9,7 +9,8 @@ sequenceDiagram
     participant Supervisor as supervisor_node
     participant Node as product (Subgraph)
     participant Tool as ProductTool
-    participant VecDB as Qdrant product_catalog
+    participant Port as ProductPort
+    participant Source as Local Qdrant / Product API
     participant LLM as Qwen LLM
 
     User->>CUI: "智能手机 Pro 屏幕多大？"
@@ -20,8 +21,10 @@ sequenceDiagram
     Supervisor-->>Graph: Send(product)
     Graph->>Node: product Subgraph
     Node->>Tool: process()
-    Tool->>VecDB: semantic_search(using="dense")
-    VecDB-->>Tool: 匹配商品元数据
+    Tool->>Port: search(ProductQuery, AdapterContext)
+    Port->>Source: tenant-scoped product query
+    Source-->>Port: product payload
+    Port-->>Tool: canonical ProductDTO[]
     alt 属性命中直接回答
         Tool-->>Node: direct_answer
     else 属性未命中 / 需要推理

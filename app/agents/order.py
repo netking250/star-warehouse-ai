@@ -2,6 +2,7 @@ import logging
 
 from langchain_core.language_models.chat_models import BaseChatModel
 
+from app.adapters.errors import AdapterError
 from app.agents.base import BaseAgent
 from app.intent.few_shot_loader import load_agent_examples
 from app.models.state import AgentProcessResult, AgentState
@@ -54,7 +55,13 @@ class OrderAgent(BaseAgent):
 
     async def _handle_order_query(self, question: str, user_id: int) -> AgentProcessResult:
         order_sn = extract_order_sn(question)
-        order_data = await self.order_service.get_order_for_user(order_sn, user_id)
+        try:
+            order_data = await self.order_service.get_order_for_user(order_sn, user_id)
+        except AdapterError:
+            return {
+                "response": "订单服务暂时不可用，请稍后重试。",
+                "updated_state": {"order_data": None},
+            }
 
         if not order_data:
             return {

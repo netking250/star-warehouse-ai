@@ -7,7 +7,9 @@ sequenceDiagram
     participant API as FastAPI
     participant Graph as LangGraph
     participant Node as order_agent
-    participant DB as PostgreSQL
+    participant Service as OrderService
+    participant Port as OrderPort
+    participant Source as Local DB / Production OMS
     participant LLM as Qwen LLM
 
     User->>CUI: "查询我的订单"
@@ -15,8 +17,12 @@ sequenceDiagram
     API->>Graph: astream_events()
     Graph->>Graph: router_node
     Graph->>Node: order_agent()
-    Node->>DB: SELECT orders
-    DB-->>Node: Order Data
+    Node->>Service: 查询当前用户订单
+    Service->>Port: get_order(order_sn, AdapterContext)
+    Port->>Source: tenant/user-scoped query
+    Source-->>Port: upstream order payload
+    Port-->>Service: canonical OrderDTO
+    Service-->>Node: Order Data
     Node-->>Graph: {order_data, context}
     Node->>Node: _format_order_response
     Node-->>Graph: {response_text}
