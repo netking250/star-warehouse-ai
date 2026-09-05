@@ -230,7 +230,7 @@ flowchart TB
 
 ## 架构说明
 
-E-commerce Smart Agent v4.1 采用多层架构：
+Star Warehouse AI v5.0 采用多层架构：
 
 1. **前端层**：React 19 + Vite 构建 C 端聊天界面与 B 端管理后台
 2. **API 层**：FastAPI 提供 RESTful API、SSE 流式响应、WebSocket 连接

@@ -14,6 +14,10 @@ test('admin login and view dashboard', async ({ page }) => {
         full_name: 'Admin User',
         is_admin: true,
         role: 'ADMIN',
+        tenant_id: 'default',
+        roles: ['ADMIN'],
+        scopes: ['admin:read'],
+        session_id: 'admin-e2e-session',
       }),
     })
   })
@@ -72,13 +76,13 @@ test('admin login and view dashboard', async ({ page }) => {
   await page.goto('/admin.html#/login')
 
   // Login
-  await page.getByPlaceholder('输入管理员用户名').fill('adminuser')
-  await page.getByPlaceholder('输入密码').fill('password')
-  await page.getByRole('button', { name: '登录' }).click()
+  await page.getByPlaceholder('请输入管理员账号').fill('adminuser')
+  await page.getByPlaceholder('请输入登录密码').fill('password')
+  await page.getByRole('button', { name: '进入运营中心' }).click()
   await page.waitForURL('/admin.html#/')
 
   // Assert dashboard appears
-  await expect(page.getByText('审核控制台')).toBeVisible()
+  await expect(page.getByText('运营控制中心')).toBeVisible()
   await expect(page.getByText('待审核: 1').first()).toBeVisible()
 
   // Assert mocked task text appears in the task list

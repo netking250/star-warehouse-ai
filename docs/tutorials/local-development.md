@@ -3,7 +3,7 @@
 ## 环境要求
 
 - Python 3.12+
-- Node.js 20+
+- Node.js 22+
 - PostgreSQL 16
 - Redis 7+
 - Qdrant 1.16+
@@ -12,10 +12,10 @@
 
 ```bash
 # 安装 Python 依赖
-uv sync
+uv sync --frozen
 
 # 安装前端依赖
-cd frontend && npm install
+cd frontend && npm ci
 ```
 
 ## 2. 配置环境变量

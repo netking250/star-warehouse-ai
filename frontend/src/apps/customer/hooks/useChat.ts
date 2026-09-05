@@ -16,7 +16,7 @@ const WELCOME_MESSAGE: Message = {
   id: 'welcome',
   role: 'assistant',
   content:
-    '你好，我是星仓AI，很高兴为你服务。无论是订单、物流、退换货，还是商品选购，我都可以帮你快速处理。',
+    '你好，我是星仓 AI，很高兴为你服务。无论是订单、物流、退换货，还是商品选购，我都可以帮你快速处理。',
   timestamp: new Date(),
 }
 

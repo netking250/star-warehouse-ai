@@ -33,7 +33,7 @@ def _configure_test_database() -> None:
     if original_db and not original_db.startswith("test_"):
         os.environ["POSTGRES_DB"] = f"test_{original_db}"
     elif not original_db:
-        os.environ["POSTGRES_DB"] = "test_ecommerce_agent"
+        os.environ["POSTGRES_DB"] = "test_star_warehouse_ai"
 
     os.environ.setdefault("RERANK_BASE_URL", "https://dashscope.aliyuncs.com/compatible-api/v1")
 

@@ -1,6 +1,6 @@
 # 系统架构
 
-本节从宏观到微观介绍 E-commerce Smart Agent 的系统架构。
+本节从宏观到微观介绍 Star Warehouse AI 的系统架构。
 
 - [架构概览](./overview.md) — 整体架构图与各层职责
 - [LangGraph 工作流](./langgraph-workflow.md) — Supervisor-based 图编排

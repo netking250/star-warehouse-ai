@@ -5,9 +5,13 @@
 ## 项目配置
 
 ```bash
-PROJECT_NAME=E-commerce Smart Agent
+PROJECT_NAME=星仓 AI 智能客服
+SERVICE_NAME=star-warehouse-ai
+ALERT_DEDUP_PREFIX=star-warehouse-ai
 API_V1_STR=/api/v1
 ```
+
+`PROJECT_NAME` 用于用户可见标题；`SERVICE_NAME` 用于日志、追踪与数据库连接标识；`ALERT_DEDUP_PREFIX` 用于外部告警去重键。v5 新部署应保持以上标准值。
 
 ## 数据库
 
@@ -90,7 +94,7 @@ EMBEDDING_DIM=1024
 ```bash
 LANGCHAIN_TRACING_V2=False
 LANGSMITH_API_KEY=
-LANGSMITH_PROJECT=ecommerce-smart-agent
+LANGSMITH_PROJECT=star-warehouse-ai
 LANGSMITH_OTEL_ENABLED=False
 ```
 

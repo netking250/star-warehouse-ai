@@ -82,25 +82,25 @@ class TestGetMetricValue:
         engine.dispose()
 
     def test_avg_latency_ms(self):
-        with Session(self.engine) as session:
+        with Session(self.engine):
             val, meta = _get_metric_value("avg_latency_ms", 3600)
             assert val is None or val == 0.0
             assert "window_seconds" in meta
 
     def test_error_rate_no_data(self):
-        with Session(self.engine) as session:
+        with Session(self.engine):
             val, meta = _get_metric_value("error_rate", 3600)
             assert val is None
             assert "window_seconds" in meta
 
     def test_transfer_rate_no_data(self):
-        with Session(self.engine) as session:
+        with Session(self.engine):
             val, meta = _get_metric_value("transfer_rate", 3600)
             assert val is None
             assert "window_seconds" in meta
 
     def test_hallucination_rate_no_data(self):
-        with Session(self.engine) as session:
+        with Session(self.engine):
             val, meta = _get_metric_value("hallucination_rate", 3600)
             assert val is None
             assert "window_seconds" in meta
@@ -113,7 +113,7 @@ class TestGetMetricValue:
             mock_response.__exit__ = Mock(return_value=False)
             mock_urlopen.return_value = mock_response
 
-            with Session(self.engine) as session:
+            with Session(self.engine):
                 val, meta = _get_metric_value("health_status", 30)
                 assert val == 1.0
                 assert "window_seconds" in meta
@@ -122,14 +122,16 @@ class TestGetMetricValue:
             assert request.full_url == settings.SERVICE_HEALTH_URL
 
     def test_health_status_failure(self):
-        with patch("urllib.request.urlopen", side_effect=Exception("Connection refused")):
-            with Session(self.engine) as session:
-                val, meta = _get_metric_value("health_status", 30)
-                assert val == 0.0
-                assert "window_seconds" in meta
+        with (
+            patch("urllib.request.urlopen", side_effect=Exception("Connection refused")),
+            Session(self.engine),
+        ):
+            val, meta = _get_metric_value("health_status", 30)
+            assert val == 0.0
+            assert "window_seconds" in meta
 
     def test_unknown_metric(self):
-        with Session(self.engine) as session:
+        with Session(self.engine):
             val, meta = _get_metric_value("unknown_metric", 3600)
             assert val is None
             assert "window_seconds" in meta
@@ -176,16 +178,16 @@ class TestEvaluateAlertRules:
         mock_event = MagicMock()
         mock_event.id = 1
 
-        with patch("app.tasks.alert_tasks.sync_session_maker", return_value=mock_session):
-            with patch(
-                "app.tasks.alert_tasks._get_metric_value", return_value=(1500.0, {"test": True})
-            ):
-                with patch("app.tasks.alert_tasks.AlertService") as mock_service_class:
-                    mock_service = MagicMock()
-                    mock_service.fire_alert_sync.return_value = mock_event
-                    mock_service_class.return_value = mock_service
+        with (
+            patch("app.tasks.alert_tasks.sync_session_maker", return_value=mock_session),
+            patch("app.tasks.alert_tasks._get_metric_value", return_value=(1500.0, {"test": True})),
+            patch("app.tasks.alert_tasks.AlertService") as mock_service_class,
+        ):
+            mock_service = MagicMock()
+            mock_service.fire_alert_sync.return_value = mock_event
+            mock_service_class.return_value = mock_service
 
-                    result = evaluate_alert_rules()
+            result = evaluate_alert_rules()
 
         assert result["rules_checked"] == 1
         assert result["alerts_fired"] == 1
@@ -195,15 +197,15 @@ class TestEvaluateAlertRules:
     def test_not_breached_rule_skips_alert(self, sample_rule):
         mock_session = _make_mock_session(rules=[sample_rule], events=[])
 
-        with patch("app.tasks.alert_tasks.sync_session_maker", return_value=mock_session):
-            with patch(
-                "app.tasks.alert_tasks._get_metric_value", return_value=(500.0, {"test": True})
-            ):
-                with patch("app.tasks.alert_tasks.AlertService") as mock_service_class:
-                    mock_service = MagicMock()
-                    mock_service_class.return_value = mock_service
+        with (
+            patch("app.tasks.alert_tasks.sync_session_maker", return_value=mock_session),
+            patch("app.tasks.alert_tasks._get_metric_value", return_value=(500.0, {"test": True})),
+            patch("app.tasks.alert_tasks.AlertService") as mock_service_class,
+        ):
+            mock_service = MagicMock()
+            mock_service_class.return_value = mock_service
 
-                    result = evaluate_alert_rules()
+            result = evaluate_alert_rules()
 
         assert result["rules_checked"] == 1
         assert result["alerts_fired"] == 0
@@ -213,16 +215,16 @@ class TestEvaluateAlertRules:
     def test_suppressed_alert_increments_counter(self, sample_rule):
         mock_session = _make_mock_session(rules=[sample_rule], events=[])
 
-        with patch("app.tasks.alert_tasks.sync_session_maker", return_value=mock_session):
-            with patch(
-                "app.tasks.alert_tasks._get_metric_value", return_value=(1500.0, {"test": True})
-            ):
-                with patch("app.tasks.alert_tasks.AlertService") as mock_service_class:
-                    mock_service = MagicMock()
-                    mock_service.fire_alert_sync.return_value = None
-                    mock_service_class.return_value = mock_service
+        with (
+            patch("app.tasks.alert_tasks.sync_session_maker", return_value=mock_session),
+            patch("app.tasks.alert_tasks._get_metric_value", return_value=(1500.0, {"test": True})),
+            patch("app.tasks.alert_tasks.AlertService") as mock_service_class,
+        ):
+            mock_service = MagicMock()
+            mock_service.fire_alert_sync.return_value = None
+            mock_service_class.return_value = mock_service
 
-                    result = evaluate_alert_rules()
+            result = evaluate_alert_rules()
 
         assert result["rules_checked"] == 1
         assert result["alerts_fired"] == 0
@@ -231,13 +233,15 @@ class TestEvaluateAlertRules:
     def test_none_metric_value_skips_rule(self, sample_rule):
         mock_session = _make_mock_session(rules=[sample_rule], events=[])
 
-        with patch("app.tasks.alert_tasks.sync_session_maker", return_value=mock_session):
-            with patch("app.tasks.alert_tasks._get_metric_value", return_value=(None, {})):
-                with patch("app.tasks.alert_tasks.AlertService") as mock_service_class:
-                    mock_service = MagicMock()
-                    mock_service_class.return_value = mock_service
+        with (
+            patch("app.tasks.alert_tasks.sync_session_maker", return_value=mock_session),
+            patch("app.tasks.alert_tasks._get_metric_value", return_value=(None, {})),
+            patch("app.tasks.alert_tasks.AlertService") as mock_service_class,
+        ):
+            mock_service = MagicMock()
+            mock_service_class.return_value = mock_service
 
-                    result = evaluate_alert_rules()
+            result = evaluate_alert_rules()
 
         assert result["rules_checked"] == 1
         assert result["alerts_fired"] == 0
@@ -287,14 +291,16 @@ class TestEvaluateAlertRules:
                 return 0.5, {}
             return None, {}
 
-        with patch("app.tasks.alert_tasks.sync_session_maker", return_value=mock_session):
-            with patch("app.tasks.alert_tasks._get_metric_value", side_effect=mock_get_metric):
-                with patch("app.tasks.alert_tasks.AlertService") as mock_service_class:
-                    mock_service = MagicMock()
-                    mock_service.fire_alert_sync.return_value = mock_event
-                    mock_service_class.return_value = mock_service
+        with (
+            patch("app.tasks.alert_tasks.sync_session_maker", return_value=mock_session),
+            patch("app.tasks.alert_tasks._get_metric_value", side_effect=mock_get_metric),
+            patch("app.tasks.alert_tasks.AlertService") as mock_service_class,
+        ):
+            mock_service = MagicMock()
+            mock_service.fire_alert_sync.return_value = mock_event
+            mock_service_class.return_value = mock_service
 
-                    result = evaluate_alert_rules()
+            result = evaluate_alert_rules()
 
         assert result["rules_checked"] == 2
         assert result["alerts_fired"] == 2
@@ -449,12 +455,12 @@ class TestCheckServiceHealth:
                 "app.tasks.alert_tasks._get_metric_value", return_value=(0.0, {"error": "timeout"})
             ),
             patch("app.tasks.alert_tasks.sync_session_maker", return_value=mock_session),
+            patch("app.tasks.alert_tasks.AlertService") as mock_service_class,
         ):
-            with patch("app.tasks.alert_tasks.AlertService") as mock_service_class:
-                mock_service = MagicMock()
-                mock_service_class.return_value = mock_service
+            mock_service = MagicMock()
+            mock_service_class.return_value = mock_service
 
-                result = check_service_health()
+            result = check_service_health()
 
         assert result["healthy"] is False
         mock_service.fire_alert_sync.assert_called_once()
@@ -467,12 +473,12 @@ class TestCheckServiceHealth:
                 "app.tasks.alert_tasks._get_metric_value", return_value=(0.0, {"error": "timeout"})
             ),
             patch("app.tasks.alert_tasks.sync_session_maker", return_value=mock_session),
+            patch("app.tasks.alert_tasks.AlertService") as mock_service_class,
         ):
-            with patch("app.tasks.alert_tasks.AlertService") as mock_service_class:
-                mock_service = MagicMock()
-                mock_service_class.return_value = mock_service
+            mock_service = MagicMock()
+            mock_service_class.return_value = mock_service
 
-                result = check_service_health()
+            result = check_service_health()
 
         assert result["healthy"] is False
         mock_service.fire_alert_sync.assert_not_called()

@@ -2,11 +2,11 @@ apiVersion: 1
 
 groups:
   - orgId: 1
-    name: ecommerce-agent-alerts
+    name: star-warehouse-ai-alerts
     folder: Observability
     interval: 1m
     rules:
-      - uid: ecommerce-agent-high-error-rate
+      - uid: star-warehouse-ai-high-error-rate
         title: High Error Rate
         condition: A
         data:
@@ -43,9 +43,9 @@ groups:
         labels:
           severity: warning
           team: observability
-          service: ecommerce-agent
+          service: star-warehouse-ai
 
-      - uid: ecommerce-agent-high-latency-p95
+      - uid: star-warehouse-ai-high-latency-p95
         title: High Latency P95
         condition: A
         data:
@@ -82,9 +82,9 @@ groups:
         labels:
           severity: warning
           team: observability
-          service: ecommerce-agent
+          service: star-warehouse-ai
 
-      - uid: ecommerce-agent-high-human-transfer-rate
+      - uid: star-warehouse-ai-high-human-transfer-rate
         title: High Human Transfer Rate
         condition: A
         data:
@@ -121,9 +121,9 @@ groups:
         labels:
           severity: warning
           team: observability
-          service: ecommerce-agent
+          service: star-warehouse-ai
 
-      - uid: ecommerce-agent-low-confidence-score
+      - uid: star-warehouse-ai-low-confidence-score
         title: Low Confidence Score
         condition: A
         data:
@@ -160,9 +160,9 @@ groups:
         labels:
           severity: warning
           team: observability
-          service: ecommerce-agent
+          service: star-warehouse-ai
 
-      - uid: ecommerce-agent-low-intent-accuracy
+      - uid: star-warehouse-ai-low-intent-accuracy
         title: Low Intent Accuracy
         condition: A
         data:
@@ -199,9 +199,9 @@ groups:
         labels:
           severity: critical
           team: observability
-          service: ecommerce-agent
+          service: star-warehouse-ai
 
-      - uid: ecommerce-agent-high-hallucination-rate
+      - uid: star-warehouse-ai-high-hallucination-rate
         title: High Hallucination Rate
         condition: A
         data:
@@ -238,9 +238,9 @@ groups:
         labels:
           severity: critical
           team: observability
-          service: ecommerce-agent
+          service: star-warehouse-ai
 
-      - uid: ecommerce-agent-low-rag-precision
+      - uid: star-warehouse-ai-low-rag-precision
         title: Low RAG Precision
         condition: A
         data:
@@ -277,9 +277,9 @@ groups:
         labels:
           severity: warning
           team: observability
-          service: ecommerce-agent
+          service: star-warehouse-ai
 
-      - uid: ecommerce-agent-service-down
+      - uid: star-warehouse-ai-service-down
         title: Service Down
         condition: A
         data:
@@ -289,7 +289,7 @@ groups:
               to: 0
             datasourceUid: mimir
             model:
-              expr: up{job="ecommerce-agent"} == 0
+              expr: up{job="star-warehouse-ai"} == 0
               conditions:
                 - evaluator:
                     params:
@@ -310,13 +310,13 @@ groups:
         execErrState: Error
         for: 1m
         annotations:
-          summary: "E-commerce Smart Agent is down"
+          summary: "Star Warehouse AI is down"
           description: "The /metrics endpoint has been unreachable for more than 1 minute."
           runbook_url: "https://wiki.internal/observability/runbooks/service-down"
         labels:
           severity: critical
           team: observability
-          service: ecommerce-agent
+          service: star-warehouse-ai
 
       - uid: slo-availability-burn-rate-fast
         title: SLO Availability Burn Rate (Fast)
@@ -364,7 +364,7 @@ groups:
         labels:
           severity: critical
           team: observability
-          service: ecommerce-agent
+          service: star-warehouse-ai
           slo: availability
 
       - uid: slo-availability-burn-rate-slow
@@ -413,5 +413,5 @@ groups:
         labels:
           severity: warning
           team: observability
-          service: ecommerce-agent
+          service: star-warehouse-ai
           slo: availability

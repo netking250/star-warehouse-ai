@@ -1,1 +1,1 @@
-"""Performance regression tests for E-commerce Smart Agent."""
+"""Performance regression tests for Star Warehouse AI."""

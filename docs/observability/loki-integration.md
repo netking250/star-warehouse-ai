@@ -1,6 +1,6 @@
 # Grafana Loki Integration Guide
 
-This document describes how to integrate the E-commerce Smart Agent structured JSON logs with Grafana Loki for centralized log aggregation, search, and visualization.
+This document describes how to integrate the Star Warehouse AI structured JSON logs with Grafana Loki for centralized log aggregation, search, and visualization.
 
 ## Overview
 
@@ -19,7 +19,7 @@ The application outputs structured JSON logs via ``app.core.structured_logging.J
 
 ```
 ┌─────────────────────────┐
-│  E-commerce Smart Agent │
+│  Star Warehouse AI │
 │  (JSON logs to stdout)  │
 └───────────┬─────────────┘
             │
@@ -97,7 +97,7 @@ EOF
 
 # Run
 docker run -d \
-  -v /var/log/ecommerce-agent:/var/log/ecommerce-agent:ro \
+  -v /var/log/star-warehouse-ai:/var/log/star-warehouse-ai:ro \
   -e ENVIRONMENT=production \
   fluentd-loki
 ```
@@ -114,8 +114,8 @@ docker plugin install grafana/loki-docker-driver:latest --alias loki --grant-all
 docker run -d \
   --log-driver=loki \
   --log-opt loki-url="http://loki:3100/loki/api/v1/push" \
-  --log-opt loki-external-labels="job=ecommerce-agent,environment=production" \
-  ecommerce-smart-agent:latest
+  --log-opt loki-external-labels="job=star-warehouse-ai,environment=production" \
+  star-warehouse-ai:latest
 ```
 
 ## Grafana Dashboard Queries
@@ -125,25 +125,25 @@ docker run -d \
 Find all ERROR logs:
 
 ```logql
-{job="ecommerce-agent"} |= "level": "ERROR"
+{job="star-warehouse-ai"} |= "level": "ERROR"
 ```
 
 Filter by correlation ID:
 
 ```logql
-{job="ecommerce-agent"} |= "correlation_id": "abc123"
+{job="star-warehouse-ai"} |= "correlation_id": "abc123"
 ```
 
 Filter by trace ID:
 
 ```logql
-{job="ecommerce-agent"} |= "trace_id": "00000000000000000000000000abc123"
+{job="star-warehouse-ai"} |= "trace_id": "00000000000000000000000000abc123"
 ```
 
 Filter by logger name:
 
 ```logql
-{job="ecommerce-agent", logger="app.api.v1.chat"}
+{job="star-warehouse-ai", logger="app.api.v1.chat"}
 ```
 
 ### Structured Queries with JSON Parser
@@ -151,7 +151,7 @@ Filter by logger name:
 Parse JSON and filter by level:
 
 ```logql
-{job="ecommerce-agent"}
+{job="star-warehouse-ai"}
   | json
   | level = "ERROR"
 ```
@@ -161,7 +161,7 @@ Show error rate over time:
 ```logql
 sum by (level) (
   rate(
-    {job="ecommerce-agent"}
+    {job="star-warehouse-ai"}
     | json
     | __error__ = ""
     [1m]
@@ -172,7 +172,7 @@ sum by (level) (
 Find slow requests with latency information:
 
 ```logql
-{job="ecommerce-agent"}
+{job="star-warehouse-ai"}
   | json
   | latency_ms > 5000
 ```
@@ -182,7 +182,7 @@ Find slow requests with latency information:
 Find all logs with stack traces:
 
 ```logql
-{job="ecommerce-agent"}
+{job="star-warehouse-ai"}
   | json
   | stack_trace != ""
 ```
@@ -191,7 +191,7 @@ Count errors by exception type:
 
 ```logql
 sum by (exception_type) (
-  {job="ecommerce-agent"}
+  {job="star-warehouse-ai"}
   | json
   | level = "ERROR"
   | pattern `<_?><exception_type>: <_?>`
@@ -209,7 +209,7 @@ Create Grafana alert rules based on log queries:
 ```logql
 sum by (job) (
   rate(
-    {job="ecommerce-agent"}
+    {job="star-warehouse-ai"}
     | json
     | level = "ERROR"
     [5m]
@@ -220,7 +220,7 @@ sum by (job) (
 ### Critical Exceptions
 
 ```logql
-{job="ecommerce-agent"}
+{job="star-warehouse-ai"}
   | json
   | level = "CRITICAL"
 ```
@@ -228,7 +228,7 @@ sum by (job) (
 ### Missing Correlation IDs
 
 ```logql
-{job="ecommerce-agent"}
+{job="star-warehouse-ai"}
   | json
   | correlation_id = "-"
 ```
@@ -262,7 +262,7 @@ The following labels are recommended for efficient querying:
 
 1. Verify the application is outputting JSON:
    ```bash
-   docker logs ecommerce-agent | head -n 5
+   docker logs star-warehouse-ai | head -n 5
    ```
 
 2. Check Filebeat/Fluentd logs:

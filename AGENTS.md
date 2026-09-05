@@ -1,4 +1,4 @@
-# AGENTS.md - E-commerce Smart Agent
+# AGENTS.md - Star Warehouse AI
 
 > **IMPORTANT**: `AGENTS.md` files are the source of truth for AI agent instructions. Always update the relevant `AGENTS.md` file when adding or modifying agent guidance. Do not add durable guidance to editor-specific rule files only.
 
@@ -99,6 +99,7 @@ For any other area, this root file applies.
 - `@tests/`: Backend test suite (pytest + pytest-asyncio), organized by module.
 - `scripts/`: Seed data, ETL, and utility scripts. `initialize_vector_data.py` idempotently
   seeds bundled tenant knowledge and product data when their Qdrant collections are empty.
+  `check_project_identity.py` enforces canonical v5 metadata, legacy-name allowlists, and local documentation links in CI.
 - `migrations/`: Alembic database migrations.
 - `data/`: Static seed data (policies, products).
 - `@docs/`: Project documentation.
@@ -140,6 +141,9 @@ uv run alembic revision --autogenerate -m "description"
 ### Testing & Quality
 
 ```bash
+# Brand metadata and documentation links
+python scripts/check_project_identity.py
+
 # Backend tests
 uv run pytest
 uv run pytest --cov=app --cov-fail-under=75
@@ -175,25 +179,28 @@ pre-commit run --all-files
 
 ## Repo-Wide Invariants
 
-### 1. Async-First
+### 1. Canonical Product Identity
+User-facing name is `星仓 AI 智能客服`, English name is `Star Warehouse AI`, service/package slug is `star-warehouse-ai`, code identifier is `star_warehouse_ai`, and the current release is `5.0.0`. Runtime code imports these values from `app/core/branding.py`; CI enforces them with `scripts/check_project_identity.py`.
+
+### 2. Async-First
 All backend code is async. Use `AsyncSession`, `await llm.ainvoke(...)`, async FastAPI routes, and async database drivers.
 
-### 2. Multi-Tenant Isolation
+### 3. Multi-Tenant Isolation
 Every query involving orders, refunds, carts, or user memories must filter by the current `user_id`. Never return cross-user data.
 
-### 3. No Hardcoded Secrets
+### 4. No Hardcoded Secrets
 Use `app.core.config.settings` for all configuration. Never read `os.environ` directly outside of `@app/core/config.py`.
 
-### 4. Type Safety
+### 5. Type Safety
 - Python: never suppress type errors with `typing.Any` casts or `# type: ignore`, **except** when the diagnostic originates from a third-party package (e.g., missing stubs, incorrect annotations, or known compatibility issues like `ty` vs `pydantic-settings`). In that case, suppression is allowed only in the smallest scope and must include a comment explaining the reason and the package/version involved.
 - Frontend: follow the existing TypeScript strict mode. Do not use `@ts-ignore` or implicit `any`.
 
-### 5. Testing Requirements
+### 6. Testing Requirements
 - Every bug fix must include a test that reproduces the issue.
 - New features must have matching tests in the appropriate `tests/` directory.
 - CI requires `pytest --cov=app --cov-fail-under=75`.
 
-### 6. AGENTS.md Hygiene
+### 7. AGENTS.md Hygiene
 When modifying code in a scoped directory, check whether the nearest `AGENTS.md` needs updating (new conventions, changed file mappings, new anti-patterns).
 
 ## Code Style Guidelines

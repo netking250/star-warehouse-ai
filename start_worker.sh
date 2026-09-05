@@ -1,5 +1,5 @@
 #!/bin/bash
-# 启动 Celery Worker (v4.1)
+# 启动星仓 AI Celery Worker
 
 export PYTHONPATH=$PWD
 

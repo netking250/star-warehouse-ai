@@ -31,7 +31,7 @@ docker compose up -d --force-recreate --no-deps celery_worker app
 echo "Waiting for the API health endpoint..."
 for attempt in {1..90}; do
   if curl --fail --silent --show-error --max-time 5 http://localhost:8000/health >/dev/null; then
-    echo "E-commerce Smart Agent is ready."
+    echo "Star Warehouse AI is ready."
     docker compose ps
     echo "Customer UI: http://localhost:8000/app"
     echo "Admin UI:    http://localhost:8000/admin"

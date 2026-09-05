@@ -1,7 +1,7 @@
 {
   "id": null,
-  "uid": "ecommerce-agent",
-  "title": "E-commerce Smart Agent",
+  "uid": "star-warehouse-ai",
+  "title": "Star Warehouse AI",
   "tags": [
     "ecommerce",
     "agent",
@@ -40,7 +40,7 @@
           "type": "loki",
           "uid": "loki"
         },
-        "expr": "{app=\"ecommerce-agent\"} |= \"trace_id=\"",
+        "expr": "{app=~\"star-warehouse-ai|ecommerce-agent\"} |= \"trace_id=\"",
         "iconColor": "blue",
         "tags": ["trace"],
         "type": "tags"
@@ -68,7 +68,7 @@
             },
             {
               "title": "View Logs in Loki",
-              "url": "/explore?left=${__url_encode_explore_dict:{\"datasource\":\"Loki\",\"queries\":[{\"refId\":\"A\",\"expr\":\"{app=\\\"ecommerce-agent\\\"} |= \\\"trace_id=${trace_id}\\\"\"}]}}",
+              "url": "/explore?left=${__url_encode_explore_dict:{\"datasource\":\"Loki\",\"queries\":[{\"refId\":\"A\",\"expr\":\"{app=~\\\"star-warehouse-ai|ecommerce-agent\\\"} |= \\\"trace_id=${trace_id}\\\"\"}]}}",
               "targetBlank": true
             }
           ]

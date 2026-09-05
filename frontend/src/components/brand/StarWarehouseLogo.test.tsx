@@ -6,7 +6,7 @@ describe('StarWarehouseLogo', () => {
   it('renders the full product identity by default', () => {
     render(<StarWarehouseLogo />)
 
-    expect(screen.getByLabelText('星仓AI智能客服')).toBeInTheDocument()
+    expect(screen.getByLabelText('星仓 AI 智能客服')).toBeInTheDocument()
     expect(screen.getByText('智能客服')).toBeInTheDocument()
   })
 

@@ -1,4 +1,4 @@
-# E-commerce Smart Agent 改造/升级计划
+# Star Warehouse AI 改造/升级计划
 
 > **版本**: 1.0  
 > **日期**: 2026年4月  
@@ -11,22 +11,22 @@
 
 | 本文档 | 对应现有文档 | 关系说明 |
 |--------|-------------|---------|
-| Phase 1 任务 1.4, 1.5, 2.8, 2.9 | [Prompt Engineering下一阶段任务](./explanation/prompt-engineering/next-phase-tasks.md) | 继承并细化，调整了工作量评估 |
-| Phase 1 任务 1.6, 1.7 | [Context Engineering路线图](./explanation/context-engineering/roadmap.md) T1-T5 | 直接继承，添加技术细节 |
-| Phase 2 任务 2.1-2.5 | [Harness Engineering差距分析](./explanation/harness-engineering/gap-analysis.md) G1-G5 | 对应并扩展 |
+| Phase 1 任务 1.4, 1.5, 2.8, 2.9 | [Prompt Engineering下一阶段任务](./prompt-engineering/next-phase-tasks.md) | 继承并细化，调整了工作量评估 |
+| Phase 1 任务 1.6, 1.7 | [Context Engineering路线图](./context-engineering/roadmap.md) T1-T5 | 直接继承，添加技术细节 |
+| Phase 2 任务 2.1-2.5 | [Harness Engineering差距分析](./harness-engineering/gap-analysis.md) G1-G5 | 对应并扩展 |
 | Phase 2 任务 2.6-2.7 | 新增 | 补充风控合规维度 |
 | Phase 3 任务 3.11-3.12 | 新增 | 补充成本优化和人工审核 |
 
 **使用建议**: 
 - 本计划为总体路线图，具体实现细节参考对应的现有文档
 - 如现有文档与本计划有冲突，以本计划（版本1.0，2026年4月）为准
-- 建议结合[Context Engineering差距分析](./explanation/context-engineering/gap-analysis.md)理解技术债务背景
+- 建议结合[Context Engineering差距分析](./context-engineering/gap-analysis.md)理解技术债务背景
 
 ---
 
 ## 执行摘要
 
-本计划基于对**E-commerce Smart Agent**项目的全面评估，以及对比2024-2025年行业领先企业智能客服助手的最佳实践，识别出当前项目在工程实践、风控、性能优化、Agent效果和用户体验五个维度的关键差距，并制定了循序渐进的改造路线图。
+本计划基于对**Star Warehouse AI**项目的全面评估，以及对比2024-2025年行业领先企业智能客服助手的最佳实践，识别出当前项目在工程实践、风控、性能优化、Agent效果和用户体验五个维度的关键差距，并制定了循序渐进的改造路线图。
 
 ### 核心发现
 
@@ -54,7 +54,7 @@
 
 ### 1.1 项目架构概览
 
-E-commerce Smart Agent 是一个成熟的多Agent电商智能客服系统，采用六层架构：
+Star Warehouse AI 是一个成熟的多Agent电商智能客服系统，采用六层架构：
 
 ```mermaid
 flowchart TB
@@ -827,10 +827,10 @@ async def memory_node(state: AgentState) -> dict:
 
 ### 8.1 项目内部文档
 
-- [Prompt Engineering下一阶段任务](./explanation/prompt-engineering/next-phase-tasks.md)
-- [Context Engineering差距分析](./explanation/context-engineering/gap-analysis.md)
-- [Context Engineering路线图](./explanation/context-engineering/roadmap.md)
-- [Harness Engineering差距分析](./explanation/harness-engineering/gap-analysis.md)
+- [Prompt Engineering下一阶段任务](./prompt-engineering/next-phase-tasks.md)
+- [Context Engineering差距分析](./context-engineering/gap-analysis.md)
+- [Context Engineering路线图](./context-engineering/roadmap.md)
+- [Harness Engineering差距分析](./harness-engineering/gap-analysis.md)
 
 ### 8.2 行业研究文档
 

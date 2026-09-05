@@ -1,4 +1,4 @@
-"""Prometheus metrics for the E-commerce Smart Agent.
+"""Prometheus metrics for Star Warehouse AI.
 
 Provides custom application metrics alongside the existing OpenTelemetry tracing.
 All metric recording functions are async-safe and non-blocking.

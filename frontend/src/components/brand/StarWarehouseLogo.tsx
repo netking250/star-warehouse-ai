@@ -14,7 +14,7 @@ export function StarWarehouseLogo({
   className,
 }: StarWarehouseLogoProps): React.ReactElement {
   return (
-    <div className={cn('flex items-center gap-3', className)} aria-label="星仓AI智能客服">
+    <div className={cn('flex items-center gap-3', className)} aria-label="星仓 AI 智能客服">
       <div
         className={cn(
           'relative grid h-10 w-10 shrink-0 place-items-center rounded-2xl shadow-[0_10px_30px_-12px_rgba(79,70,229,0.9)]',

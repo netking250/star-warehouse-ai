@@ -6,12 +6,13 @@
 from celery import Celery
 
 from app.celery_tracing import setup_celery_langsmith_tracing
+from app.core.branding import CELERY_APP_NAME
 from app.core.config import settings
 from app.observability.otel_setup import setup_celery_tracing
 
 # 创建 Celery 实例
 celery_app = Celery(
-    "ecommerce_agent",
+    CELERY_APP_NAME,
     broker=settings.CELERY_BROKER_URL.get_secret_value(),
     backend=settings.CELERY_RESULT_BACKEND,
 )

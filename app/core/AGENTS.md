@@ -21,6 +21,7 @@ Core infrastructure and cross-cutting concerns: configuration, security, databas
 | Role | File | Notes |
 |------|------|-------|
 | Cache | `@app/core/cache.py` | `CacheManager` with 7 cache types (intent, profile, retrieval, facts, preferences, summaries, vector_search) + Redis connection pooling + circuit breaker + Prometheus metrics |
+| Branding | `@app/core/branding.py` | Canonical product identity, service slug, version, and v5 legacy-name normalization |
 | Configuration | `@app/core/config.py` | `Settings` with nested `ConfidenceSettings`; single source of truth for env vars. Uses `_create_settings()` factory to avoid top-level instantiation errors during static analysis |
 | Security | `@app/core/security.py` | JWT validation, immutable `AuthContext`, tenant claims, RBAC roles/scopes, authorization dependencies |
 | Tenancy | `@app/core/tenancy.py` | Async tenant context plus Redis/Qdrant namespace helpers |
@@ -59,8 +60,9 @@ General Python rules are defined in the root `AGENTS.md`. Core-specific conventi
 ## Conventions
 
 - **Settings singleton**: Access settings via `app.core.config.settings`.
+- **Brand identity**: Import stable product constants from `branding.py`; do not duplicate names or versions in runtime code.
 - **Settings factory**: `_create_settings()` wraps `Settings()` instantiation to defer runtime env-file loading and avoid false positives during static analysis.
-- **Type checker compatibility**: `config.py` suppresses `ty: ignore[missing-argument]` on `Settings()` because `ty` does not understand `pydantic-settings` env-file defaulting. This follows root `AGENTS.md` Invariant #4 (Type Safety): suppression is allowed for third-party compatibility issues when scoped to the smallest region and annotated with the reason.
+- **Type checker compatibility**: `config.py` suppresses `ty: ignore[missing-argument]` on `Settings()` because `ty` does not understand `pydantic-settings` env-file defaulting. This follows root `AGENTS.md` Invariant #5 (Type Safety): suppression is allowed for third-party compatibility issues when scoped to the smallest region and annotated with the reason.
 - **Correlation IDs**: Use `logging.py` utilities to propagate correlation IDs across async boundaries.
 - **Authorization context**: Protected APIs must depend on `get_active_auth_context`, `get_active_user_id`, `get_admin_user_id`, `require_roles`, or `require_scopes` so Redis token revocation is enforced. Signature-only helpers are for token parsing and compatibility tests, not route protection.
 - **Storage namespaces**: Construct Redis keys with `namespaced_key()` and Qdrant collection names with `namespaced_collection()`; never compose shared-storage keys without environment and tenant scope.

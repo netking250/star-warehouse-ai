@@ -124,7 +124,7 @@ export const ChatMessageList = forwardRef<HTMLDivElement, ChatMessageListProps>(
                       className={`flex items-center gap-2 ${message.role === 'user' ? 'justify-end' : ''}`}
                     >
                       <span className="text-xs font-medium text-slate-500">
-                        {message.role === 'user' ? '你' : '星仓AI'}
+                        {message.role === 'user' ? '你' : '星仓 AI'}
                       </span>
                       {isAssistant && (
                         <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600">

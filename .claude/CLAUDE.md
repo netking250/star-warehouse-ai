@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-E-commerce Smart Agent is a full-stack AI customer service system. Backend: FastAPI + LangGraph multi-agent orchestration. Frontend: React 19 + TypeScript + Vite. Python 3.12+ required. Package manager: `uv` (Python), `npm` (frontend).
+Star Warehouse AI is a full-stack AI customer service system. Backend: FastAPI + LangGraph multi-agent orchestration. Frontend: React 19 + TypeScript + Vite. Python 3.12+ required. Package manager: `uv` (Python), `npm` (frontend).
 
 ## Common Commands
 

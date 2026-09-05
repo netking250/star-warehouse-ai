@@ -1,4 +1,4 @@
-"""Alert models for the E-commerce Smart Agent.
+"""Alert models for Star Warehouse AI.
 
 Defines database entities for alert rules, events, and notifications.
 """

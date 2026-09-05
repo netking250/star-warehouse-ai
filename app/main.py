@@ -21,6 +21,7 @@ from app.api.v1.chat import router as chat_router
 from app.api.v1.status import router as status_router
 from app.api.v1.web_vitals import router as web_vitals_router
 from app.api.v1.websocket import router as websocket_router
+from app.core.branding import APP_VERSION, HEALTH_VERSION, PRODUCT_NAME_EN
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.logging import generate_correlation_id, set_correlation_id
@@ -38,7 +39,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     _setup_logging()
     _setup_langsmith_tracing()
-    logger.info(" Starting E-commerce Smart Agent v4.1...")
+    logger.info("Starting %s v%s", PRODUCT_NAME_EN, APP_VERSION)
 
     setup_otel_tracing()
     instrument_fastapi(app)
@@ -259,8 +260,8 @@ def _setup_logging() -> None:
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    version="4.1.0",
-    description="全栈·沉浸式人机协作系统 (The Immersive System) - v4.1",
+    version=APP_VERSION,
+    description="星仓原生 AI 智能客服平台 · Star Warehouse native AI customer service",
     docs_url="/docs" if settings.ENABLE_OPENAPI_DOCS else None,
     redoc_url="/redoc" if settings.ENABLE_OPENAPI_DOCS else None,
     openapi_url="/openapi.json" if settings.ENABLE_OPENAPI_DOCS else None,
@@ -400,7 +401,7 @@ async def health_check():
 
     health_status = {
         "status": "healthy",
-        "version": "v4.1",
+        "version": HEALTH_VERSION,
         "dependencies": {},
     }
 

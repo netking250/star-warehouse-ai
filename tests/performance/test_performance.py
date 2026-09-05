@@ -1,4 +1,4 @@
-"""Performance regression tests for E-commerce Smart Agent.
+"""Performance regression tests for Star Warehouse AI.
 
 These tests measure latencies of critical paths and enforce SLOs:
 - P95 latency < 500ms for retrieval and memory operations

@@ -1,10 +1,10 @@
-# SLO/SLI Reference for E-commerce Smart Agent
+# SLO/SLI Reference for Star Warehouse AI
 
 > **Status**: Phase 3.2 — Core SLOs defined, recording rules deployed, Grafana dashboard available.
 
 ## Overview
 
-This document defines the **Service Level Objectives (SLOs)** and **Service Level Indicators (SLIs)** for the E-commerce Smart Agent. SLOs express the desired reliability target; SLIs are the concrete metrics that measure whether the target is met.
+This document defines the **Service Level Objectives (SLOs)** and **Service Level Indicators (SLIs)** for the Star Warehouse AI. SLOs express the desired reliability target; SLIs are the concrete metrics that measure whether the target is met.
 
 All SLIs are derived from existing Prometheus metrics in `app/observability/metrics.py`. Recording rules in `prometheus/recording_rules.yml` pre-compute SLI values over the evaluation window to keep dashboard queries fast and consistent.
 
@@ -32,13 +32,13 @@ All SLIs are derived from existing Prometheus metrics in `app/observability/metr
 
 | SLI | Description | PromQL Expression (recording rule) |
 |-----|-------------|------------------------------------|
-| **SLI 1** — Service availability | Ratio of time the `/metrics` endpoint is reachable. | `avg_over_time(up{job="ecommerce-agent"}[30d])` |
+| **SLI 1** — Service availability | Ratio of time the `/metrics` endpoint is reachable. | `avg_over_time(up{job="star-warehouse-ai"}[30d])` |
 | **SLI 2** — Error rate | Proportion of chat requests that result in an error. | `sum(rate(chat_errors_total[30d])) / sum(rate(chat_requests_total[30d]))` |
 
 ### Recording Rules
 
 - `slo:availability:ratio_30d` — Overall availability ratio.
-- Derived from `up{job="ecommerce-agent"}` and `chat_errors_total / chat_requests_total`.
+- Derived from `up{job="star-warehouse-ai"}` and `chat_errors_total / chat_requests_total`.
 
 ---
 

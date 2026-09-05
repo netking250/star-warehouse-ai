@@ -3,7 +3,7 @@
 ## 环境要求
 
 - Python 3.12+
-- Node.js 20+
+- Node.js 22+
 - PostgreSQL 16
 - Redis 7+
 - Qdrant 1.16+

@@ -1,7 +1,7 @@
 # Incident Response Runbook
 
 This document provides comprehensive incident response procedures for the
-E-commerce Smart Agent alerting system.
+Star Warehouse AI alerting system.
 
 ## Alert Severity Definitions
 
@@ -43,7 +43,7 @@ Alerts are detected through:
    - Enable circuit breaker if LLM API is failing
    - Scale Celery workers if backlog is high
    - Clear Redis cache if memory is exhausted
-6. **Communicate** to stakeholders via Slack #alerts-ecommerce-agent
+6. **Communicate** to stakeholders via Slack #alerts-star-warehouse-ai
 7. **Create a post-mortem** document within 24 hours
 
 #### P1 Response (Warning)
@@ -209,7 +209,7 @@ curl -X POST -H "Authorization: Bearer $TOKEN" \
 ## Contact Information
 
 - **Primary on-call**: configured via `ALERT_ADMIN_EMAILS`
-- **Slack channel**: #alerts-ecommerce-agent
+- **Slack channel**: #alerts-star-warehouse-ai
 - **Incident commander rotation**: see PagerDuty schedule
 - **Escalation path**: On-call → Team Lead → Engineering Manager → CTO
 

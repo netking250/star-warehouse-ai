@@ -51,7 +51,10 @@ async def _async_log_chat_observability(
         poolclass=NullPool,
         connect_args={
             "timeout": settings.DB_CONNECT_TIMEOUT,
-            "server_settings": {"application_name": "ecommerce-agent-celery", "jit": "off"},
+            "server_settings": {
+                "application_name": f"{settings.SERVICE_NAME}-celery",
+                "jit": "off",
+            },
         },
     )
     task_session_maker = async_sessionmaker(

@@ -194,4 +194,4 @@ AI回答：{answer}
 - [Context Engineering概述](../context-engineering/overview.md)
 - [Prompt Engineering核心要求](../prompt-engineering/core-requirements.md)
 - [项目架构概览](../architecture/overview.md)
-- [测试框架指南](../../tests/AGENTS.md)
+- [测试框架指南](../../../tests/AGENTS.md)

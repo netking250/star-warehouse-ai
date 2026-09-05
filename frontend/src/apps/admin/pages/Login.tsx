@@ -41,8 +41,8 @@ export function Login(): React.ReactElement {
             掌控每一个关键决策
           </h1>
           <p className="mt-6 max-w-lg text-base leading-8 text-slate-300">
-            从知识治理、Agent
-            配置到风险审核与质量评估，星仓AI为运营团队提供统一、可信、可追溯的工作空间。
+            从知识治理、Agent 配置到风险审核与质量评估，星仓 AI
+            为运营团队提供统一、可信、可追溯的工作空间。
           </p>
           <div className="mt-10 space-y-4">
             {['全链路服务质量观测', '高风险操作人工审核', '企业知识与策略统一治理'].map((item) => (

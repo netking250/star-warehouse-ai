@@ -47,12 +47,12 @@ def _enforce_tenant_writes(session: SQLAlchemySession, _flush_context, _instance
 
 _async_connect_args = {
     "timeout": settings.DB_CONNECT_TIMEOUT,
-    "server_settings": {"application_name": "ecommerce-agent", "jit": "off"},
+    "server_settings": {"application_name": settings.SERVICE_NAME, "jit": "off"},
 }
 
 _sync_connect_args = {
     "connect_timeout": settings.DB_CONNECT_TIMEOUT,
-    "options": "-c application_name=ecommerce-agent -c jit=off",
+    "options": f"-c application_name={settings.SERVICE_NAME} -c jit=off",
 }
 
 # 异步引擎与 Session 工厂（FastAPI / Agent 使用）

@@ -54,7 +54,7 @@
 
 **目标**: 将评估集成到CI/CD流程
 
-**参考**: [测试框架指南](../../tests/AGENTS.md)  
+**参考**: [测试框架指南](../../../tests/AGENTS.md)
 **与现有工作关系**: 利用已有的CI配置，扩展评估步骤
 
 **GitHub Actions配置**:
@@ -221,7 +221,7 @@ Golden Dataset更新 → Prompt/模型优化 → A/B测试 → 生产验证
 | 本文档任务 | 对应现有路线图 | 关系说明 |
 |-----------|---------------|----------|
 | Task 1 (Golden Dataset) | [Context Engineering评估框架](../context-engineering/evaluation-framework.md) | 补充Golden Dataset，支撑Needle-in-Haystack等测试 |
-| Task 2 (回归测试) | [测试框架指南](../../tests/AGENTS.md) | 扩展CI配置，增加自动化评估步骤 |
+| Task 2 (回归测试) | [测试框架指南](../../../tests/AGENTS.md) | 扩展CI配置，增加自动化评估步骤 |
 | Task 3 (Metrics扩展) | 新增 | Harness特有指标（语气一致性、Containment Rate等） |
 | Task 4 (监控看板) | Context Engineering T8 | 实现上下文利用率遥测的可视化 |
 | Task 5 (持续改进) | [Prompt Engineering Task 7](../prompt-engineering/next-phase-tasks.md) | 实现Prompt效果评估体系的生产级闭环 |
@@ -280,4 +280,4 @@ Week 7-12: 优化完善 + 文档 + Q3总结
 - [Context Engineering路线图](../context-engineering/roadmap.md)
 - [Prompt Engineering任务列表](../prompt-engineering/next-phase-tasks.md)
 - [项目架构概览](../architecture/overview.md)
-- [测试框架指南](../../tests/AGENTS.md)
+- [测试框架指南](../../../tests/AGENTS.md)

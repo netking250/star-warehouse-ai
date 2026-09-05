@@ -1,4 +1,4 @@
-"""Auto-healing tasks for the E-commerce Smart Agent.
+"""Auto-healing tasks for Star Warehouse AI.
 
 Periodic Celery tasks that detect and remediate common operational issues
 such as stuck workers and high Redis memory usage.

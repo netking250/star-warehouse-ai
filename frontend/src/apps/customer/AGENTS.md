@@ -28,7 +28,7 @@ Customer-facing chat SPA. Vite multi-page entry via `index.html`, served by Fast
 | Chat input     | `@frontend/src/apps/customer/components/ChatInput.tsx`       | User input box                                                  |
 | User feedback  | `@frontend/src/apps/customer/components/FeedbackWidget.tsx`  | User feedback widget for chat messages (thumbs up/down, rating) |
 | Shared UI      | `@frontend/src/components/ui/`                               | shadcn/ui components (Button, Input, ScrollArea, etc.)          |
-| Brand UI       | `@frontend/src/components/brand/StarWarehouseLogo.tsx`       | Shared 星仓AI mark; reuse instead of duplicating logos          |
+| Brand UI       | `@frontend/src/components/brand/StarWarehouseLogo.tsx`       | Shared 星仓 AI mark; reuse instead of duplicating logos         |
 | API wrapper    | `@frontend/src/lib/api.ts`                                   | Unified `fetch` with request header factory                     |
 | Query client   | `@frontend/src/lib/query-client.ts`                          | TanStack Query client configuration                             |
 | Risk utilities | `@frontend/src/lib/risk.ts`                                  | Risk assessment utilities                                       |

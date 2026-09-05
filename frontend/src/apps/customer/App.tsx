@@ -133,7 +133,7 @@ const App: FC = () => {
               </span>
             </h1>
             <p className="mt-6 max-w-lg text-base leading-8 text-slate-300">
-              星仓AI连接订单、物流、商品与企业知识，为客户提供可信、专业、有温度的智能服务体验。
+              星仓 AI 连接订单、物流、商品与企业知识，为客户提供可信、专业、有温度的智能服务体验。
             </p>
             <div className="mt-10 grid max-w-xl grid-cols-3 gap-3">
               {[
@@ -203,7 +203,7 @@ const App: FC = () => {
                   className="h-12 w-full rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 shadow-lg shadow-indigo-200 hover:from-indigo-500 hover:to-violet-500"
                   disabled={isLoginLoading}
                 >
-                  {isLoginLoading ? '安全登录中...' : '进入星仓AI'}
+                  {isLoginLoading ? '安全登录中...' : '进入星仓 AI'}
                   {!isLoginLoading && <ArrowRight className="h-4 w-4" />}
                 </Button>
               </form>
@@ -318,7 +318,7 @@ const App: FC = () => {
             </Button>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-sm font-semibold sm:text-base">星仓AI 服务助手</h1>
+                <h1 className="text-sm font-semibold sm:text-base">星仓 AI 服务助手</h1>
                 <span className="hidden rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-600 sm:inline-flex">
                   在线
                 </span>
@@ -357,7 +357,7 @@ const App: FC = () => {
           onChange={setInput}
           onSend={handleSend}
           isLoading={isLoading}
-          placeholder="告诉星仓AI，您需要什么帮助..."
+          placeholder="告诉星仓 AI，您需要什么帮助..."
         />
       </section>
 

@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the performance optimization strategy for the E-commerce Smart Agent. The target SLOs are:
+This document describes the performance optimization strategy for the Star Warehouse AI. The target SLOs are:
 
 - **P95 latency < 500ms** for chat endpoint
 - **P99 latency < 1000ms** for chat endpoint

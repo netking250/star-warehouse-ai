@@ -178,7 +178,7 @@ export function Dashboard() {
               <div className="flex items-center gap-2 text-xs text-emerald-300">
                 <span className="h-2 w-2 rounded-full bg-emerald-400" /> 平台运行正常
               </div>
-              <p className="mt-1.5 text-[10px] text-slate-500">星仓AI 企业服务集群</p>
+              <p className="mt-1.5 text-[10px] text-slate-500">星仓 AI 企业服务集群</p>
             </div>
           </div>
         </aside>

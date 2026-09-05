@@ -5,13 +5,15 @@
 项目已提供 `docker-compose.yaml`，可直接启动完整环境：
 
 ```bash
-docker compose up --build
+cp .env.example .env
+# 配置生产密钥与服务地址后启动
+docker compose up -d --build
 ```
 
 包含的服务：
 - `app` — FastAPI 主应用
-- `worker` — Celery 异步任务 worker（通过 `docker-compose.yaml` 自动启动，无需手动运行 `start_worker.sh`）
-- `postgres` — PostgreSQL 数据库
+- `celery_worker` — Celery 异步任务 worker（通过 `docker-compose.yaml` 自动启动，无需手动运行 `start_worker.sh`）
+- `db` — PostgreSQL 数据库
 - `redis` — Redis 缓存与消息队列
 - `qdrant` — Qdrant 向量数据库
 
@@ -33,7 +35,7 @@ COPY alembic.ini ./
 
 ```bash
 # 主应用
-./start.sh
+uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 # Worker
 ./start_worker.sh

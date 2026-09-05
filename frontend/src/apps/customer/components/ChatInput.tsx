@@ -64,7 +64,7 @@ export function ChatInput({
         </div>
         <div className="mt-2 flex items-center justify-center gap-1.5 text-[10px] text-slate-400 sm:text-xs">
           <ShieldCheck className="h-3 w-3 text-emerald-500" />
-          星仓AI可能会出错，重要操作请核对确认 · Enter 发送
+          星仓 AI 可能会出错，重要操作请核对确认 · Enter 发送
         </div>
       </div>
     </div>

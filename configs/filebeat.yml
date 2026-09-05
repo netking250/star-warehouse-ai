@@ -1,18 +1,18 @@
-# Filebeat configuration for E-commerce Smart Agent structured logs
+# Filebeat configuration for Star Warehouse AI structured logs
 # This configuration reads JSON log files and forwards them to Grafana Loki
 
 filebeat.inputs:
 - type: log
   enabled: true
   paths:
-    - /var/log/ecommerce-agent/*.json.log
-    - /var/log/ecommerce-agent/app.log
+    - /var/log/star-warehouse-ai/*.json.log
+    - /var/log/star-warehouse-ai/app.log
   json.keys_under_root: true
   json.add_error_key: true
   json.message_key: message
-  tags: ["ecommerce-agent", "backend"]
+  tags: ["star-warehouse-ai", "backend"]
   fields:
-    service: ecommerce-smart-agent
+    service: star-warehouse-ai
     environment: production
   fields_under_root: true
   multiline.pattern: '^\{'
@@ -23,10 +23,10 @@ filebeat.inputs:
 - type: log
   enabled: true
   paths:
-    - /var/log/ecommerce-agent/access.log
-  tags: ["ecommerce-agent", "access"]
+    - /var/log/star-warehouse-ai/access.log
+  tags: ["star-warehouse-ai", "access"]
   fields:
-    service: ecommerce-smart-agent
+    service: star-warehouse-ai
     log_type: access
   fields_under_root: true
 
@@ -56,7 +56,7 @@ output.loki:
   # password: "secret"
 
   # Tenant ID for multi-tenant Loki deployments
-  # tenant_id: "ecommerce-agent"
+  # tenant_id: "star-warehouse-ai"
 
   # Batch settings
   batch_wait: 1s
@@ -67,7 +67,7 @@ output.loki:
 
   # Labels extracted from log fields
   labels:
-    job: "ecommerce-agent"
+    job: "star-warehouse-ai"
     level: "{{ .level }}"
     logger: "{{ .logger }}"
     correlation_id: "{{ .correlation_id }}"

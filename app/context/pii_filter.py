@@ -1,4 +1,4 @@
-"""Real-time PII detection and filtering for the E-commerce Smart Agent.
+"""Real-time PII detection and filtering for Star Warehouse AI.
 
 This module provides regex-based PII detection and redaction for sensitive
 data including credit cards, phone numbers, ID numbers, and email addresses.

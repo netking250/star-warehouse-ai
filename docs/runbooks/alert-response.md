@@ -1,6 +1,6 @@
 # Alert Response Runbook
 
-This document describes standard operating procedures for responding to alerts produced by the E-commerce Smart Agent observability system.
+This document describes standard operating procedures for responding to alerts produced by the Star Warehouse AI observability system.
 
 ## Alert Severity Definitions
 
@@ -154,5 +154,5 @@ curl -X POST /api/v1/admin/alerts/rules \
 ## Contact
 
 - Primary on-call: configured via `ALERT_ADMIN_EMAILS`
-- Slack channel: #alerts-ecommerce-agent
+- Slack channel: #alerts-star-warehouse-ai
 - Incident commander rotation: see PagerDuty schedule

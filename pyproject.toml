@@ -1,7 +1,7 @@
 [project]
-name = "ecommerce-agent"
-version = "4.1.0"
-description = "AI Agent System"
+name = "star-warehouse-ai"
+version = "5.0.0"
+description = "Star Warehouse native AI customer service platform"
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
 authors = [

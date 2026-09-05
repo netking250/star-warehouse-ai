@@ -32,9 +32,9 @@ afterEach(() => {
 
 describe('buildAuthenticatedWebSocketUrl', () => {
   it('adds the access token without dropping existing query parameters', () => {
-    expect(buildAuthenticatedWebSocketUrl('ws://localhost:8000/ws?room=admins', 'token value')).toBe(
-      'ws://localhost:8000/ws?room=admins&token=token+value'
-    )
+    expect(
+      buildAuthenticatedWebSocketUrl('ws://localhost:8000/ws?room=admins', 'token value')
+    ).toBe('ws://localhost:8000/ws?room=admins&token=token+value')
   })
 
   it('does not create an unauthenticated websocket URL', () => {
@@ -48,8 +48,7 @@ describe('useWebSocket', () => {
     useAuthStore.setState({ token: 'jwt-token', isAuthenticated: true })
 
     const { rerender, unmount } = renderHook(
-      ({ onMessage }) =>
-        useWebSocket({ url: 'ws://localhost:8000/ws', onMessage }),
+      ({ onMessage }) => useWebSocket({ url: 'ws://localhost:8000/ws', onMessage }),
       { initialProps: { onMessage: vi.fn() } }
     )
 

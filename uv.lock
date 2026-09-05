@@ -472,8 +472,8 @@ wheels = [
 ]
 
 [[package]]
-name = "ecommerce-agent"
-version = "4.1.0"
+name = "star-warehouse-ai"
+version = "5.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },

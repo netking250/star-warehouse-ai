@@ -15,7 +15,7 @@ Context Engineering 是一门**主动管理进入大模型上下文窗口的所�
 
 ## 为什么对我们的项目至关重要
 
-E-commerce Smart Agent 采用 **LangGraph + Supervisor 多 Agent 架构**，系统特点决定了上下文工程是我们的核心瓶颈：
+Star Warehouse AI 采用 **LangGraph + Supervisor 多 Agent 架构**，系统特点决定了上下文工程是我们的核心瓶颈：
 
 - **多 Agent 编排**：Supervisor 路由 + 并行/串行执行，导致上下文在多个 Agent 之间传递
 - **工具调用密集**：检索、改写、摘要、提取等工具产生大量输出

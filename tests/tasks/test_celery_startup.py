@@ -25,7 +25,7 @@ def test_celery_app_fresh_process_import_succeeds() -> None:
     result = _run_in_fresh_process("from app.celery_app import celery_app; print(celery_app.main)")
 
     assert result.returncode == 0, result.stderr
-    assert result.stdout.strip() == "ecommerce_agent"
+    assert result.stdout.strip() == "star_warehouse_ai"
 
 
 def test_celery_app_scheduled_tasks_are_registered() -> None:

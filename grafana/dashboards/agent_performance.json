@@ -40,7 +40,7 @@
           "type": "loki",
           "uid": "loki"
         },
-        "expr": "{app=\"ecommerce-agent\"} |= \"trace_id=\"",
+        "expr": "{app=~\"star-warehouse-ai|ecommerce-agent\"} |= \"trace_id=\"",
         "iconColor": "blue",
         "tags": ["trace"],
         "type": "tags"
@@ -54,7 +54,7 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "intent_accuracy{job=\"ecommerce-agent\"}",
+          "expr": "intent_accuracy{job=~\"star-warehouse-ai|ecommerce-agent\"}",
           "legendFormat": "{{agent_type}}"
         }
       ],
@@ -71,7 +71,7 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "rag_precision{job=\"ecommerce-agent\"}",
+          "expr": "rag_precision{job=~\"star-warehouse-ai|ecommerce-agent\"}",
           "legendFormat": "RAG"
         }
       ],
@@ -88,7 +88,7 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "answer_correctness{job=\"ecommerce-agent\"}",
+          "expr": "answer_correctness{job=~\"star-warehouse-ai|ecommerce-agent\"}",
           "legendFormat": "Correctness"
         }
       ],
@@ -134,7 +134,7 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "token_efficiency{job=\"ecommerce-agent\"}",
+          "expr": "token_efficiency{job=~\"star-warehouse-ai|ecommerce-agent\"}",
           "legendFormat": "Efficiency"
         }
       ],

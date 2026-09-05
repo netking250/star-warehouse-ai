@@ -1,8 +1,10 @@
 # app/core/config.py
 from typing import Literal
 
-from pydantic import Field, PostgresDsn, RedisDsn, SecretStr, computed_field
+from pydantic import Field, PostgresDsn, RedisDsn, SecretStr, computed_field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from app.core.branding import PRODUCT_NAME_ZH, SERVICE_SLUG, normalize_product_name
 
 
 class ConfidenceSettings(BaseSettings):
@@ -60,7 +62,9 @@ class ConfidenceSettings(BaseSettings):
 
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str
+    PROJECT_NAME: str = PRODUCT_NAME_ZH
+    SERVICE_NAME: str = SERVICE_SLUG
+    ALERT_DEDUP_PREFIX: str = SERVICE_SLUG
     API_V1_STR: str
     ENVIRONMENT: str = "development"
 
@@ -179,7 +183,7 @@ class Settings(BaseSettings):
     # LangSmith / LangChain tracing
     LANGCHAIN_TRACING_V2: bool = False
     LANGSMITH_API_KEY: SecretStr = SecretStr("")
-    LANGSMITH_PROJECT: str = "ecommerce-smart-agent"
+    LANGSMITH_PROJECT: str = SERVICE_SLUG
     LANGSMITH_OTEL_ENABLED: bool = False
     LANGSMITH_CELERY_TRACING: bool = True
 
@@ -358,6 +362,12 @@ class Settings(BaseSettings):
 
     # 置信度评估配置（嵌套模型）
     CONFIDENCE: ConfidenceSettings = Field(default_factory=ConfidenceSettings)
+
+    @field_validator("PROJECT_NAME", mode="before")
+    @classmethod
+    def normalize_legacy_project_name(cls, value: object) -> object:
+        """Normalize known v4 product names during the v5 compatibility window."""
+        return normalize_product_name(value) if isinstance(value, str) else value
 
 
 def _create_settings() -> Settings:

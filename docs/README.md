@@ -1,6 +1,6 @@
-# E-commerce Smart Agent 文档中心
+# Star Warehouse AI 文档中心
 
-欢迎来到 E-commerce Smart Agent 的文档中心。本文档采用 [Diátaxis](https://diataxis.fr/) 框架组织，分为教程、操作指南、解释说明和参考资料四个象限。
+欢迎来到 Star Warehouse AI 的文档中心。本文档采用 [Diátaxis](https://diataxis.fr/) 框架组织，分为教程、操作指南、解释说明和参考资料四个象限。
 
 ## 快速导航
 
@@ -12,6 +12,7 @@
 - [部署到生产环境](./how-to-guides/deploy.md)
 - [故障排查](./how-to-guides/troubleshoot.md)
 - [管理员后台操作指南](./how-to-guides/admin-operations.md)
+- [迁移到 v5](./how-to-guides/migrate-to-v5.md)
 
 ### 开发者与架构师
 - [系统架构](./explanation/architecture/) — 整体架构图、数据模型、交互流程
@@ -27,7 +28,6 @@
 - [常用命令速查表](./reference/command-cheatsheet.md)
 - [项目文件结构](./reference/project-structure.md)
 - [技术栈详情](./reference/tech-stack-detail.md)
-- [简历写作指南](./reference/resume-guide.md)
 
 ## 文档约定
 

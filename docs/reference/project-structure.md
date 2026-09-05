@@ -1,7 +1,7 @@
 # 项目文件结构
 
 ```text
-E-commerce-Smart-Agent/
+star-warehouse-ai/
 ├── 📄 README.md                    # 项目文档
 ├── 📄 AGENTS.md                    # AI Agent 开发规范
 ├── 📄 .env.example                 # 环境变量模板
