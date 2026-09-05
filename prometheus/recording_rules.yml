@@ -51,8 +51,7 @@ groups:
       - record: slo:accuracy:intent_7d
         expr: |
           avg_over_time(
-            avg(intent_accuracy) or vector(1)
-            [7d:1h]
+            (avg(intent_accuracy) or vector(1))[7d:1h]
           )
         labels:
           slo: "accuracy"
@@ -61,8 +60,7 @@ groups:
       - record: slo:accuracy:rag_7d
         expr: |
           avg_over_time(
-            rag_precision or vector(1)
-            [7d:1h]
+            (rag_precision or vector(1))[7d:1h]
           )
         labels:
           slo: "accuracy"
@@ -71,8 +69,7 @@ groups:
       - record: slo:accuracy:hallucination_7d
         expr: |
           avg_over_time(
-            hallucination_rate or vector(0)
-            [7d:1h]
+            (hallucination_rate or vector(0))[7d:1h]
           )
         labels:
           slo: "accuracy"
