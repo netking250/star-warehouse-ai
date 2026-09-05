@@ -1,6 +1,6 @@
 global:
-  smtp_smarthost: '${SMTP_HOST:-localhost:587}'
-  smtp_from: '${ALERT_EMAIL_FROM:-alerts@example.com}'
+  smtp_smarthost: '${SMTP_HOST}'
+  smtp_from: '${ALERT_EMAIL_FROM}'
 
 route:
   group_by: ['alertname', 'severity']
@@ -25,13 +25,13 @@ route:
 receivers:
   - name: 'default'
     email_configs:
-      - to: '${ALERT_ADMIN_EMAILS:-oncall@example.com}'
+      - to: '${ALERT_ADMIN_EMAILS}'
         subject: '[{{ .Status | toUpper }}] {{ .GroupLabels.alertname }}'
         send_resolved: true
 
   - name: 'email-team'
     email_configs:
-      - to: '${ALERT_ADMIN_EMAILS:-oncall@example.com}'
+      - to: '${ALERT_ADMIN_EMAILS}'
         send_resolved: true
 
   - name: 'pagerduty-critical'
@@ -42,7 +42,7 @@ receivers:
 
   - name: 'webhook-default'
     webhook_configs:
-      - url: '${ALERT_WEBHOOK_URL:-http://localhost:8000/api/v1/admin/alerts/webhook}'
+      - url: '${ALERT_WEBHOOK_URL}'
         send_resolved: true
 
 inhibit_rules:

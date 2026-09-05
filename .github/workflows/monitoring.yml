@@ -57,7 +57,11 @@ jobs:
         run: |
           docker run --rm --entrypoint /bin/amtool \
             -v "$PWD/alertmanager:/etc/alertmanager:ro" \
-            prom/alertmanager:v0.27.0 check-config /etc/alertmanager/alertmanager.yml
+            -e SMTP_HOST=localhost:587 \
+            -e ALERT_EMAIL_FROM=alerts@example.com \
+            -e ALERT_ADMIN_EMAILS=oncall@example.com \
+            -e ALERT_WEBHOOK_URL=http://localhost:8000/api/v1/admin/alerts/webhook \
+          prom/alertmanager:v0.27.0 check-config /etc/alertmanager/alertmanager.yml
 
   monitoring-tests:
     name: Monitoring tests
