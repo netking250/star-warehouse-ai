@@ -55,13 +55,16 @@ jobs:
             prom/prometheus:v3.2.0 check config /etc/prometheus/prometheus.yml
       - name: Validate Alertmanager configuration
         run: |
+          cp alertmanager/alertmanager.yml /tmp/star-warehouse-alertmanager.yml
+          sed -i \
+            -e 's#\${SMTP_HOST}#localhost:587#g' \
+            -e 's#\${ALERT_EMAIL_FROM}#alerts@example.com#g' \
+            -e 's#\${ALERT_ADMIN_EMAILS}#oncall@example.com#g' \
+            -e 's#\${ALERT_WEBHOOK_URL}#http://localhost:8000/api/v1/admin/alerts/webhook#g' \
+            /tmp/star-warehouse-alertmanager.yml
           docker run --rm --entrypoint /bin/amtool \
-            -v "$PWD/alertmanager:/etc/alertmanager:ro" \
-            -e SMTP_HOST=localhost:587 \
-            -e ALERT_EMAIL_FROM=alerts@example.com \
-            -e ALERT_ADMIN_EMAILS=oncall@example.com \
-            -e ALERT_WEBHOOK_URL=http://localhost:8000/api/v1/admin/alerts/webhook \
-          prom/alertmanager:v0.27.0 check-config /etc/alertmanager/alertmanager.yml
+            -v /tmp/star-warehouse-alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro \
+            prom/alertmanager:v0.27.0 check-config /etc/alertmanager/alertmanager.yml
 
   monitoring-tests:
     name: Monitoring tests
