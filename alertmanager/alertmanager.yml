@@ -26,7 +26,6 @@ receivers:
   - name: 'default'
     email_configs:
       - to: '${ALERT_ADMIN_EMAILS}'
-        subject: '[{{ .Status | toUpper }}] {{ .GroupLabels.alertname }}'
         send_resolved: true
 
   - name: 'email-team'
