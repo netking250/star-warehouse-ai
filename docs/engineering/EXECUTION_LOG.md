@@ -2246,3 +2246,22 @@ State transition:
 
 - T13 is externally accepted `PASS`; T14 remains `NOT_STARTED`.
 - M02 moves from `IN_PROGRESS` to `BLOCKED / PR_REQUIRED`.
+
+## M02-FIX - Resume consolidation through a linear protected-main PR
+
+Started: 2026-09-14
+
+Status: `IN_PROGRESS`
+
+Execution Stage: `PR_FIX`
+
+- Recovery confirmed a clean worktree, local canonical `main` at `c5a4a1aa8be5e7e3ea2849507fef1d7c3d56d928`,
+  unchanged `origin/main` at `bf0d5b9fe756fb1527c605120b03a0d6531471cd`, and the expected
+  backup tag. The existing external bundle remains present and untouched.
+- The rejected local range contains exactly one merge commit, `c77987b`; no missing project
+  content explains the protection failure.
+- `b9f1a91` is a direct linear child of `origin/main`. Constructed `repo-consolidation-pr` with one
+  new normal commit, `02a91d4`, whose parent is `b9f1a91` and whose tree is the exact canonical
+  `c5a4a1a` tree (`b3a03fd2e7cd3e0a250ea9f7ff6e054e2a6808f8`).
+- Pre-documentation equivalence passed with zero diff, zero merge commits, and a successful
+  `origin/main` ancestor check. T13 remains `PASS`; T14 remains `NOT_STARTED`.

@@ -46,7 +46,7 @@ T00–T21 gate sequence.
 | Task | Name | Status |
 | --- | --- | --- |
 | M01 | Repository Consolidation & Legacy Cleanup | PASS |
-| M02 | Git Main Consolidation & Branch Cleanup | BLOCKED |
+| M02 | Git Main Consolidation & Branch Cleanup | IN_PROGRESS |
 
 ## T-INIT-FIX — Disaster Recovery Decision
 
@@ -58,7 +58,7 @@ T00–T21 gate sequence.
 ## Gate rules
 
 - T-INIT through T13 and M01 are accepted `PASS`. M02 repository consolidation is
-  `BLOCKED` by protected-branch PR requirements; T14 remains `NOT_STARTED`.
+  `IN_PROGRESS` on a verified linear PR path; T14 remains `NOT_STARTED`.
 - A task in `AWAITING_ACCEPTANCE`, `FAIL`, `NEEDS_EVIDENCE`, or `BLOCKED` is not accepted as a prerequisite for the next task.
 - Do not skip a task because an older roadmap claims similar work is complete. Use current code and current verification evidence.
 - A task plan starts in `docs/exec-plans/active/Txx.md` and moves to `completed/` only after external acceptance.
