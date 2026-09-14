@@ -150,14 +150,15 @@ class AdversarialRunner:
             dict with is_safe, risk_level, and risk_type from SafetyFilter.
         """
         try:
-            from app.core.llm_factory import create_openai_llm
             from app.intent.safety import SafetyConfig, SafetyFilter
+            from app.model_gateway.factory import create_model_client
 
-            llm = create_openai_llm(
+            llm = create_model_client(
+                "safety",
                 default_config=build_llm_config(
                     agent_name="adversarial_safety_checker",
                     tags=["evaluation", "safety", "internal"],
-                )
+                ),
             )
             config = SafetyConfig()
             safety_filter = SafetyFilter(llm=llm, config=config)

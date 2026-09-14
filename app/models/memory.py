@@ -78,6 +78,13 @@ class InteractionSummary(TenantScopedModel, table=True):
     summary_text: str = Field(description="摘要文本")
     resolved_intent: str = Field(max_length=32, description="已解决意图")
     satisfaction_score: float | None = Field(default=None, description="满意度评分")
+    version: int = Field(default=1, ge=1, nullable=False, description="Vector projection version")
+    is_deleted: bool = Field(default=False, nullable=False, description="Deletion tombstone")
+    deleted_at: datetime | None = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), nullable=True),
+        description="Authoritative deletion time",
+    )
 
     created_at: datetime = Field(
         default_factory=utc_now,

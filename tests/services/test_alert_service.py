@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.core.tenancy import namespaced_key
 from app.models.alert import AlertEvent, AlertRule, AlertRuleStatus, AlertSeverity, AlertStatus
 from app.services.alert_service import AlertService
 
@@ -456,7 +457,7 @@ class TestRedisSuppression:
         )
 
         assert event is None
-        redis_mock.get.assert_awaited_once_with("alert:suppressed:1:test_rule")
+        redis_mock.get.assert_awaited_once_with(namespaced_key("alert:suppressed:1:test_rule"))
         redis_mock.setex.assert_not_awaited()
 
     @pytest.mark.asyncio

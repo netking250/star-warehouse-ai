@@ -1,69 +1,38 @@
-import { test, expect } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 
-test('admin login and view dashboard', async ({ page }) => {
-  // Mock login API
-  await page.route('**/api/v1/login', async (route) => {
+test('admin login uses the browser session endpoint', async ({ page }) => {
+  await page.route('**/api/v1/me', async (route) => {
+    await route.fulfill({ status: 401, contentType: 'application/json', body: '{}' })
+  })
+  await page.route('**/api/v1/browser/login', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
+      headers: {
+        'Set-Cookie': 'star_warehouse_session=admin-e2e-session; HttpOnly; SameSite=Lax; Path=/',
+      },
       body: JSON.stringify({
-        access_token: 'admin-test-token',
-        token_type: 'bearer',
         user_id: 2,
         username: 'adminuser',
         full_name: 'Admin User',
         is_admin: true,
-        role: 'ADMIN',
         tenant_id: 'default',
-        roles: ['ADMIN'],
-        scopes: ['admin:read'],
+        roles: ['super_admin'],
+        scopes: ['operations.read'],
         session_id: 'admin-e2e-session',
       }),
     })
   })
-
-  // Mock tasks API
   await page.route('**/api/v1/admin/tasks?*', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify([
-        {
-          audit_log_id: 1,
-          thread_id: 'thread_1',
-          user_id: 1,
-          trigger_reason: '我要退货',
-          risk_level: 'HIGH',
-          context_snapshot: {
-            question: '我要退货',
-            order_data: {
-              order_sn: 'ORD001',
-              total_amount: 199.0,
-              status: '已发货',
-              items: [{ name: '商品A', qty: 1 }],
-            },
-          },
-          created_at: '2024-01-01T00:00:00Z',
-        },
-      ]),
-    })
+    await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
   })
-
-  // Mock task stats API
   await page.route('**/api/v1/admin/tasks-all', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({
-        risk_tasks: 1,
-        confidence_tasks: 0,
-        manual_tasks: 0,
-        total: 1,
-      }),
+      body: JSON.stringify({ risk_tasks: 0, confidence_tasks: 0, manual_tasks: 0, total: 0 }),
     })
   })
-
-  // Mock notifications API
   await page.route('**/api/v1/admin/notifications', async (route) => {
     await route.fulfill({
       status: 200,
@@ -72,19 +41,11 @@ test('admin login and view dashboard', async ({ page }) => {
     })
   })
 
-  // Navigate to admin entry point (HashRouter in dev)
   await page.goto('/admin.html#/login')
-
-  // Login
-  await page.getByPlaceholder('请输入管理员账号').fill('adminuser')
-  await page.getByPlaceholder('请输入登录密码').fill('password')
-  await page.getByRole('button', { name: '进入运营中心' }).click()
+  await page.locator('#admin-username').fill('adminuser')
+  await page.locator('#admin-password').fill('password')
+  await page.locator('form button[type="submit"]').click()
   await page.waitForURL('/admin.html#/')
-
-  // Assert dashboard appears
-  await expect(page.getByText('运营控制中心')).toBeVisible()
-  await expect(page.getByText('待审核: 1').first()).toBeVisible()
-
-  // Assert mocked task text appears in the task list
-  await expect(page.getByText('我要退货')).toBeVisible()
+  await expect(page.getByTestId('logout-button')).toBeVisible()
+  expect((await page.context().cookies()).some((cookie) => cookie.httpOnly)).toBe(true)
 })

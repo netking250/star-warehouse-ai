@@ -1,8 +1,11 @@
-from sqlmodel import desc, select
+from sqlmodel import col, desc, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.cache import CacheManager
+from app.core.utils import utc_now
+from app.memory.consistency import MemoryVectorOperation, enqueue_summary_vector_sync
 from app.models.memory import InteractionSummary, UserFact, UserPreference, UserProfile
+from app.task_runtime.context import TaskContext
 
 
 class StructuredMemoryManager:
@@ -59,6 +62,7 @@ class StructuredMemoryManager:
     async def save_interaction_summary(
         self,
         session: AsyncSession,
+        task_context: TaskContext,
         user_id: int,
         thread_id: str,
         summary: str,
@@ -75,6 +79,48 @@ class StructuredMemoryManager:
         session.add(record)
         await session.flush()
         await session.refresh(record)
+        await enqueue_summary_vector_sync(
+            session=session,
+            record=record,
+            task_context=task_context,
+            operation=MemoryVectorOperation.UPSERT,
+        )
+        if self._cache is not None:
+            await self._cache.invalidate_summaries(user_id)
+        return record
+
+    async def delete_interaction_summary(
+        self,
+        session: AsyncSession,
+        task_context: TaskContext,
+        memory_id: int,
+        user_id: int,
+    ) -> InteractionSummary:
+        """Tombstone a summary and enqueue its vector delete atomically."""
+        record = (
+            await session.exec(
+                select(InteractionSummary).where(
+                    col(InteractionSummary.id) == memory_id,
+                    col(InteractionSummary.user_id) == user_id,
+                )
+            )
+        ).one_or_none()
+        if record is None:
+            raise ValueError("Interaction summary was not found")
+        if record.is_deleted:
+            return record
+        record.is_deleted = True
+        record.version += 1
+        record.deleted_at = utc_now()
+        record.updated_at = record.deleted_at
+        session.add(record)
+        await session.flush()
+        await enqueue_summary_vector_sync(
+            session=session,
+            record=record,
+            task_context=task_context,
+            operation=MemoryVectorOperation.DELETE,
+        )
         if self._cache is not None:
             await self._cache.invalidate_summaries(user_id)
         return record
@@ -132,7 +178,10 @@ class StructuredMemoryManager:
 
         stmt = (
             select(InteractionSummary)
-            .where(InteractionSummary.user_id == user_id)
+            .where(
+                InteractionSummary.user_id == user_id,
+                col(InteractionSummary.is_deleted).is_(False),
+            )
             .order_by(desc(InteractionSummary.created_at))
             .limit(limit)
         )

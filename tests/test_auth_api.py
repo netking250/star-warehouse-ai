@@ -1,11 +1,39 @@
 import uuid
 
 import pytest
+from fastapi import HTTPException
 from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.core.config import settings
 from app.core.database import async_session_maker
 from app.core.security import create_access_token
+from app.main import app
 from app.models.user import User
+from app.services.auth_service import AuthService
+
+
+class FailingAfterCreateAuthService(AuthService):
+    """Inject a failure after registration has staged its database write."""
+
+    async def register_user(
+        self,
+        session: AsyncSession,
+        username: str,
+        password: str,
+        email: str,
+        full_name: str,
+        phone: str | None = None,
+    ) -> User:
+        await super().register_user(
+            session,
+            username=username,
+            password=password,
+            email=email,
+            full_name=full_name,
+            phone=phone,
+        )
+        raise HTTPException(status_code=503, detail="forced registration failure")
 
 
 @pytest.mark.asyncio
@@ -139,6 +167,33 @@ async def test_register_success_creates_user_and_returns_token(client):
 
 
 @pytest.mark.asyncio
+async def test_register_failure_after_create_rolls_back_user(client):
+    unique = uuid.uuid4().hex[:8]
+    username = f"register_rollback_{unique}"
+    app.dependency_overrides[AuthService] = FailingAfterCreateAuthService
+
+    try:
+        response = await client.post(
+            "/api/v1/register",
+            json={
+                "username": username,
+                "password": "password123",
+                "email": f"{username}@test.com",
+                "full_name": "Rollback User",
+            },
+        )
+    finally:
+        app.dependency_overrides.pop(AuthService, None)
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "forced registration failure"
+
+    async with async_session_maker() as session:
+        result = await session.exec(select(User).where(User.username == username))
+        assert result.one_or_none() is None
+
+
+@pytest.mark.asyncio
 async def test_register_duplicate_username_returns_400(client):
     unique = uuid.uuid4().hex[:8]
     username = f"register_dup_user_{unique}"
@@ -166,6 +221,62 @@ async def test_register_duplicate_username_returns_400(client):
     )
     assert response.status_code == 400
     assert "用户名已存在" in response.json()["detail"]
+
+    async with async_session_maker() as session:
+        result = await session.exec(select(User).where(User.username == username))
+        users = result.all()
+        assert len(users) == 1
+        assert users[0].email == f"{username}_first@test.com"
+
+
+@pytest.mark.asyncio
+async def test_register_unknown_tenant_fails_closed_without_creating_user(client):
+    unique = uuid.uuid4().hex[:8]
+    username = f"register_unknown_tenant_{unique}"
+
+    response = await client.post(
+        "/api/v1/register",
+        json={
+            "username": username,
+            "password": "password123",
+            "email": f"{username}@test.com",
+            "full_name": "Unknown Tenant User",
+            "tenant_id": f"tenant-unknown-{unique}",
+        },
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "tenant_unknown"
+
+    async with async_session_maker() as session:
+        result = await session.exec(select(User).where(User.username == username))
+        assert result.one_or_none() is None
+
+
+@pytest.mark.asyncio
+async def test_register_missing_tenant_in_production_fails_closed_without_creating_user(
+    client, monkeypatch
+):
+    unique = uuid.uuid4().hex[:8]
+    username = f"register_missing_tenant_{unique}"
+    monkeypatch.setattr(settings, "ENVIRONMENT", "production")
+
+    response = await client.post(
+        "/api/v1/register",
+        json={
+            "username": username,
+            "password": "password123",
+            "email": f"{username}@test.com",
+            "full_name": "Missing Tenant User",
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "tenant_missing"
+
+    async with async_session_maker() as session:
+        result = await session.exec(select(User).where(User.username == username))
+        assert result.one_or_none() is None
 
 
 @pytest.mark.asyncio

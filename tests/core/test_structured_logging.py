@@ -39,6 +39,56 @@ def test_sensitive_query_filter_redacts_websocket_token():
     assert "token=%5BREDACTED%5D" in record.getMessage()
 
 
+def test_sensitive_query_filter_redacts_auth_cookie_bearer_and_csrf_values():
+    record = logging.LogRecord(
+        name="request.debug",
+        level=logging.DEBUG,
+        pathname=__file__,
+        lineno=1,
+        msg="headers=%s",
+        args=(
+            {
+                "Authorization": "Bearer secret-jwt",
+                "Cookie": "star_warehouse_session=secret-cookie",
+                "Set-Cookie": "star_warehouse_session=secret-set-cookie",
+                "X-CSRF-Token": "secret-csrf",
+            },
+        ),
+        exc_info=None,
+    )
+
+    SensitiveQueryFilter().filter(record)
+    message = record.getMessage()
+
+    assert "secret-jwt" not in message
+    assert "secret-cookie" not in message
+    assert "secret-set-cookie" not in message
+    assert "secret-csrf" not in message
+
+
+def test_sensitive_query_filter_redacts_raw_header_lines():
+    record = logging.LogRecord(
+        name="request.debug",
+        level=logging.DEBUG,
+        pathname=__file__,
+        lineno=1,
+        msg=(
+            "Authorization: Bearer raw-jwt\n"
+            "Cookie: star_warehouse_session=raw-cookie\n"
+            "X-CSRF-Token: raw-csrf"
+        ),
+        args=(),
+        exc_info=None,
+    )
+
+    SensitiveQueryFilter().filter(record)
+    message = record.getMessage()
+
+    assert "raw-jwt" not in message
+    assert "raw-cookie" not in message
+    assert "raw-csrf" not in message
+
+
 class TestJsonFormatter:
     def test_basic_fields_present(self):
         formatter = JsonFormatter()

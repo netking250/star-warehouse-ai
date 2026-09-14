@@ -1,51 +1,49 @@
-"""Authentication context, JWT validation, and authorization dependencies."""
+"""JWT authentication and FastAPI adapters for the authorization policy seam."""
 
+import logging
+import secrets
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass, field
 from datetime import timedelta
-from enum import StrEnum
 from uuid import uuid4
 
 import jwt
 import redis.asyncio as aioredis
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, WebSocket, status
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel, Field, ValidationError
+from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.authorization.policy import (
+    AuthenticatedPrincipal,
+    AuthorizationContext,
+    AuthorizationPolicy,
+    AuthorizationReason,
+    AuthorizationResolutionError,
+    Role,
+    Scope,
+    authorize,
+    resolve_authorization_context,
+    scopes_for_roles,
+)
+from app.core.browser_session import (
+    CSRF_HEADER_NAME,
+    csrf_token_is_valid,
+    request_origin_is_trusted,
+)
 from app.core.config import settings
+from app.core.database import get_session
 from app.core.logging import get_correlation_id
 from app.core.redis import get_redis_client
-from app.core.tenancy import namespaced_key, set_current_tenant_id, validate_tenant_id
+from app.core.tenancy import namespaced_key, set_current_tenant_context, validate_tenant_id
+from app.core.tenant_resolver import TenantResolver, tenant_id_from_request
 from app.core.utils import utc_now
 
+logger = logging.getLogger(__name__)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/login", auto_error=False)
 
-
-class Role(StrEnum):
-    """Roles supported by the Star Warehouse AI authorization model."""
-
-    SUPER_ADMIN = "super_admin"
-    KNOWLEDGE_ADMIN = "knowledge_admin"
-    SERVICE_SUPERVISOR = "service_supervisor"
-    REVIEWER = "reviewer"
-    ANALYST = "analyst"
-    AUDITOR = "auditor"
-    CUSTOMER = "customer"
-
-
-ROLE_SCOPES: dict[Role, frozenset[str]] = {
-    Role.SUPER_ADMIN: frozenset({"*"}),
-    Role.KNOWLEDGE_ADMIN: frozenset(
-        {"knowledge:read", "knowledge:write", "knowledge:publish", "knowledge:rollback"}
-    ),
-    Role.SERVICE_SUPERVISOR: frozenset(
-        {"conversation:read", "review:read", "review:assign", "analytics:read"}
-    ),
-    Role.REVIEWER: frozenset({"review:read", "review:decide"}),
-    Role.ANALYST: frozenset({"analytics:read", "evaluation:read"}),
-    Role.AUDITOR: frozenset({"audit:read", "conversation:read"}),
-    Role.CUSTOMER: frozenset({"chat:use", "profile:read"}),
-}
+# Compatibility export for existing route annotations. The authoritative definition lives in
+# app.authorization.policy.
+AuthContext = AuthorizationContext
 
 
 class _TokenClaims(BaseModel):
@@ -58,32 +56,10 @@ class _TokenClaims(BaseModel):
     aud: str | list[str]
     jti: str
     tenant_id: str
-    roles: list[Role] = Field(min_length=1)
+    roles: list[str] = Field(min_length=1)
     scopes: list[str]
     session_id: str
     is_admin: bool = False
-
-
-@dataclass(frozen=True, slots=True)
-class AuthContext:
-    """Immutable identity and authorization context for one request."""
-
-    tenant_id: str
-    user_id: int
-    roles: frozenset[Role]
-    scopes: frozenset[str]
-    session_id: str
-    correlation_id: str
-    token_id: str
-    expires_at: int = field(default=0, compare=False)
-
-    def has_role(self, role: Role) -> bool:
-        """Return whether the identity has the requested role."""
-        return Role.SUPER_ADMIN in self.roles or role in self.roles
-
-    def has_scope(self, scope: str) -> bool:
-        """Return whether the identity has the requested scope."""
-        return "*" in self.scopes or scope in self.scopes
 
 
 def extract_bearer_token(auth_header: str) -> str | None:
@@ -93,10 +69,6 @@ def extract_bearer_token(auth_header: str) -> str | None:
     return None
 
 
-def _validate_tenant_id(tenant_id: str) -> str:
-    return validate_tenant_id(tenant_id)
-
-
 def _normalize_roles(roles: Iterable[Role | str]) -> frozenset[Role]:
     normalized = frozenset(Role(role) for role in roles)
     if not normalized:
@@ -104,35 +76,32 @@ def _normalize_roles(roles: Iterable[Role | str]) -> frozenset[Role]:
     return normalized
 
 
-def scopes_for_roles(roles: Iterable[Role | str]) -> frozenset[str]:
-    """Return the union of scopes granted to a collection of roles."""
-    normalized_roles = _normalize_roles(roles)
-    return frozenset(scope for role in normalized_roles for scope in ROLE_SCOPES[role])
-
-
 def create_access_token(
     user_id: int,
     is_admin: bool = False,
     *,
-    tenant_id: str = "default",
+    tenant_id: str | None = None,
     roles: Iterable[Role | str] | None = None,
     scopes: Iterable[str] | None = None,
     session_id: str | None = None,
 ) -> str:
-    """Create a signed access token carrying tenant and authorization claims.
+    """Create a signed application access token.
+
+    Role and scope claims remain a compatibility snapshot for clients. Protected requests resolve
+    current local tenant membership and role state before evaluating policy.
 
     Args:
-        user_id: Stable user identifier.
-        is_admin: Backward-compatible administrator flag.
-        tenant_id: Tenant namespace for all downstream data access.
-        roles: Assigned authorization roles. Defaults from ``is_admin``.
-        scopes: Explicit scopes. Defaults to the union granted by ``roles``.
+        user_id: Stable local user identifier.
+        is_admin: Backward-compatible application administrator flag.
+        tenant_id: Tenant namespace asserted by the authenticated login flow.
+        roles: Compatibility role snapshot. Defaults from ``is_admin``.
+        scopes: Compatibility scope snapshot. Defaults from ``roles``.
         session_id: Login session identifier. A random identifier is generated when omitted.
 
     Returns:
         Encoded JWT access token.
     """
-    validated_tenant_id = _validate_tenant_id(tenant_id)
+    validated_tenant_id = tenant_id_from_request(tenant_id)
     normalized_roles = _normalize_roles(
         roles if roles is not None else [Role.SUPER_ADMIN if is_admin else Role.CUSTOMER]
     )
@@ -142,7 +111,7 @@ def create_access_token(
     now = utc_now()
     expire = now + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     token_id = str(uuid4())
-    to_encode = {
+    payload = {
         "sub": str(user_id),
         "exp": expire,
         "iat": now,
@@ -155,9 +124,7 @@ def create_access_token(
         "session_id": session_id or str(uuid4()),
         "is_admin": Role.SUPER_ADMIN in normalized_roles,
     }
-    return jwt.encode(
-        to_encode, settings.SECRET_KEY.get_secret_value(), algorithm=settings.ALGORITHM
-    )
+    return jwt.encode(payload, settings.SECRET_KEY.get_secret_value(), algorithm=settings.ALGORITHM)
 
 
 def _decode_token(
@@ -189,7 +156,7 @@ def _decode_token(
                 headers=headers,
             )
         claims = _TokenClaims.model_validate(raw_payload)
-        _validate_tenant_id(claims.tenant_id)
+        validate_tenant_id(claims.tenant_id)
         return claims
     except jwt.ExpiredSignatureError as error:
         raise HTTPException(
@@ -214,7 +181,7 @@ def _decode_token(
         ) from error
 
 
-def _context_from_claims(claims: _TokenClaims) -> AuthContext:
+def _principal_from_claims(claims: _TokenClaims) -> AuthenticatedPrincipal:
     try:
         user_id = int(claims.sub)
     except (ValueError, TypeError) as error:
@@ -223,24 +190,26 @@ def _context_from_claims(claims: _TokenClaims) -> AuthContext:
             detail="Invalid token: malformed user ID",
             headers={"WWW-Authenticate": "Bearer"},
         ) from error
-    return AuthContext(
+    return AuthenticatedPrincipal(
         tenant_id=claims.tenant_id,
         user_id=user_id,
-        roles=frozenset(claims.roles),
-        scopes=frozenset(claims.scopes),
         session_id=claims.session_id,
         correlation_id=get_correlation_id(),
         token_id=claims.jti,
         expires_at=claims.exp,
+        token_roles=frozenset(claims.roles),
+        token_scopes=frozenset(claims.scopes),
     )
 
 
-async def _ensure_context_is_active(context: AuthContext, redis: aioredis.Redis) -> AuthContext:
+async def _ensure_principal_is_active(
+    principal: AuthenticatedPrincipal, redis: aioredis.Redis
+) -> AuthenticatedPrincipal:
     """Reject a token or login session that has been revoked."""
     try:
         revoked = await redis.mget(
-            namespaced_key(f"auth:revoked:token:{context.token_id}", context.tenant_id),
-            namespaced_key(f"auth:revoked:session:{context.session_id}", context.tenant_id),
+            namespaced_key(f"auth:revoked:token:{principal.token_id}", principal.tenant_id),
+            namespaced_key(f"auth:revoked:session:{principal.session_id}", principal.tenant_id),
         )
     except aioredis.RedisError as error:
         raise HTTPException(
@@ -253,10 +222,12 @@ async def _ensure_context_is_active(context: AuthContext, redis: aioredis.Redis)
             detail="Token has been revoked",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    return context
+    return principal
 
 
-async def revoke_auth_context(context: AuthContext, redis: aioredis.Redis) -> None:
+async def revoke_auth_context(
+    context: AuthenticatedPrincipal | AuthorizationContext, redis: aioredis.Redis
+) -> None:
     """Revoke the current token until its original expiry time."""
     ttl = max(1, context.expires_at - int(utc_now().timestamp()))
     await redis.setex(
@@ -266,101 +237,268 @@ async def revoke_auth_context(context: AuthContext, redis: aioredis.Redis) -> No
     )
 
 
-def get_auth_context(token: str | None = Depends(oauth2_scheme)) -> AuthContext:
-    """Validate the bearer token and return the unified request identity context."""
+def get_auth_context(
+    token: str | None = Depends(oauth2_scheme),
+) -> AuthenticatedPrincipal:
+    """Validate the bearer token and return an authority-free principal."""
     claims = _decode_token(
         token,
         headers={"WWW-Authenticate": "Bearer"},
         missing_user_detail="Invalid token: missing user ID",
     )
-    return _context_from_claims(claims)
+    return _principal_from_claims(claims)
+
+
+def get_request_auth_context(
+    request: Request,
+    bearer_token: str | None = Depends(oauth2_scheme),
+) -> AuthenticatedPrincipal:
+    """Normalize Bearer or browser-cookie authentication into one principal.
+
+    Cookie authentication remains subject to browser CSRF and Origin controls for unsafe methods.
+    If the same credential is supplied through both transports it is treated as cookie auth; two
+    different credentials are rejected rather than relying on precedence.
+    """
+    cookie_token = request.cookies.get(settings.BROWSER_AUTH_COOKIE_NAME)
+    uses_cookie = cookie_token is not None
+    if bearer_token is not None and cookie_token is not None:
+        if not secrets.compare_digest(bearer_token, cookie_token):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Conflicting authentication credentials",
+            )
+        token = cookie_token
+    else:
+        token = cookie_token or bearer_token
+
+    principal = get_auth_context(token)
+    if uses_cookie and request.method.upper() not in {"GET", "HEAD", "OPTIONS", "TRACE"}:
+        if not request_origin_is_trusted(request.headers):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Browser request validation failed",
+            )
+        if not csrf_token_is_valid(request.headers.get(CSRF_HEADER_NAME), principal):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Browser request validation failed",
+            )
+    return principal
+
+
+def get_websocket_auth_token(websocket: WebSocket) -> str:
+    """Resolve header or cookie WebSocket auth while forbidding URL credentials."""
+    if "token" in websocket.query_params or "access_token" in websocket.query_params:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="WebSocket query credentials are not accepted",
+        )
+    bearer_token = extract_bearer_token(websocket.headers.get("authorization", ""))
+    cookie_token = websocket.cookies.get(settings.BROWSER_AUTH_COOKIE_NAME)
+    if bearer_token is not None and cookie_token is not None:
+        if not secrets.compare_digest(bearer_token, cookie_token):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Conflicting authentication credentials",
+            )
+        token = cookie_token
+    else:
+        token = cookie_token or bearer_token
+    if token is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing authentication token",
+        )
+    if cookie_token is not None and not request_origin_is_trusted(websocket.headers):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Browser request validation failed",
+        )
+    return token
+
+
+def _log_authorization_denial(
+    *,
+    principal: AuthenticatedPrincipal,
+    policy: AuthorizationPolicy | None,
+    reason: AuthorizationReason,
+) -> None:
+    logger.warning(
+        "Authorization denied",
+        extra={
+            "event_code": "authorization.denied",
+            "actor_user_id": principal.user_id,
+            "tenant_id": principal.tenant_id,
+            "policy_scopes": sorted(scope.value for scope in policy.scopes) if policy else [],
+            "policy_roles": sorted(role.value for role in policy.roles) if policy else [],
+            "decision": "DENY",
+            "reason_code": reason.value,
+            "correlation_id": principal.correlation_id,
+        },
+    )
 
 
 async def get_active_auth_context(
-    context: AuthContext = Depends(get_auth_context),
+    principal: AuthenticatedPrincipal = Depends(get_request_auth_context),
     redis: aioredis.Redis = Depends(get_redis_client),
-) -> AuthContext:
-    """Return a validated identity after checking revocation state."""
-    active_context = await _ensure_context_is_active(context, redis)
-    set_current_tenant_id(active_context.tenant_id)
-    return active_context
+    session: AsyncSession = Depends(get_session),
+) -> AuthorizationContext:
+    """Resolve current local membership and authority after authentication."""
+    active_principal = await _ensure_principal_is_active(principal, redis)
+    tenant_context = await TenantResolver(session).resolve(active_principal.tenant_id)
+    set_current_tenant_context(tenant_context)
+    try:
+        return await resolve_authorization_context(session, active_principal, tenant_context)
+    except AuthorizationResolutionError as error:
+        _log_authorization_denial(
+            principal=active_principal,
+            policy=None,
+            reason=error.reason,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access is not permitted",
+        ) from error
+
+
+def _enforce_policy(
+    context: AuthorizationContext, policy: AuthorizationPolicy
+) -> AuthorizationContext:
+    decision = authorize(context, policy)
+    if decision.allowed:
+        return context
+    _log_authorization_denial(
+        principal=context.principal,
+        policy=policy,
+        reason=decision.reason,
+    )
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Access is not permitted",
+    )
+
+
+def _request_route_policy(request: Request) -> AuthorizationPolicy:
+    from app.authorization.route_inventory import policy_for_http_route
+
+    route = request.scope.get("route")
+    route_path = getattr(route, "path", None)
+    route_policy = (
+        policy_for_http_route(request.method, route_path) if isinstance(route_path, str) else None
+    )
+    if route_policy is None or route_policy.authorization is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access is not permitted",
+        )
+    return route_policy.authorization
+
+
+def get_authorized_auth_context(
+    request: Request,
+    context: AuthorizationContext = Depends(get_active_auth_context),
+) -> AuthorizationContext:
+    """Enforce the current route's centrally declared capability policy."""
+    return _enforce_policy(context, _request_route_policy(request))
 
 
 def get_current_user_id(token: str | None = Depends(oauth2_scheme)) -> int:
-    """Validate the bearer token and return its user identifier."""
+    """Validate the bearer token and return its local identity ID."""
     return get_auth_context(token).user_id
 
 
-def get_active_user_id(context: AuthContext = Depends(get_active_auth_context)) -> int:
-    """Return the user identifier from an active, non-revoked token."""
+def get_active_user_id(
+    context: AuthorizationContext = Depends(get_active_auth_context),
+) -> int:
+    """Return the user ID after membership and account-state validation."""
     return context.user_id
+
+
+def get_authorized_user_id(
+    context: AuthorizationContext = Depends(get_authorized_auth_context),
+) -> int:
+    """Return the user ID after enforcing the registered route policy."""
+    return context.user_id
+
+
+async def _get_authorized_context_ws(
+    token: str,
+    redis: aioredis.Redis,
+    *,
+    route_path: str,
+) -> AuthorizationContext:
+    from app.authorization.route_inventory import policy_for_websocket_route
+    from app.core.database import async_session_maker
+
+    principal = await _ensure_principal_is_active(
+        _principal_from_claims(_decode_token(token)), redis
+    )
+    async with async_session_maker() as session:
+        tenant_context = await TenantResolver(session).resolve(principal.tenant_id)
+        set_current_tenant_context(tenant_context)
+        try:
+            context = await resolve_authorization_context(session, principal, tenant_context)
+        except AuthorizationResolutionError as error:
+            _log_authorization_denial(principal=principal, policy=None, reason=error.reason)
+            raise HTTPException(status_code=403, detail="Access is not permitted") from error
+
+    route_policy = policy_for_websocket_route(route_path)
+    if route_policy is None or route_policy.authorization is None:
+        raise HTTPException(status_code=403, detail="Access is not permitted")
+    return _enforce_policy(context, route_policy.authorization)
 
 
 async def get_current_user_id_ws(token: str, redis: aioredis.Redis) -> int:
-    """Validate a WebSocket token and return its user identifier."""
-    context = _context_from_claims(_decode_token(token))
-    active_context = await _ensure_context_is_active(context, redis)
-    set_current_tenant_id(active_context.tenant_id)
-    return active_context.user_id
+    """Authorize a tenant chat WebSocket and return its current user ID."""
+    context = await _get_authorized_context_ws(token, redis, route_path="/api/v1/ws/{thread_id}")
+    return context.user_id
 
 
 async def get_admin_user_id_ws(token: str, redis: aioredis.Redis) -> int:
-    """Validate an active WebSocket token and require administrator privileges."""
-    context = await _ensure_context_is_active(_context_from_claims(_decode_token(token)), redis)
-    set_current_tenant_id(context.tenant_id)
-    if not context.has_role(Role.SUPER_ADMIN):
-        raise HTTPException(status_code=403, detail="Admin privileges required")
+    """Authorize an operations-read WebSocket and return its current user ID."""
+    context = await _get_authorized_context_ws(
+        token, redis, route_path="/api/v1/ws/admin/{admin_id}"
+    )
     return context.user_id
 
 
-def require_roles(*allowed_roles: Role) -> Callable[[AuthContext], AuthContext]:
-    """Create a dependency that requires at least one authorized role."""
+def require_roles(
+    *allowed_roles: Role,
+) -> Callable[[AuthorizationContext], AuthorizationContext]:
+    """Create a dependency requiring one of the current local application roles."""
     if not allowed_roles:
         raise ValueError("At least one allowed role is required")
+    policy = AuthorizationPolicy(roles=frozenset(allowed_roles))
 
-    def dependency(context: AuthContext = Depends(get_active_auth_context)) -> AuthContext:
-        if not any(context.has_role(role) for role in allowed_roles):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Required role is missing",
-            )
-        return context
+    def dependency(
+        context: AuthorizationContext = Depends(get_active_auth_context),
+    ) -> AuthorizationContext:
+        return _enforce_policy(context, policy)
 
     return dependency
 
 
-def require_scopes(*required_scopes: str) -> Callable[[AuthContext], AuthContext]:
-    """Create a dependency that requires every listed authorization scope."""
+def require_scopes(
+    *required_scopes: Scope | str,
+) -> Callable[[AuthorizationContext], AuthorizationContext]:
+    """Create a dependency requiring every listed canonical capability."""
     if not required_scopes:
         raise ValueError("At least one required scope is required")
+    try:
+        policy = AuthorizationPolicy(scopes=frozenset(Scope(scope) for scope in required_scopes))
+    except ValueError as error:
+        raise ValueError("Required scopes must use the canonical dotted vocabulary") from error
 
-    def dependency(context: AuthContext = Depends(get_active_auth_context)) -> AuthContext:
-        if not all(context.has_scope(scope) for scope in required_scopes):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Required scope is missing",
-            )
-        return context
+    def dependency(
+        context: AuthorizationContext = Depends(get_active_auth_context),
+    ) -> AuthorizationContext:
+        return _enforce_policy(context, policy)
 
     return dependency
 
 
-def get_admin_user_id(context: AuthContext = Depends(get_active_auth_context)) -> int:
-    """Validate an administrator token and return its user identifier."""
-    if not context.has_role(Role.SUPER_ADMIN):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin privileges required",
-        )
-    return context.user_id
-
-
-def verify_admin_token(token: str | None) -> int:
-    """Validate an administrator token outside FastAPI dependency injection."""
-    context = _context_from_claims(_decode_token(token, headers={"WWW-Authenticate": "Bearer"}))
-    if not context.has_role(Role.SUPER_ADMIN):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin privileges required",
-        )
+def get_admin_user_id(
+    context: AuthorizationContext = Depends(get_authorized_auth_context),
+) -> int:
+    """Return the actor ID after the admin route's explicit capability policy passes."""
     return context.user_id

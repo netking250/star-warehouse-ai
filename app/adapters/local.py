@@ -34,6 +34,7 @@ from app.core.tenancy import namespaced_collection, namespaced_key
 from app.models.order import Order, OrderStatus
 from app.models.refund import RefundApplication
 from app.models.user import User
+from app.retrieval.tenant_boundary import tenant_filter
 
 logger = logging.getLogger(__name__)
 _MEMBERSHIP_LEVELS = ["普通会员", "银卡", "金卡", "钻石"]
@@ -266,9 +267,7 @@ class QdrantProductAdapter:
                 text,
                 conversation_history=query.conversation_history,
             )
-        conditions: list[Any] = [
-            models.FieldCondition(key="tenant_id", match=models.MatchValue(value=context.tenant_id))
-        ]
+        conditions: list[models.Condition] = []
         if query.category is not None:
             conditions.append(
                 models.FieldCondition(key="category", match=models.MatchValue(value=query.category))
@@ -294,7 +293,7 @@ class QdrantProductAdapter:
             limit=query.limit,
             with_payload=True,
             with_vectors=False,
-            query_filter=models.Filter(must=conditions),
+            query_filter=tenant_filter(*conditions, tenant_id=context.tenant_id),
         )
         products: list[ProductDTO] = []
         for point in response.points:

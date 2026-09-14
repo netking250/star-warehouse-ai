@@ -6,6 +6,7 @@ import os
 import shutil
 import uuid
 from datetime import timedelta
+from pathlib import Path
 from typing import cast
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
@@ -17,20 +18,26 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.api.v1.admin.agent_config import router as agent_config_router
 from app.api.v1.admin.alerts import router as alerts_router
 from app.api.v1.admin.analytics import router as analytics_router
+from app.api.v1.admin.authorization import router as authorization_router
 from app.api.v1.admin.complaints import router as complaints_router
+from app.api.v1.admin.compliance import router as compliance_router
 from app.api.v1.admin.evaluation_dashboard import router as evaluation_dashboard_router
 from app.api.v1.admin.experiments import router as experiments_router
 from app.api.v1.admin.feedback import router as feedback_router
 from app.api.v1.admin.metrics_dashboard import router as metrics_dashboard_router
 from app.api.v1.admin.review_queue import router as review_queue_router
 from app.api.v1.admin.token_usage import router as token_usage_router
+from app.context.pii_filter import pii_filter
 from app.core.config import settings
 from app.core.database import get_session
+from app.core.logging import get_correlation_id
 from app.core.security import get_admin_user_id
+from app.core.tenancy import get_current_tenant_id, tenant_storage_path
 from app.core.utils import utc_now
 from app.models.knowledge_document import KnowledgeDocument
 from app.models.message import MessageCard
 from app.models.observability import GraphExecutionLog
+from app.outbox import enqueue_task
 from app.schemas.admin import (
     AdminDecisionRequest,
     AdminDecisionResponse,
@@ -44,12 +51,15 @@ from app.schemas.admin import (
     TaskStatsResponse,
 )
 from app.services.admin_service import AdminService, AuditAlreadyProcessedError, AuditNotFoundError
-from app.tasks.knowledge_tasks import sync_knowledge_document
+from app.task_runtime.context import build_task_context
+from app.task_runtime.dispatch import dispatch_task
 
 router = APIRouter()
 router.include_router(agent_config_router, prefix="/admin/agents")
 router.include_router(alerts_router, prefix="/admin/alerts")
+router.include_router(authorization_router, prefix="/admin/authorization")
 router.include_router(complaints_router, prefix="/admin/complaints")
+router.include_router(compliance_router, prefix="/admin/compliance")
 router.include_router(experiments_router, prefix="/admin/experiments")
 router.include_router(feedback_router, prefix="/admin/feedback")
 router.include_router(analytics_router, prefix="/admin/analytics")
@@ -201,15 +211,28 @@ async def trigger_continuous_improvement_audit(
 @router.post("/admin/shadow-test/run")
 async def trigger_shadow_test(
     query: str,
-    _current_admin_id: int = Depends(get_admin_user_id),
+    current_admin_id: int = Depends(get_admin_user_id),
 ):
     """Trigger a shadow test for a given query."""
     from app.tasks.shadow_tasks import run_shadow_test
 
-    result = run_shadow_test.delay(query)
+    sanitized_query = pii_filter.filter_text(query).redacted_text
+    correlation = get_correlation_id()
+    if correlation == "-":
+        correlation = f"shadow-test:{current_admin_id}"
+    result = dispatch_task(
+        run_shadow_test,
+        task_context=build_task_context(
+            task_name="shadow.run_shadow_test",
+            tenant_id=get_current_tenant_id(),
+            user_id=current_admin_id,
+            correlation_id=correlation,
+        ),
+        payload={"query": sanitized_query},
+    )
     return {
         "task_id": result.id,
-        "query": query,
+        "query": sanitized_query,
         "message": "Shadow test triggered asynchronously.",
     }
 
@@ -489,38 +512,55 @@ async def list_knowledge_documents(
 @router.post("/admin/knowledge", response_model=KnowledgeUploadResponse)
 async def upload_knowledge_document(
     file: UploadFile = File(...),
-    _current_admin_id: int = Depends(get_admin_user_id),
+    current_admin_id: int = Depends(get_admin_user_id),
     session: AsyncSession = Depends(get_session),
 ):
-    os.makedirs(UPLOAD_DIR, exist_ok=True)
-    ext = os.path.splitext(file.filename or "")[1]
+    ext = Path(file.filename or "").suffix
     storage_name = f"{uuid.uuid4().hex}{ext}"
-    storage_path = os.path.join(UPLOAD_DIR, storage_name)
+    storage_path = tenant_storage_path(UPLOAD_DIR, storage_name)
+    storage_path.parent.mkdir(parents=True, exist_ok=True)
 
-    with open(storage_path, "wb") as f:
+    with storage_path.open("wb") as f:
         shutil.copyfileobj(file.file, f)
 
-    size = os.path.getsize(storage_path)
+    size = storage_path.stat().st_size
 
     doc = KnowledgeDocument(
         filename=file.filename or "unnamed",
-        storage_path=storage_path,
+        storage_path=str(storage_path),
         content_type=file.content_type or "application/octet-stream",
         doc_size_bytes=size,
         sync_status="pending",
     )
     session.add(doc)
-    await session.commit()
+    await session.flush()
     await session.refresh(doc)
     assert doc.id is not None
 
-    task = sync_knowledge_document.delay(doc.id)
+    correlation = get_correlation_id()
+    if correlation == "-":
+        correlation = f"knowledge-upload:{doc.id}:{current_admin_id}"
+    event = await enqueue_task(
+        session=session,
+        task_name="knowledge.sync_document",
+        task_context=build_task_context(
+            task_name="knowledge.sync_document",
+            tenant_id=get_current_tenant_id(),
+            user_id=current_admin_id,
+            correlation_id=correlation,
+        ),
+        payload={"document_id": doc.id},
+        event_type="knowledge.sync_requested",
+        aggregate_type="knowledge_document",
+        aggregate_id=str(doc.id),
+    )
+    await session.commit()
 
     return KnowledgeUploadResponse(
         id=doc.id,
         filename=doc.filename,
         sync_status=doc.sync_status,
-        task_id=task.id,
+        task_id=str(event.event_id),
     )
 
 
@@ -550,7 +590,7 @@ async def delete_knowledge_document(
 @router.post("/admin/knowledge/{doc_id}/sync", response_model=KnowledgeUploadResponse)
 async def sync_knowledge_document_endpoint(
     doc_id: int,
-    _current_admin_id: int = Depends(get_admin_user_id),
+    current_admin_id: int = Depends(get_admin_user_id),
     session: AsyncSession = Depends(get_session),
 ):
     result = await session.exec(select(KnowledgeDocument).where(KnowledgeDocument.id == doc_id))
@@ -562,13 +602,32 @@ async def sync_knowledge_document_endpoint(
         )
 
     assert doc.id is not None
-    task = sync_knowledge_document.delay(doc.id)
+    doc.sync_status = "pending"
+    session.add(doc)
+    correlation = get_correlation_id()
+    if correlation == "-":
+        correlation = f"knowledge-sync:{doc.id}:{current_admin_id}"
+    event = await enqueue_task(
+        session=session,
+        task_name="knowledge.sync_document",
+        task_context=build_task_context(
+            task_name="knowledge.sync_document",
+            tenant_id=get_current_tenant_id(),
+            user_id=current_admin_id,
+            correlation_id=correlation,
+        ),
+        payload={"document_id": doc.id},
+        event_type="knowledge.sync_requested",
+        aggregate_type="knowledge_document",
+        aggregate_id=str(doc.id),
+    )
+    await session.commit()
 
     return KnowledgeUploadResponse(
         id=doc.id,
         filename=doc.filename,
         sync_status="running",
-        task_id=task.id,
+        task_id=str(event.event_id),
     )
 
 

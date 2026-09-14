@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 
 import sqlalchemy as sa
 from asgiref.sync import async_to_sync
+from pydantic import BaseModel, ConfigDict
 from sqlmodel import desc, func, select
 
 from app.celery_app import celery_app
@@ -10,8 +11,19 @@ from app.core.database import async_session_maker
 from app.models.memory import AgentConfig, AgentConfigVersion
 from app.models.observability import GraphExecutionLog
 from app.models.prompt_effect_report import PromptEffectReport
+from app.task_runtime.binding import task_execution_scope
+from app.task_runtime.envelope import parse_task_envelope
 
 logger = logging.getLogger(__name__)
+
+
+class PromptEffectReportPayload(BaseModel):
+    """Optional target for a prompt-effect report run."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    agent_name: str | None = None
+    report_month: str | None = None
 
 
 async def _generate_single_report(session, agent_name: str, report_month: str) -> dict:
@@ -96,7 +108,12 @@ async def _generate_monthly_report(
 
 
 @celery_app.task(bind=True, name="prompt_effect.generate_monthly_report")
-def generate_monthly_report(
-    _self, agent_name: str | None = None, report_month: str | None = None
-) -> dict:
-    return async_to_sync(_generate_monthly_report)(agent_name, report_month)
+def generate_monthly_report(self, envelope: dict[str, object]) -> dict:
+    task_envelope = parse_task_envelope(envelope)
+    payload = PromptEffectReportPayload.model_validate(task_envelope.payload)
+    with task_execution_scope(
+        task_envelope.task_context,
+        task_name="celery.prompt_effect.generate_monthly_report",
+        task_id=getattr(self.request, "id", None),
+    ):
+        return async_to_sync(_generate_monthly_report)(payload.agent_name, payload.report_month)

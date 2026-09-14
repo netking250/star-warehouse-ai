@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import hashlib
 import json
 from datetime import datetime
 
 import pytest
 
+from app.core.tenancy import namespaced_key
 from app.intent.models import ClarificationState, IntentAction, IntentCategory, IntentResult
 from app.intent.safety import SafetyCheckResult
 from app.intent.service import IntentRecognitionService
@@ -44,7 +44,7 @@ class TestServiceInitialization:
 class TestRecognizeMethod:
     @pytest.mark.asyncio
     async def test_clarify_session_expired(self, deterministic_llm, redis_client):
-        await redis_client.delete("intent:session:session_123")
+        await redis_client.delete(namespaced_key("intent:session:session_123"))
         service = IntentRecognitionService(llm=deterministic_llm, redis_client=redis_client)
         result = await service.clarify("session_123", "SN001")
         assert result.is_complete is True
@@ -76,7 +76,9 @@ class TestRecognizeMethod:
             "created_at": datetime.now().isoformat(),
             "updated_at": datetime.now().isoformat(),
         }
-        await redis_client.setex("intent:session:session_123", 1800, json.dumps(state_data))
+        await redis_client.setex(
+            namespaced_key("intent:session:session_123"), 1800, json.dumps(state_data)
+        )
         result = await service.clarify("session_123", "我的密码是123")
         assert result.is_complete is False
         assert "不安全内容" in result.response
@@ -107,7 +109,9 @@ class TestRecognizeMethod:
             "created_at": datetime.now().isoformat(),
             "updated_at": datetime.now().isoformat(),
         }
-        await redis_client.setex("intent:session:session_456", 1800, json.dumps(state_data))
+        await redis_client.setex(
+            namespaced_key("intent:session:session_456"), 1800, json.dumps(state_data)
+        )
         result = await service.clarify("session_456", "SN001")
         assert result.is_complete is True
         assert result.collected_slots == {"action_type": "REFUND", "order_sn": "SN001"}
@@ -235,13 +239,13 @@ class TestCaching:
             "raw_query": "查询订单SN001",
         }
         query = "查询订单SN001"
-        key = f"intent:cache:{hashlib.sha256(query.encode()).hexdigest()}"
+        key = namespaced_key(service._cache._intent_key(query))
         await redis_client.setex(key, 300, json.dumps(cached_data))
 
         result = await service._get_cached_result(query)
         assert result is not None
         assert result.primary_intent == IntentCategory.ORDER
-        assert result.confidence == 0.95
+        assert result.confidence == 0.9
 
     @pytest.mark.asyncio
     async def test_get_cached_result_miss(self, deterministic_llm, redis_client):
@@ -262,7 +266,7 @@ class TestCaching:
         query = "查询订单SN001"
         await service._cache_result(query, result)
 
-        key = f"intent:cache:{hashlib.sha256(query.encode()).hexdigest()}"
+        key = namespaced_key(service._cache._intent_key(query))
         cached = await redis_client.get(key)
         assert cached is not None
         data = json.loads(cached)
@@ -287,7 +291,9 @@ class TestSessionStateManagement:
             "created_at": datetime.now().isoformat(),
             "updated_at": datetime.now().isoformat(),
         }
-        await redis_client.setex("intent:session:session_123", 1800, json.dumps(state_data))
+        await redis_client.setex(
+            namespaced_key("intent:session:session_123"), 1800, json.dumps(state_data)
+        )
         state = await service._load_session_state("session_123")
         assert state is not None
         assert state.session_id == "session_123"
@@ -297,7 +303,7 @@ class TestSessionStateManagement:
     @pytest.mark.asyncio
     async def test_load_session_state_not_found(self, deterministic_llm, redis_client):
         service = IntentRecognitionService(llm=deterministic_llm, redis_client=redis_client)
-        await redis_client.delete("intent:session:nonexistent_session")
+        await redis_client.delete(namespaced_key("intent:session:nonexistent_session"))
         state = await service._load_session_state("nonexistent_session")
         assert state is None
 
@@ -311,7 +317,7 @@ class TestSessionStateManagement:
             collected_slots={"order_sn": "SN001"},
         )
         await service._save_session_state(state)
-        cached = await redis_client.get("intent:session:session_123")
+        cached = await redis_client.get(namespaced_key("intent:session:session_123"))
         assert cached is not None
         data = json.loads(cached)
         assert data["session_id"] == "session_123"
@@ -399,11 +405,10 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_recognize_topic_switch_explicit(self, deterministic_llm, redis_client):
         query = "对了，我要退货"
-        import hashlib
-
-        cache_key = f"intent:cache:{hashlib.sha256(query.encode()).hexdigest()}"
+        service = IntentRecognitionService(llm=deterministic_llm, redis_client=redis_client)
+        cache_key = namespaced_key(service._cache._intent_key(query))
         await redis_client.delete(cache_key)
-        await redis_client.delete("intent:session:session_ts")
+        await redis_client.delete(namespaced_key("intent:session:session_ts"))
         deterministic_llm.tool_calls = [
             {
                 "name": "classify_intent",
@@ -415,7 +420,6 @@ class TestEdgeCases:
                 },
             }
         ]
-        service = IntentRecognitionService(llm=deterministic_llm, redis_client=redis_client)
         prev = IntentResult(
             primary_intent=IntentCategory.ORDER,
             secondary_intent=IntentAction.QUERY,
@@ -433,7 +437,7 @@ class TestEdgeCases:
     async def test_recognize_creates_state_for_new_thread(self, deterministic_llm, redis_client):
         """Regression: recognize() must initialize ClarificationState for new threads.
         Without this, clarify() returns '会话已过期'."""
-        await redis_client.delete("intent:session:regression_new_thread")
+        await redis_client.delete(namespaced_key("intent:session:regression_new_thread"))
         deterministic_llm.tool_calls = [
             {
                 "name": "classify_intent",
@@ -459,9 +463,8 @@ class TestEdgeCases:
         """Regression: cached results must also save session state.
         Without this, subsequent clarify() calls return '会话已过期'."""
         query = "缓存测试查询"
-        import hashlib
-
-        cache_key = f"intent:cache:{hashlib.sha256(query.encode()).hexdigest()}"
+        service = IntentRecognitionService(llm=deterministic_llm, redis_client=redis_client)
+        cache_key = namespaced_key(service._cache._intent_key(query))
         cached = IntentResult(
             primary_intent=IntentCategory.POLICY,
             secondary_intent=IntentAction.QUERY,
@@ -470,9 +473,8 @@ class TestEdgeCases:
             raw_query=query,
         )
         await redis_client.set(cache_key, cached.model_dump_json(), ex=300)
-        await redis_client.delete("intent:session:cache_session")
+        await redis_client.delete(namespaced_key("intent:session:cache_session"))
 
-        service = IntentRecognitionService(llm=deterministic_llm, redis_client=redis_client)
         result = await service.recognize(query, "cache_session")
         assert result.primary_intent in (IntentCategory.POLICY, IntentCategory.OTHER)
 

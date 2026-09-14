@@ -262,13 +262,13 @@ The following labels are recommended for efficient querying:
 
 1. Verify the application is outputting JSON:
    ```bash
-   docker logs star-warehouse-ai | head -n 5
+   docker compose logs app | head -n 5
    ```
 
 2. Check Filebeat/Fluentd logs:
    ```bash
    sudo journalctl -u filebeat -f
-   docker logs fluentd
+   docker compose -f docker-compose.monitoring.yml logs promtail
    ```
 
 3. Verify Loki is accessible:

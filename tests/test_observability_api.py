@@ -44,8 +44,8 @@ async def seed_logs() -> None:
         for uid in (1, 2, 3):
             await conn.execute(
                 text(
-                    "INSERT INTO users (id, username, email, password_hash, full_name, phone, is_active, is_admin) "
-                    "VALUES (:id, :username, :email, :password_hash, :full_name, :phone, true, false) "
+                    "INSERT INTO users (tenant_id, id, username, email, password_hash, full_name, phone, role, is_active, is_admin) "
+                    "VALUES ('default', :id, :username, :email, :password_hash, :full_name, :phone, 'customer', true, false) "
                     "ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email"
                 ),
                 {
@@ -57,6 +57,11 @@ async def seed_logs() -> None:
                     "phone": "13800138000",
                 },
             )
+        await conn.execute(
+            text(
+                "SELECT setval(pg_get_serial_sequence('users', 'id'), (SELECT MAX(id) FROM users))"
+            )
+        )
         await session.commit()
         now = utc_now()
         # execution 1: recent, policy agent, high confidence, no transfer

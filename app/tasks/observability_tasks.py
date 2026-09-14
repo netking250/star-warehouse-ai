@@ -1,10 +1,13 @@
 """Celery tasks for post-chat observability to keep the SSE critical path fast."""
 
+from __future__ import annotations
+
 import logging
 from typing import Any
 
 from asgiref.sync import async_to_sync
-from opentelemetry import propagate, trace
+from opentelemetry import trace
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator, model_validator
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
@@ -12,6 +15,7 @@ from sqlmodel import desc, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.celery_app import celery_app
+from app.context.pii_filter import pii_filter
 from app.core.config import settings
 from app.models.memory import AgentConfigVersion
 from app.models.observability import GraphExecutionLog, GraphNodeLog
@@ -24,9 +28,91 @@ from app.observability.metrics import (
 )
 from app.observability.token_tracker import TokenTracker
 from app.services.review_queue import ReviewQueueService
+from app.task_runtime.binding import task_execution_scope
+from app.task_runtime.envelope import TaskEnvelope
 
 logger = logging.getLogger(__name__)
 tracer = trace.get_tracer(__name__)
+
+_OBSERVABILITY_STATE_FIELDS = frozenset(
+    {
+        "answer",
+        "confidence_score",
+        "context_tokens",
+        "context_utilization",
+        "current_agent",
+        "needs_human_transfer",
+        "transfer_reason",
+    }
+)
+
+
+class ChatObservabilityPayload(BaseModel):
+    """Minimal PII-safe business payload persisted after a chat request."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    intent_category: str | None
+    final_state: dict[str, JsonValue]
+    node_latencies: dict[str, int]
+    total_latency_ms: int = Field(ge=0)
+    sanitized_question: str
+    variant_id: int | None
+    variant_llm_model: str | None
+    langsmith_run_url: str | None
+
+    @field_validator("sanitized_question")
+    @classmethod
+    def _reject_raw_pii(cls, value: str) -> str:
+        if pii_filter.filter_text(value).has_pii:
+            raise ValueError("sanitized_question still contains supported PII")
+        return value
+
+    @model_validator(mode="after")
+    def _reject_raw_pii_in_state(self) -> ChatObservabilityPayload:
+        def contains_pii(value: JsonValue) -> bool:
+            if isinstance(value, str):
+                return pii_filter.filter_text(value).has_pii
+            if isinstance(value, list):
+                return any(contains_pii(item) for item in value)
+            if isinstance(value, dict):
+                return any(contains_pii(item) for item in value.values())
+            return False
+
+        if any(contains_pii(value) for value in self.final_state.values()):
+            raise ValueError("final_state still contains supported PII")
+        return self
+
+
+def build_chat_observability_payload(
+    *,
+    intent_category: str | None,
+    final_state: dict[str, Any],
+    node_latencies: dict[str, int],
+    total_latency_ms: int,
+    sanitized_question: str,
+    variant_id: int | None,
+    variant_llm_model: str | None,
+    langsmith_run_url: str | None,
+) -> ChatObservabilityPayload:
+    """Build the minimal sanitized payload allowed across the telemetry boundary."""
+    safe_state: dict[str, JsonValue] = {}
+    for key in _OBSERVABILITY_STATE_FIELDS:
+        value = final_state.get(key)
+        if isinstance(value, str):
+            value = pii_filter.filter_text(value).redacted_text
+        if value is None or isinstance(value, (str, int, float, bool, list, dict)):
+            safe_state[key] = value
+    return ChatObservabilityPayload(
+        intent_category=intent_category,
+        final_state=safe_state,
+        node_latencies=node_latencies,
+        total_latency_ms=total_latency_ms,
+        sanitized_question=sanitized_question,
+        variant_id=variant_id,
+        variant_llm_model=variant_llm_model,
+        langsmith_run_url=langsmith_run_url,
+    )
 
 
 async def _async_log_chat_observability(
@@ -36,7 +122,7 @@ async def _async_log_chat_observability(
     final_state: dict[str, Any],
     node_latencies: dict[str, int],
     total_latency_ms: int,
-    chat_request_question: str,
+    sanitized_question: str,
     variant_id: int | None,
     variant_llm_model: str | None,
     langsmith_run_url: str | None,
@@ -91,7 +177,7 @@ async def _async_log_chat_observability(
             context_tokens=final_state.get("context_tokens"),
             context_utilization=final_state.get("context_utilization"),
             langsmith_run_url=langsmith_run_url,
-            query=chat_request_question,
+            query=sanitized_question,
             trace_id=trace_id,
         )
         session.add(log)
@@ -159,7 +245,8 @@ async def _async_log_chat_observability(
         if final_state.get("context_tokens") is not None:
             try:
                 token_tracker = TokenTracker(session)
-                response_text = final_state.get("answer", "")
+                raw_response_text = final_state.get("answer")
+                response_text = raw_response_text if isinstance(raw_response_text, str) else ""
                 estimated_output_tokens = max(1, len(response_text) // 4)
                 await token_tracker.log_usage(
                     user_id=user_id,
@@ -167,7 +254,7 @@ async def _async_log_chat_observability(
                     agent_type=final_agent_name or "unknown",
                     input_tokens=int(final_state.get("context_tokens", 0)),
                     output_tokens=estimated_output_tokens,
-                    query_text=chat_request_question,
+                    query_text=sanitized_question,
                     model_name=variant_llm_model or "unknown",
                 )
             except (SQLAlchemyError, OperationalError):
@@ -189,70 +276,66 @@ async def _async_log_chat_observability(
 )
 def log_chat_observability(
     self,
-    thread_id: str,
-    user_id: int,
-    intent_category: str | None,
-    final_state: dict[str, Any],
-    node_latencies: dict[str, int],
-    total_latency_ms: int,
-    chat_request_question: str,
-    variant_id: int | None,
-    variant_llm_model: str | None,
-    langsmith_run_url: str | None,
-    trace_context: dict[str, str] | None = None,
+    envelope: dict[str, object],
 ) -> dict[str, Any]:
     """Persist execution logs, metrics, review tickets, and token usage asynchronously.
 
     This task is enqueued from the chat endpoint after SSE streaming completes so
     that the HTTP response is not blocked by observability I/O.
     """
-    parent_context = propagate.extract(trace_context) if trace_context else None
-    with tracer.start_as_current_span(
-        "celery.log_chat_observability", context=parent_context
-    ) as span:
-        span.set_attribute("chat.thread_id", thread_id)
-        span.set_attribute("chat.user_id", user_id)
-
-        current_span = trace.get_current_span()
-        span_context = current_span.get_span_context()
-        trace_id = format(span_context.trace_id, "032x") if span_context.is_valid else None
-
+    task_envelope = TaskEnvelope.from_message(envelope)
+    task_context = task_envelope.task_context
+    payload = ChatObservabilityPayload.model_validate(task_envelope.payload)
+    if task_context.thread_id is None:
+        raise ValueError("Observability tasks require thread_id in TaskContext")
+    task_id = getattr(self.request, "id", None)
+    with task_execution_scope(
+        task_context,
+        task_name="celery.log_chat_observability",
+        task_id=task_id,
+    ):
         try:
             execution_id = async_to_sync(_async_log_chat_observability)(
-                thread_id=thread_id,
-                user_id=user_id,
-                intent_category=intent_category,
-                final_state=final_state,
-                node_latencies=node_latencies,
-                total_latency_ms=total_latency_ms,
-                chat_request_question=chat_request_question,
-                variant_id=variant_id,
-                variant_llm_model=variant_llm_model,
-                langsmith_run_url=langsmith_run_url,
-                trace_id=trace_id,
+                thread_id=task_context.thread_id,
+                user_id=task_context.user_id,
+                intent_category=payload.intent_category,
+                final_state=payload.final_state,
+                node_latencies=payload.node_latencies,
+                total_latency_ms=payload.total_latency_ms,
+                sanitized_question=payload.sanitized_question,
+                variant_id=payload.variant_id,
+                variant_llm_model=payload.variant_llm_model,
+                langsmith_run_url=payload.langsmith_run_url,
+                trace_id=task_context.trace_id,
             )
 
-            final_agent_name = final_state.get("current_agent")
+            final_agent_name = payload.final_state.get("current_agent")
 
             record_chat_latency(
-                latency_seconds=total_latency_ms / 1000.0,
-                final_agent=final_agent_name,
+                latency_seconds=payload.total_latency_ms / 1000.0,
+                final_agent=str(final_agent_name) if final_agent_name is not None else None,
             )
-            if final_state.get("confidence_score") is not None:
-                record_confidence_score(float(final_state["confidence_score"]))
-            if final_state.get("needs_human_transfer"):
-                record_human_transfer(reason=final_state.get("transfer_reason") or "unknown")
-            if final_state.get("context_utilization") is not None:
-                record_context_utilization(float(final_state["context_utilization"]))
-            if final_state.get("context_tokens") is not None:
+            confidence_score = payload.final_state.get("confidence_score")
+            if isinstance(confidence_score, (int, float)):
+                record_confidence_score(float(confidence_score))
+            if payload.final_state.get("needs_human_transfer"):
+                transfer_reason = payload.final_state.get("transfer_reason")
+                record_human_transfer(
+                    reason=str(transfer_reason) if transfer_reason is not None else "unknown"
+                )
+            context_utilization = payload.final_state.get("context_utilization")
+            if isinstance(context_utilization, (int, float)):
+                record_context_utilization(float(context_utilization))
+            context_tokens = payload.final_state.get("context_tokens")
+            if isinstance(context_tokens, (int, float)):
                 record_token_usage(
-                    tokens=int(final_state["context_tokens"]),
-                    agent=final_agent_name,
+                    tokens=int(context_tokens),
+                    agent=str(final_agent_name) if final_agent_name is not None else None,
                 )
 
             return {"status": "success", "execution_id": execution_id}
         except (SQLAlchemyError, OperationalError) as exc:
-            logger.exception("Observability logging failed for thread %s", thread_id)
+            logger.exception("Observability logging failed for thread %s", task_context.thread_id)
             try:
                 raise self.retry(exc=exc)
             except self.MaxRetriesExceededError:

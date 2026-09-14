@@ -23,7 +23,7 @@ Note: WebSocket routes (`@app/api/v1/websocket.py`) are the FastAPI entrypoints 
 | Role | File | Notes |
 |------|------|-------|
 | Chat API | `@app/api/v1/chat.py` | POST /chat (SSE streaming, 60/min IP + 10/min per-user rate limits), POST /feedback |
-| Auth API | `@app/api/v1/auth.py` | POST /login, POST /register, GET /me |
+| Auth API | `@app/api/v1/auth.py` | Bearer compatibility login/register, browser login/cookie/CSRF, OIDC callback, current-user, and logout endpoints |
 | WebSocket API | `@app/api/v1/websocket.py` | WS /ws/{thread_id}, WS /ws/admin/{admin_id} |
 | Status API | `@app/api/v1/status.py` | Thread status endpoints |
 | API schemas | `@app/api/v1/schemas.py` | Pydantic request/response schemas (legacy location) |
@@ -38,6 +38,8 @@ Note: WebSocket routes (`@app/api/v1/websocket.py`) are the FastAPI entrypoints 
 | Admin metrics | `@app/api/v1/admin/metrics_dashboard.py` | Metrics dashboard endpoints |
 | Admin review queue | `@app/api/v1/admin/review_queue.py` | Human review queue admin endpoints |
 | Admin token usage | `@app/api/v1/admin/token_usage.py` | Token usage and cost tracking admin endpoints |
+| Admin authorization | `@app/api/v1/admin/authorization.py` | Tenant membership, effective authority, role assignment, and revocation endpoints |
+| Admin compliance | `@app/api/v1/admin/compliance.py` | Approval decisions and bounded retention dry-run/execution endpoints |
 | App entry | `@app/main.py` | FastAPI application entry point, router mounting, middleware, health endpoint |
 
 ## Commands
@@ -68,10 +70,17 @@ General Python rules are defined in the root `AGENTS.md`. API-specific conventio
 
 - **Versioning**: All routes under `/api/v1/` prefix.
 - **SSE format**: Chat responses use SSE with `data:` prefix and JSON payload.
-- **Auth**: Use OAuth2 bearer tokens; validate in dependency functions.
-- **Tenant context**: Prefer `AuthContext = Depends(get_active_auth_context)` when tenant, role, scope, session, or correlation data is needed. Never accept `tenant_id` from an untrusted request body when it is already available in the token.
+- **Auth transport**: Preserve OAuth2 Bearer tokens for non-browser clients and use the canonical
+  HttpOnly application-token cookie for browsers; both must normalize through the same dependency
+  and authorization context.
+- **OIDC transport**: Routes start/finish the generic provider flow and map stable errors only; durable identity resolution and linking policy stay in `IdentityService`.
+- **Browser session transport**: Browser login and OIDC completion set the canonical HttpOnly cookie; `/browser/csrf` exposes only session-bound CSRF state, and logout revokes before clearing the cookie.
+- **Tenant context**: Protected business routes use `AuthorizationContext = Depends(get_authorized_auth_context)` (or the canonical user-ID adapter); reserve `get_active_auth_context` for explicitly `AUTHENTICATED` routes such as `/me` and `/logout`. Never accept `tenant_id` from an untrusted request body when it is already available in the authenticated principal.
+- **Task dispatch**: Critical state-changing routes enqueue a sanitized envelope through `@app/outbox/` before their transaction commits. Classified best-effort or non-transactional work may use `@app/task_runtime/dispatch.py`. Never call Celery `.delay()` or `.apply_async()` in a route.
+- **PII boundary**: Once chat input is filtered, background telemetry/evaluation/memory payloads receive only the sanitized text or smaller metadata.
 - **Revocation**: Every protected REST/SSE/WebSocket entry point must check Redis-backed token revocation; do not use signature-only JWT helpers as route dependencies.
-- **Admin routes**: All admin routes under `/api/v1/admin/` with admin auth requirements.
+- **Authorization policy**: Protected routes enforce the exact capability declared in `@app/authorization/route_inventory.py`; adding a route without an explicit classification fails startup and structural tests.
+- **Admin routes**: All admin routes under `/api/v1/admin/` use current local tenant role state rather than JWT or OIDC role claims.
 - **Rate limiting**: Chat endpoint enforces dual rate limits: 60 req/min per IP (slowapi) and 10 req/min per user (Redis-based fixed window). Per-user limits are checked before LLM calls to prevent abuse.
 
 ## Anti-Patterns

@@ -10,17 +10,22 @@ Run with: uv run pytest tests/performance/ -v
 import asyncio
 import statistics
 import time
+import uuid
 from typing import Any, cast
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import pytest_asyncio
 from qdrant_client import models
 
 from app.core.cache import CacheManager
+from app.core.database import async_session_maker
+from app.core.tenancy import get_current_tenant_id, tenant_scope
 from app.graph.nodes import build_memory_node
 from app.memory.structured_manager import StructuredMemoryManager
 from app.memory.vector_manager import VectorMemoryManager
 from app.models.state import make_agent_state
+from app.models.user import User
 from app.retrieval.retriever import HybridRetriever
 
 # --------------------------------------------------------------------------- #
@@ -45,6 +50,27 @@ def _percentile(values: list[float], p: float) -> float:
     if f == c:
         return sorted_vals[f]
     return sorted_vals[f] * (c - k) + sorted_vals[c] * (k - f)
+
+
+@pytest_asyncio.fixture(loop_scope="session")
+async def performance_user_id(tenant_context: str) -> int:
+    """Persist the tenant-local user used by the mocked chat principal."""
+    suffix = uuid.uuid4().hex[:12]
+    with tenant_scope(tenant_context):
+        async with async_session_maker() as session:
+            user = User(
+                tenant_id=tenant_context,
+                username=f"performance_{suffix}",
+                password_hash=User.hash_password("performance-password"),
+                email=f"performance_{suffix}@example.test",
+                full_name="Performance Test",
+                is_active=True,
+            )
+            session.add(user)
+            await session.commit()
+            await session.refresh(user)
+            assert user.id is not None
+            return user.id
 
 
 # --------------------------------------------------------------------------- #
@@ -211,24 +237,55 @@ async def test_cache_reduces_latency(redis_client: Any) -> None:
     cache = CacheManager(redis_client)
     manager = StructuredMemoryManager(cache_manager=cache)
 
-    # We don't have a real DB session in this test; mock the session method
+    # We don't have a real DB session in this test; mock the session method with a serializable
+    # profile so the first miss populates Redis and the next lookup is a real cache hit.
     mock_session = AsyncMock()
     mock_result = MagicMock()
-    mock_result.one_or_none.return_value = None
+    profile_payload = {
+        "id": None,
+        "tenant_id": get_current_tenant_id(),
+        "user_id": 42,
+        "membership_level": "gold",
+        "preferred_language": "zh",
+        "timezone": "Asia/Shanghai",
+        "total_orders": 10,
+        "lifetime_value": 5000.0,
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "updated_at": "2026-01-01T00:00:00+00:00",
+    }
+    mock_profile = MagicMock()
+    mock_profile.model_dump.return_value = profile_payload
+    mock_result.one_or_none.return_value = mock_profile
     mock_session.exec.return_value = mock_result
 
-    # First call (cache miss)
-    t1_start = time.perf_counter()
-    await manager.get_user_profile(mock_session, user_id=42)
-    t1_ms = (time.perf_counter() - t1_start) * 1000
+    await redis_client.ping()
+    await cache.invalidate_profile(42)
+    try:
+        # Warm the connection and serializer outside the measured samples.
+        await manager.get_user_profile(mock_session, user_id=42)
 
-    # Second call (cache hit)
-    t2_start = time.perf_counter()
-    await manager.get_user_profile(mock_session, user_id=42)
-    t2_ms = (time.perf_counter() - t2_start) * 1000
+        miss_timings: list[float] = []
+        hit_timings: list[float] = []
+        for _ in range(5):
+            await cache.invalidate_profile(42)
 
-    print(f"Cache miss: {t1_ms:.2f}ms, Cache hit: {t2_ms:.2f}ms")
-    assert t2_ms < t1_ms, "Cache hit should be faster than cache miss"
+            miss_start = time.perf_counter()
+            await manager.get_user_profile(mock_session, user_id=42)
+            miss_timings.append((time.perf_counter() - miss_start) * 1000)
+
+            hit_start = time.perf_counter()
+            await manager.get_user_profile(mock_session, user_id=42)
+            hit_timings.append((time.perf_counter() - hit_start) * 1000)
+
+        miss_median = statistics.median(miss_timings)
+        hit_median = statistics.median(hit_timings)
+        print(
+            f"Cache miss median: {miss_median:.2f}ms, "
+            f"cache hit median: {hit_median:.2f}ms (samples={len(miss_timings)})"
+        )
+        assert hit_median < miss_median, "Cache hit should be faster than cache miss"
+    finally:
+        await cache.invalidate_profile(42)
 
 
 # --------------------------------------------------------------------------- #
@@ -237,19 +294,40 @@ async def test_cache_reduces_latency(redis_client: Any) -> None:
 
 
 @pytest.mark.asyncio
-async def test_chat_endpoint_p95_under_500ms(client: Any) -> None:
+async def test_chat_endpoint_p95_under_500ms(
+    client: Any, tenant_context: str, performance_user_id: int
+) -> None:
     """Chat endpoint with mocked graph should respond in <500ms P95.
 
     This test uses a mocked graph to isolate API-layer latency from LLM latency.
     """
-    from app.core.security import get_current_user_id
+    from app.authorization.policy import AuthenticatedPrincipal, AuthorizationContext, Role, Scope
+    from app.core.security import get_active_auth_context
+    from app.core.tenancy import TenantContext, TenantStatus
     from app.main import app
 
     # Mock auth dependency to avoid 401
-    async def _mock_get_current_user_id():
-        return 999
+    async def _mock_get_auth_context():
+        with tenant_scope(tenant_context):
+            yield AuthorizationContext(
+                principal=AuthenticatedPrincipal(
+                    tenant_id=tenant_context,
+                    user_id=performance_user_id,
+                    session_id="performance-session",
+                    correlation_id="performance-correlation",
+                    token_id="performance-token",
+                ),
+                tenant=TenantContext(
+                    tenant_id=tenant_context,
+                    slug=tenant_context,
+                    display_name="Performance Tenant",
+                    status=TenantStatus.ACTIVE,
+                ),
+                roles=frozenset({Role.CUSTOMER}),
+                scopes=frozenset({Scope.CHAT_USE.value}),
+            )
 
-    app.dependency_overrides[get_current_user_id] = _mock_get_current_user_id
+    app.dependency_overrides[get_active_auth_context] = _mock_get_auth_context
 
     # Mock the graph to avoid real LLM calls
     mock_graph = MagicMock()
@@ -276,6 +354,8 @@ async def test_chat_endpoint_p95_under_500ms(client: Any) -> None:
     )
     app.state.vector_manager = None
     app.state.cache_manager = None
+    observability_task = patch("app.api.v1.chat.log_chat_observability.apply_async")
+    observability_task.start()
 
     try:
         latencies: list[float] = []
@@ -302,4 +382,5 @@ async def test_chat_endpoint_p95_under_500ms(client: Any) -> None:
         app.state.intent_service = original_intent
         app.state.vector_manager = original_vector
         app.state.cache_manager = original_cache
+        observability_task.stop()
         app.dependency_overrides.clear()

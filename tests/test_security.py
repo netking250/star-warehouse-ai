@@ -5,10 +5,9 @@ import jwt
 import pytest
 from fastapi import HTTPException
 
+from app.authorization.policy import AuthenticatedPrincipal, AuthorizationContext, Role, Scope
 from app.core.config import settings
 from app.core.security import (
-    AuthContext,
-    Role,
     create_access_token,
     get_active_auth_context,
     get_auth_context,
@@ -16,9 +15,36 @@ from app.core.security import (
     require_roles,
     require_scopes,
     revoke_auth_context,
-    verify_admin_token,
 )
+from app.core.tenancy import TenantContext, TenantStatus
 from app.core.utils import utc_now
+from app.models.user import User
+
+
+def _authorization_context(
+    *,
+    tenant_id: str = "tenant-acme",
+    user_id: int = 91,
+    roles: frozenset[Role],
+    scopes: frozenset[str],
+) -> AuthorizationContext:
+    return AuthorizationContext(
+        principal=AuthenticatedPrincipal(
+            tenant_id=tenant_id,
+            user_id=user_id,
+            session_id="session-123",
+            correlation_id="correlation-123",
+            token_id="token-123",
+        ),
+        tenant=TenantContext(
+            tenant_id=tenant_id,
+            slug=tenant_id,
+            display_name="Security Test Tenant",
+            status=TenantStatus.ACTIVE,
+        ),
+        roles=roles,
+        scopes=scopes,
+    )
 
 
 class TestCreateAccessToken:
@@ -146,28 +172,8 @@ class TestGetCurrentUserId:
         assert "missing user ID" in exc_info.value.detail
 
 
-class TestVerifyAdminToken:
-    def test_returns_user_id_for_admin_token(self):
-        token = create_access_token(user_id=7, is_admin=True)
-        user_id = verify_admin_token(token)
-        assert user_id == 7
-
-    def test_raises_403_for_non_admin_token(self):
-        token = create_access_token(user_id=7, is_admin=False)
-        with pytest.raises(HTTPException) as exc_info:
-            verify_admin_token(token)
-        assert exc_info.value.status_code == 403
-        assert "Admin privileges required" in exc_info.value.detail
-
-    def test_raises_401_for_invalid_token(self):
-        with pytest.raises(HTTPException) as exc_info:
-            verify_admin_token("invalid-token")
-        assert exc_info.value.status_code == 401
-        assert "Invalid token" in exc_info.value.detail
-
-
-class TestAuthContext:
-    def test_builds_tenant_role_scope_and_session_context(self):
+class TestAuthenticatedPrincipal:
+    def test_builds_authority_free_principal_with_compatibility_snapshots(self):
         token = create_access_token(
             user_id=91,
             tenant_id="tenant-acme",
@@ -176,33 +182,26 @@ class TestAuthContext:
             session_id="session-123",
         )
 
-        context = get_auth_context(token)
+        principal = get_auth_context(token)
 
-        assert context == AuthContext(
+        assert principal == AuthenticatedPrincipal(
             tenant_id="tenant-acme",
             user_id=91,
-            roles=frozenset({Role.REVIEWER}),
-            scopes=frozenset({"review:read", "review:decide"}),
             session_id="session-123",
             correlation_id="-",
-            token_id=context.token_id,
+            token_id=principal.token_id,
+            token_roles=frozenset({Role.REVIEWER.value}),
+            token_scopes=frozenset({"review:read", "review:decide"}),
         )
-        assert context.has_role(Role.REVIEWER)
-        assert context.has_scope("review:decide")
 
     def test_rejects_invalid_tenant_claim(self):
         with pytest.raises(ValueError, match="tenant_id"):
             create_access_token(user_id=91, tenant_id="../../other-tenant")
 
     def test_role_dependency_denies_unlisted_role(self):
-        context = AuthContext(
-            tenant_id="tenant-acme",
-            user_id=91,
+        context = _authorization_context(
             roles=frozenset({Role.ANALYST}),
-            scopes=frozenset({"analytics:read"}),
-            session_id="session-123",
-            correlation_id="correlation-123",
-            token_id="token-123",
+            scopes=frozenset({Scope.OPERATIONS_READ.value}),
         )
 
         with pytest.raises(HTTPException) as exc_info:
@@ -211,32 +210,41 @@ class TestAuthContext:
         assert exc_info.value.status_code == 403
 
     def test_scope_dependency_accepts_super_admin_wildcard(self):
-        context = AuthContext(
+        context = _authorization_context(
             tenant_id="default",
             user_id=1,
             roles=frozenset({Role.SUPER_ADMIN}),
             scopes=frozenset({"*"}),
-            session_id="session-123",
-            correlation_id="correlation-123",
-            token_id="token-123",
         )
 
-        assert require_scopes("knowledge:publish")(context) is context
+        assert require_scopes(Scope.KNOWLEDGE_WRITE)(context) is context
 
 
 @pytest.mark.asyncio
-async def test_revoked_token_is_rejected_immediately() -> None:
-    context = get_auth_context(
-        create_access_token(user_id=42, tenant_id="tenant-blue", session_id="session-blue")
+async def test_revoked_token_is_rejected_immediately(db_session, tenant_context: str) -> None:
+    user = User(
+        tenant_id=tenant_context,
+        username="security-revocation-user",
+        password_hash=User.hash_password("security-password"),
+        email="security-revocation@example.com",
+        full_name="Security Revocation User",
+        role=Role.CUSTOMER.value,
+    )
+    db_session.add(user)
+    await db_session.flush()
+    assert user.id is not None
+    principal = get_auth_context(
+        create_access_token(user_id=user.id, tenant_id=tenant_context, session_id="session-blue")
     )
     redis = AsyncMock()
     redis.mget.side_effect = [[None, None], ["1", None]]
 
-    assert await get_active_auth_context(context, redis) is context
+    context = await get_active_auth_context(principal, redis, db_session)
+    assert context.user_id == user.id
     await revoke_auth_context(context, redis)
     with pytest.raises(HTTPException, match="revoked") as exc_info:
-        await get_active_auth_context(context, redis)
+        await get_active_auth_context(principal, redis, db_session)
 
     assert exc_info.value.status_code == 401
     revoked_key = redis.setex.await_args.args[0]
-    assert revoked_key.endswith(f":tenant-blue:auth:revoked:token:{context.token_id}")
+    assert revoked_key.endswith(f":{tenant_context}:auth:revoked:token:{context.token_id}")

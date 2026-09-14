@@ -11,17 +11,18 @@ Star Warehouse AI is a full-stack AI customer service system. Backend: FastAPI +
 ### Setup & Run
 
 ```bash
-# One-shot startup (infra + backend + frontend build)
-./start.sh
+# Complete local Docker stack
+./start_docker.sh
 
-# Manual backend (requires Redis, PostgreSQL, Qdrant running)
+# Manual backend (requires PostgreSQL, Redis, RabbitMQ, and Qdrant)
 uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
-# Celery worker + Beat scheduler (recommended: auto-waits for deps)
+# Celery worker (auto-waits for dependencies)
 ./start_worker.sh
 
-# Manual Celery (deps must already be up)
-uv run celery -A app.celery_app worker --loglevel=info --concurrency=4 --pool=solo --beat
+# Independent Beat scheduler and outbox relay
+uv run celery -A app.celery_app beat --loglevel=info
+uv run python -m app.outbox
 ```
 
 ### Dependencies

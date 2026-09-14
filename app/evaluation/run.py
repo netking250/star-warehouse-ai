@@ -56,8 +56,6 @@ async def _init_evaluation_dependencies() -> tuple[Any, Any, Any]:
     from app.agents.product import ProductAgent
     from app.agents.router import IntentRouterAgent
     from app.agents.supervisor import SupervisorAgent
-    from app.core.config import settings
-    from app.core.llm_factory import create_openai_llm
     from app.core.redis import create_redis_client
     from app.core.tracing import build_llm_config
     from app.graph.checkpointer import OptimizedRedisCheckpoint
@@ -65,6 +63,7 @@ async def _init_evaluation_dependencies() -> tuple[Any, Any, Any]:
     from app.intent.service import IntentRecognitionService
     from app.memory.structured_manager import StructuredMemoryManager
     from app.memory.vector_manager import VectorMemoryManager
+    from app.model_gateway.factory import create_model_client
     from app.retrieval import create_retriever
     from app.services.order_service import OrderService
     from app.tools import (
@@ -81,18 +80,26 @@ async def _init_evaluation_dependencies() -> tuple[Any, Any, Any]:
     checkpointer = OptimizedRedisCheckpoint(redis_client=redis_client)
     await checkpointer.setup()
 
-    llm = create_openai_llm(
+    llm = create_model_client(
+        "default_chat",
         default_config=build_llm_config(
             agent_name="evaluation_runner", tags=["evaluation", "internal"]
-        )
+        ),
     )
-    eval_llm = create_openai_llm(
-        model=settings.CONFIDENCE.EVALUATION_MODEL,
+    intent_llm = create_model_client(
+        "intent",
+        default_config=build_llm_config(
+            agent_name="evaluation_runner_intent",
+            tags=["evaluation", "intent", "internal"],
+        ),
+    )
+    eval_llm = create_model_client(
+        "evaluation",
         default_config=build_llm_config(
             agent_name="evaluation_runner_eval", tags=["evaluation", "internal", "confidence_eval"]
         ),
     )
-    intent_service = IntentRecognitionService(llm=llm, redis_client=redis_client)
+    intent_service = IntentRecognitionService(llm=intent_llm, redis_client=redis_client)
     structured_manager = StructuredMemoryManager()
     router_agent = IntentRouterAgent(
         intent_service=intent_service, llm=llm, structured_manager=structured_manager

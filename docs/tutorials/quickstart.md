@@ -1,44 +1,34 @@
 # 快速开始
 
-## 环境要求
+根 [`README.md`](../../README.md) 是开发者入口；本教程给出最短的 Docker 本地启动路径。
 
-- Python 3.12+
-- Node.js 22+
-- PostgreSQL 16
-- Redis 7+
-- Qdrant 1.16+
+## Requirements
 
-## WSL + Docker 一键启动（推荐）
+- Docker Engine and Docker Compose
+- 一个可用的 OpenAI-compatible 或 DashScope 模型密钥
+
+## Start the full local stack
 
 ```bash
 cp .env.example .env
-# 编辑 .env，填写模型 API Key 和安全配置
+# 替换占位密码、SECRET_KEY，并配置 OPENAI_API_KEY 或 DASHSCOPE_API_KEY。
 ./start_docker.sh
 ```
 
-该脚本会构建应用镜像、启动并等待 PostgreSQL/Redis/Qdrant、执行数据库迁移，
-再强制重建 FastAPI 与 Celery 容器。强制重建用于刷新 WSL bind mount，避免旧容器恢复后看不到源码。
+脚本会构建镜像，启动 PostgreSQL、Redis、RabbitMQ 和 Qdrant，执行 Alembic 迁移，
+按需初始化向量数据，然后启动 API、Celery worker、Celery scheduler 和 outbox relay。
 
-## WSL 本地开发模式
+访问地址：
 
-需要让 FastAPI 和 Celery 直接运行在 WSL 中时，使用：
+- API/Health: <http://localhost:8000/health>
+- Customer UI: <http://localhost:8000/app>
+- Admin UI: <http://localhost:8000/admin>
+- RabbitMQ management: <http://localhost:15672>
 
-```bash
-./start.sh
-```
+需要直接运行 Python/Node 进程时，继续阅读[本地开发环境](./local-development.md)。
 
-启动后访问：
-- API: http://localhost:8000
-- API 文档: http://localhost:8000/docs
-- C端用户界面: http://localhost:8000/app
-- B端管理后台: http://localhost:8000/admin
+## Next steps
 
-## 手动分步启动
-
-如需手动配置开发环境，请参考 [本地开发环境搭建](./local-development.md)。
-
-## 下一步
-
-- 了解系统架构：[架构文档](../explanation/architecture/)
-- 查看环境变量说明：[环境变量参考](../reference/environment-variables.md)
-- 查看常用命令：[命令速查表](../reference/command-cheatsheet.md)
+- [Environment variables](../reference/environment-variables.md)
+- [Architecture](../explanation/architecture/README.md)
+- [Operations](../runbooks/README.md)

@@ -12,7 +12,6 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.core.config import settings
-from app.core.llm_factory import create_openai_llm, maybe_add_cache_control
 from app.core.tracing import build_llm_config
 from app.intent.config import validate_tertiary_intent
 from app.intent.few_shot_loader import (
@@ -21,6 +20,7 @@ from app.intent.few_shot_loader import (
     select_top_k_examples,
 )
 from app.intent.models import IntentAction, IntentCategory, IntentResult
+from app.model_gateway.factory import create_model_client
 
 logger = logging.getLogger(__name__)
 
@@ -140,7 +140,7 @@ class IntentClassifier:
 
     def __init__(self, llm: BaseChatModel):
         self.llm = llm
-        self._fast_llm = llm if llm is not None else create_openai_llm(timeout=15.0, max_retries=1)
+        self._fast_llm = llm if llm is not None else create_model_client("intent", timeout=15.0)
         self._compiled_rules = {
             key: [re.compile(pattern, re.IGNORECASE) for pattern in patterns]
             for key, patterns in self.RULE_PATTERNS.items()
@@ -192,12 +192,9 @@ class IntentClassifier:
         self, query: str, context: dict[str, Any] | None = None
     ) -> IntentResult | None:
         messages = self._create_messages(query, context)
-        tool_choice: Any = {"type": "function", "function": {"name": "classify_intent"}}
-        if "dashscope" in settings.OPENAI_BASE_URL.lower() or settings.LLM_MODEL.startswith("qwen"):
-            tool_choice = "auto"
         llm_with_tools = self._fast_llm.bind_tools(
             [self.INTENT_FUNCTION_SCHEMA],
-            tool_choice=tool_choice,  # type: ignore
+            tool_choice="auto",
         )
         config = build_llm_config(
             agent_name="intent_classifier",
@@ -259,7 +256,7 @@ class IntentClassifier:
             messages.insert(0, SystemMessage(content=self.SYSTEM_PROMPT + "\n" + context_str))
         else:
             messages.insert(0, SystemMessage(content=self.SYSTEM_PROMPT))
-        return maybe_add_cache_control(messages)
+        return messages
 
     def _parse_result(self, data: dict[str, Any], query: str) -> IntentResult:
         primary = data.get("primary_intent", "OTHER")

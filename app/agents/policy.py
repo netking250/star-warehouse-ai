@@ -194,6 +194,11 @@ class PolicyAgent(BaseAgent):
                 "retrieval_result": retrieval_result,
                 "answer": response,
                 "self_rag": self_rag.model_dump(),
+                "model_provider": metadata.get("model_provider"),
+                "model_name": metadata.get("model_name"),
+                "model_input_tokens": metadata.get("model_input_tokens"),
+                "model_output_tokens": metadata.get("model_output_tokens"),
+                "model_total_tokens": metadata.get("model_total_tokens"),
             },
         }
 

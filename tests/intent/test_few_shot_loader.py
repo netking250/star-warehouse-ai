@@ -61,6 +61,8 @@ class TestLoadAgentExamples:
                     "expected_intent" in examples[0]
                     or "primary_intent" in examples[0]
                     or "complaint_category" in examples[0]
+                    or "intent" in examples[0]
+                    or "policy_category" in examples[0]
                 )
                 assert has_intent
 

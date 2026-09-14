@@ -9,10 +9,13 @@ from app.core.database import async_engine, sync_engine
 from app.models.audit import AuditAction, AuditLog, AuditTriggerType, RiskLevel
 from app.models.message import MessageCard, MessageType
 from app.models.order import Order, OrderStatus
+from app.models.outbox import OutboxEvent
 from app.models.refund import RefundApplication, RefundStatus
 from app.models.user import User
 from app.schemas.admin import TaskStatsResponse
 from app.services.admin_service import AdminService, AuditAlreadyProcessedError, AuditNotFoundError
+from app.task_runtime.context import build_task_context
+from app.task_runtime.envelope import TaskEnvelope
 from app.tasks.refund_tasks import process_refund_payment
 from app.websocket.manager import ConnectionManager
 
@@ -99,6 +102,19 @@ def _create_committed_refund(order_id: int, user_id: int):
             session.close()
 
 
+def _refund_envelope(refund_id: int, amount: float, user_id: int) -> dict[str, object]:
+    context = build_task_context(
+        task_name="tests.admin-service.refund",
+        tenant_id="default",
+        user_id=user_id,
+        correlation_id=f"admin-service-refund:{refund_id}",
+    )
+    return TaskEnvelope(
+        task_context=context,
+        payload={"refund_id": refund_id, "amount": amount, "payment_method": "alipay"},
+    ).to_message()
+
+
 class TestProcessAdminDecision:
     @pytest.mark.asyncio
     async def test_approve_with_refund(self):
@@ -157,13 +173,30 @@ class TestProcessAdminDecision:
                 assert db_refund.reviewed_at is not None
                 assert db_refund.admin_note == "Approved"
 
+                outbox_events = list(
+                    (
+                        await session.exec(
+                            select(OutboxEvent).where(OutboxEvent.aggregate_id == str(refund.id))
+                        )
+                    ).all()
+                )
+                assert {event.event_type for event in outbox_events} == {
+                    "refund.payment_requested",
+                    "refund.sms_requested",
+                }
+                serialized_envelopes = str([event.envelope for event in outbox_events])
+                assert user.phone not in serialized_envelopes
+                assert user.email not in serialized_envelopes
+
                 with sync_engine.connect() as sync_conn:
                     sync_session = Session(bind=sync_conn)
                     try:
                         process_refund_payment.run(
-                            refund.id,
-                            float(refund.refund_amount),
-                            "alipay",
+                            _refund_envelope(
+                                refund.id,
+                                float(refund.refund_amount),
+                                user.id,
+                            ),
                             session=sync_session,
                         )
                     finally:

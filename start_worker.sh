@@ -5,7 +5,22 @@ export PYTHONPATH=$PWD
 
 echo "Waiting for dependencies to be ready..."
 
-# Wait for Redis
+# Wait for RabbitMQ broker
+RABBITMQ_HEALTHY=0
+for i in {1..30}; do
+  if nc -z localhost 5672 2>/dev/null; then
+    echo "RabbitMQ is ready"
+    RABBITMQ_HEALTHY=1
+    break
+  fi
+  sleep 1
+done
+if [ "$RABBITMQ_HEALTHY" -eq 0 ]; then
+  echo "RabbitMQ failed to become ready"
+  exit 1
+fi
+
+# Wait for Redis result backend/cache
 REDIS_HEALTHY=0
 for i in {1..30}; do
   if nc -z localhost 6379 2>/dev/null; then
@@ -56,5 +71,5 @@ uv run celery -A app.celery_app worker \
   --loglevel=info \
   --concurrency=4 \
   --pool=solo \
-  --beat \
+  --queues=critical,default \
   -E

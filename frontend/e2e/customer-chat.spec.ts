@@ -1,54 +1,98 @@
-import { test, expect } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 
-test('customer login and send chat message', async ({ page }) => {
-  // Mock login API
-  await page.route('**/api/v1/login', async (route) => {
+test('customer browser session uses HttpOnly cookie, CSRF, and server logout', async ({ page }) => {
+  let authenticated = false
+  let chatMutationSeen = false
+
+  await page.route('**/api/v1/me', async (route) => {
+    await route.fulfill({
+      status: authenticated ? 200 : 401,
+      contentType: 'application/json',
+      body: authenticated
+        ? JSON.stringify({
+            user_id: 1,
+            username: 'testuser',
+            full_name: 'Test User',
+            email: 'testuser@example.com',
+            is_admin: false,
+            tenant_id: 'default',
+            roles: ['customer'],
+            scopes: ['chat.use'],
+            session_id: 'customer-e2e-session',
+          })
+        : JSON.stringify({ detail: 'Missing authentication token' }),
+    })
+  })
+  await page.route('**/api/v1/browser/csrf', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
+      body: JSON.stringify({ csrf_token: 'customer-e2e-csrf' }),
+    })
+  })
+  await page.route('**/api/v1/browser/login', async (route) => {
+    authenticated = true
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: {
+        'Set-Cookie': 'star_warehouse_session=opaque-e2e-session; HttpOnly; SameSite=Lax; Path=/',
+      },
       body: JSON.stringify({
-        access_token: 'test-token',
-        token_type: 'bearer',
         user_id: 1,
         username: 'testuser',
         full_name: 'Test User',
         is_admin: false,
         tenant_id: 'default',
-        roles: ['USER'],
-        scopes: ['chat:write'],
+        roles: ['customer'],
+        scopes: ['chat.use'],
         session_id: 'customer-e2e-session',
       }),
     })
   })
-
-  // Mock chat API with SSE stream
   await page.route('**/api/v1/chat', async (route) => {
+    expect(route.request().headers()['x-csrf-token']).toBe('customer-e2e-csrf')
+    expect(route.request().headers().cookie).toContain('star_warehouse_session=')
+    chatMutationSeen = true
     await route.fulfill({
       status: 200,
+      headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+      body: 'data: {"token": "Hello"}\n\ndata: [DONE]\n\n',
+    })
+  })
+  await page.route('**/api/v1/logout', async (route) => {
+    expect(route.request().headers()['x-csrf-token']).toBe('customer-e2e-csrf')
+    authenticated = false
+    await route.fulfill({
+      status: 204,
       headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
+        'Set-Cookie': 'star_warehouse_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0',
       },
-      body: 'data: {"token": "您好"}\n\ndata: {"token": "！"}\n\ndata: [DONE]\n\n',
     })
   })
 
-  // Navigate to customer entry point
   await page.goto('/')
+  await page.locator('#customer-username').fill('testuser')
+  await page.locator('#customer-password').fill('password')
+  await page.locator('form button[type="submit"]').click()
+  await expect(page.locator('textarea')).toBeVisible()
 
-  // Login
-  await page.getByPlaceholder('请输入您的账号').fill('testuser')
-  await page.getByPlaceholder('请输入您的密码').fill('password')
-  await page.getByRole('button', { name: '进入星仓 AI' }).click()
-  await page.waitForURL('/')
+  const authCookie = (await page.context().cookies()).find(
+    (cookie) => cookie.name === 'star_warehouse_session'
+  )
+  expect(authCookie?.httpOnly).toBe(true)
+  expect(
+    await page.evaluate(() => ({
+      local: Object.values(localStorage),
+      session: Object.values(sessionStorage),
+    }))
+  ).toEqual({ local: [], session: [] })
 
-  // Assert chat page appears
-  await expect(page.getByText('星仓 AI 服务助手')).toBeVisible()
+  await page.locator('textarea').fill('hello')
+  await page.locator('textarea').press('Enter')
+  await expect.poll(() => chatMutationSeen).toBe(true)
 
-  // Send chat message
-  await page.getByPlaceholder('告诉星仓 AI，您需要什么帮助...').fill('你好')
-  await page.getByRole('button', { name: '发送消息' }).click()
-
-  // Assert assistant response appears
-  await expect(page.getByText('您好！')).toBeVisible()
+  await page.getByTestId('logout-button').click()
+  await page.reload()
+  await expect(page.locator('#customer-username')).toBeVisible()
 })

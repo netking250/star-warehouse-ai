@@ -6,6 +6,29 @@ from langchain_core.outputs import ChatGeneration, ChatResult
 from langchain_core.runnables import Runnable
 from pydantic import BaseModel, Field
 
+_PLACEHOLDER_PROVIDER_KEYS = frozenset(
+    {"", "sk-test", "dummy", "your-openai-api-key", "your-dashscope-api-key"}
+)
+
+
+def has_usable_provider_key(key: str) -> bool:
+    """Return whether a configured test key is not a documented placeholder."""
+    return key.strip().lower() not in _PLACEHOLDER_PROVIDER_KEYS
+
+
+def real_llm_skip_reason(
+    *,
+    explicit_opt_in: bool,
+    openai_key: str,
+    dashscope_key: str,
+) -> str | None:
+    """Return the canonical reason a real-provider test must remain skipped."""
+    if not explicit_opt_in:
+        return "Real LLM tests require explicit RUN_REAL_LLM_TESTS=1 opt-in"
+    if not has_usable_provider_key(openai_key) and not has_usable_provider_key(dashscope_key):
+        return "No usable OpenAI or DashScope provider key is configured"
+    return None
+
 
 class _StructuredRunnable(Runnable):
     """Simple runnable that returns deterministic structured output."""

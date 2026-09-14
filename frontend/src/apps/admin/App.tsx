@@ -2,6 +2,7 @@ import { BrowserRouter, HashRouter, Routes, Route, Navigate } from 'react-router
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClient } from '@/lib/query-client'
 import { useAuthStore } from '@/stores/auth'
+import { useAuth } from '@/hooks/useAuth'
 import { Login } from './pages/Login'
 import { Dashboard } from './pages/Dashboard'
 import { KnowledgeBase } from './pages/KnowledgeBase'
@@ -10,7 +11,9 @@ import { Feedback } from './pages/Feedback'
 import { MetricsPage } from './pages/MetricsPage'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, user } = useAuthStore()
+  useAuth()
+  const { isAuthenticated, isInitialized, user } = useAuthStore()
+  if (!isInitialized) return null
   const isAdmin = user?.role === 'ADMIN'
   return isAuthenticated && isAdmin ? children : <Navigate to="/login" replace />
 }

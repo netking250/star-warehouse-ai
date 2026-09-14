@@ -1,101 +1,85 @@
 # 本地开发环境搭建
 
-## 环境要求
+本页是本地开发的权威分步流程。完整 Docker 启动优先使用根目录
+`./start_docker.sh`；以下步骤用于在宿主机运行后端、worker 和前端。
 
-- Python 3.12+
-- Node.js 22+
-- PostgreSQL 16
-- Redis 7+
-- Qdrant 1.16+
-
-## 1. 克隆仓库并安装依赖
+## 1. Install dependencies
 
 ```bash
-# 安装 Python 依赖
 uv sync --frozen
-
-# 安装前端依赖
-cd frontend && npm ci
+cd frontend && npm ci && cd ..
 ```
 
-## 2. 配置环境变量
+需要 Python 3.12+、uv、Node.js 22+、Docker Engine 和 Docker Compose。
 
-复制 `.env.example` 到 `.env`，并填写必要的密钥：
+## 2. Configure the environment
 
 ```bash
 cp .env.example .env
 ```
 
-关键变量：
-- `POSTGRES_SERVER`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`
-- `REDIS_HOST`, `REDIS_PORT`
-- `QDRANT_URL`
-- `OPENAI_API_KEY` 或 `DASHSCOPE_API_KEY`
-- `SECRET_KEY`
+替换 PostgreSQL/RabbitMQ/`SECRET_KEY` 占位值，并至少配置一个模型提供商密钥。
+变量的分类和所有权见[环境变量参考](../reference/environment-variables.md)。
 
-> 完整环境变量列表请参考 [环境变量参考](../reference/environment-variables.md)。
-
-## 3. 初始化数据库
+## 3. Start local infrastructure
 
 ```bash
+docker compose up -d --wait db redis rabbitmq qdrant
 uv run alembic upgrade head
 ```
 
-## 4. 启动服务
+RabbitMQ 是 Celery broker；Redis 是缓存、会话/撤销、限流、锁、checkpoint 及可选
+result backend。基础设施端口只绑定到 host loopback。
 
-**方式一：一键启动**
-```bash
-./start.sh
-```
+## 4. Run application roles
 
-**方式二：手动启动**
+在独立终端运行：
 
 ```bash
-# 终端 1：后端
+# API
 uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
-# 终端 2：Celery Worker（推荐：自动等待依赖服务就绪）
+# Worker（等待 PostgreSQL/Redis/RabbitMQ/Qdrant 就绪）
 ./start_worker.sh
 
-# 或手动启动（需确保依赖服务已就绪）
-# uv run celery -A app.celery_app worker --loglevel=info --concurrency=4 --pool=solo --beat
+# Scheduler / Beat
+uv run celery -A app.celery_app beat --loglevel=info
 
-# 终端 3：前端
+# Transactional outbox relay
+uv run python -m app.outbox
+
+# Frontend
 cd frontend && npm run dev
 ```
 
-开发环境访问地址：
-- API: http://localhost:8000
-- API 文档: http://localhost:8000/docs
-- C端用户界面: http://localhost:8000/app
-- B端管理后台: http://localhost:8000/admin
-- 用户端（前端 dev server）: http://localhost:5173/
-- 管理后台（前端 dev server）: http://localhost:5173/admin.html
+不要把 worker 与 Beat 合并为默认开发命令；它们是独立运行角色。
 
-## 代码规范
-
-- **Python**: `ruff` 负责格式化与 lint，`ty` 负责类型检查
-- **TypeScript**: 前端使用 strict mode，通过 `npm run build` 进行类型检查
-
-## 运行测试
+## 5. Verify
 
 ```bash
-# 后端测试
-uv run pytest
+# Backend quality
+uv run ruff check app tests
+uv run ruff format --check app tests
+uv run ty check --error-on-warning app tests
 
-# 带覆盖率
+# Backend tests (full gate; use only when the task requires it)
 uv run pytest --cov=app --cov-fail-under=75
 
-# 前端构建验证
-cd frontend && npm run build
-
-# E2E 测试
-cd frontend && npm run test:e2e
+# Frontend
+cd frontend
+npm run format:check
+npm run lint
+npm run test
+npm run build
+npm run test:e2e
 ```
 
-## 调试技巧
+后端测试在导入应用前强制使用 `test_` PostgreSQL、Redis DB 15、进程级 Qdrant
+collection 和内存 Celery transport。真实 RabbitMQ 集成测试只允许 `test_` vhost。
 
-- 后端 API 文档默认在 `/docs`（开发环境）
-- LangGraph 执行日志可在 `app/observability/` 中配置 OpenTelemetry 导出
-- 管理员后台地址：`http://localhost:5173/admin.html`
-- 用户端地址：`http://localhost:5173/`
+## Local endpoints
+
+- API: <http://localhost:8000>
+- OpenAPI: <http://localhost:8000/docs> when enabled
+- Customer/Admin static builds: <http://localhost:8000/app> and <http://localhost:8000/admin>
+- Vite: <http://localhost:5173> and <http://localhost:5173/admin.html>

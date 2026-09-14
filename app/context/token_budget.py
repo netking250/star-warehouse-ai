@@ -2,22 +2,36 @@
 
 import json
 from abc import ABC, abstractmethod
-from typing import Any
+from collections.abc import Sequence
+from typing import Any, Protocol
 
 from app.core.config import settings
+
+
+class TokenEncoder(Protocol):
+    """Encode text into token identifiers."""
+
+    def encode(self, text: str) -> Sequence[int]:
+        """Return token identifiers for text."""
+
+        ...
+
+
+def create_token_encoder() -> TokenEncoder | None:
+    """Create the production tokenizer when the optional package is available."""
+    try:
+        import tiktoken
+
+        return tiktoken.get_encoding("cl100k_base")
+    except ImportError:
+        return None
 
 
 class TokenBudget(ABC):
     """Abstract base class for token budget managers."""
 
-    def __init__(self) -> None:
-        self._encoder = None
-        try:
-            import tiktoken
-
-            self._encoder = tiktoken.get_encoding("cl100k_base")
-        except ImportError:
-            self._encoder = None
+    def __init__(self, encoder: TokenEncoder | None = None) -> None:
+        self._encoder = encoder if encoder is not None else create_token_encoder()
 
     def estimate_tokens(self, text: str) -> int:
         """Estimate the number of tokens in a text string.

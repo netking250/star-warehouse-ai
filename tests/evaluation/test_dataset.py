@@ -89,7 +89,7 @@ def test_load_golden_dataset_success(tmp_path):
 
     dataset = load_golden_dataset(dataset_path)
     assert dataset.total_records == 2
-    assert dataset.source_path == str(dataset_path)
+    assert dataset.source_path == dataset_path.as_posix()
     assert dataset.records[0].query == "query one"
     assert dataset.records[1].expected_intent == "POLICY"
 

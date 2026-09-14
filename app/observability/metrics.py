@@ -236,6 +236,45 @@ INJECTION_BYPASSED_TOTAL = _get_or_create_counter(
     "Total prompt injection attempts that bypassed detection.",
 )
 
+RETENTION_RUNS_TOTAL = _get_or_create_counter(
+    "retention_runs_total",
+    "Total bounded retention runs by outcome.",
+    ["result"],
+)
+
+RETENTION_RECORDS_PROCESSED_TOTAL = _get_or_create_counter(
+    "retention_records_processed_total",
+    "Total records processed by bounded retention policy.",
+    ["dataset", "result"],
+)
+
+RETENTION_RUN_DURATION_SECONDS = _get_or_create_histogram(
+    "retention_run_duration_seconds",
+    "Duration of bounded retention runs in seconds.",
+)
+
+APPROVAL_REQUESTS_TOTAL = _get_or_create_counter(
+    "approval_requests_total",
+    "Total sensitive operation approval transitions.",
+    ["operation", "result"],
+)
+
+APPROVAL_PENDING = _get_or_create_gauge(
+    "approval_pending",
+    "Current process-observed pending approval count.",
+)
+
+SENSITIVE_EXPORTS_TOTAL = _get_or_create_counter(
+    "sensitive_exports_total",
+    "Total sensitive export execution outcomes.",
+    ["result"],
+)
+
+AUDIT_WRITE_FAILURES_TOTAL = _get_or_create_counter(
+    "audit_write_failures_total",
+    "Total compliance audit write failures.",
+)
+
 SAFETY_CHECKS_TOTAL = _get_or_create_counter(
     "safety_checks_total",
     "Total content safety checks performed.",
@@ -283,6 +322,22 @@ WEB_VITALS_TTFB = _get_or_create_histogram(
     buckets=(0.05, 0.1, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0),
 )
 
+OUTBOX_PUBLISH_TOTAL = _get_or_create_counter(
+    "outbox_publish_total",
+    "Total outbox events published to the configured task transport.",
+)
+
+OUTBOX_PUBLISH_FAILURE_TOTAL = _get_or_create_counter(
+    "outbox_publish_failure_total",
+    "Total outbox publication or publication-state failures.",
+)
+
+TASK_CONSUMER_TOTAL = _get_or_create_counter(
+    "task_consumer_total",
+    "Total protected task consumer outcomes.",
+    ["task_type", "outcome"],
+)
+
 
 def record_checkpoint_metrics(compressed_size: int, uncompressed_size: int, is_base: bool) -> None:
     """Record checkpoint storage metrics."""
@@ -290,6 +345,19 @@ def record_checkpoint_metrics(compressed_size: int, uncompressed_size: int, is_b
     CHECKPOINT_SIZE_BYTES.labels(storage_type=storage_type).observe(compressed_size)
     if compressed_size > 0:
         CHECKPOINT_COMPRESSION_RATIO.observe(uncompressed_size / compressed_size)
+
+
+def record_outbox_publish(*, success: bool) -> None:
+    """Record a low-cardinality outbox publication outcome."""
+    if success:
+        OUTBOX_PUBLISH_TOTAL.inc()
+    else:
+        OUTBOX_PUBLISH_FAILURE_TOTAL.inc()
+
+
+def record_task_consumer(*, task_type: str, outcome: str) -> None:
+    """Record a low-cardinality protected-consumer outcome."""
+    TASK_CONSUMER_TOTAL.labels(task_type=task_type, outcome=outcome).inc()
 
 
 def record_checkpoint_cleanup(count: int) -> None:

@@ -32,6 +32,9 @@ Multi-layer output content moderation system that filters agent responses before
 | Layer 3: Embeddings | `@app/safety/embeddings.py` | `EmbeddingSimilarityLayer` — Semantic similarity check |
 | Layer 4: LLM Judge | `@app/safety/llm_judge.py` | `LLMJudgeLayer` — LLM-based content arbitration |
 
+An unavailable, invalid, or zero embedding is degraded evidence, not a safe decision. Layer 3 must
+continue through its deterministic keyword fallback without logging the moderated content.
+
 ## Commands
 
 ```bash

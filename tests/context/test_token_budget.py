@@ -10,6 +10,15 @@ def budget():
     return MemoryTokenBudget()
 
 
+def test_default_test_tokenizer_does_not_load_external_asset(monkeypatch):
+    def fail_if_loaded(*args, **kwargs):
+        del args, kwargs
+        raise AssertionError("external tiktoken asset loading was attempted")
+
+    monkeypatch.setattr("tiktoken.get_encoding", fail_if_loaded)
+    assert MemoryTokenBudget().estimate_tokens("deterministic tokenizer") > 0
+
+
 class TestTokenBudget:
     def test_estimate_tokens_returns_non_negative(self, budget):
         assert budget.estimate_tokens("hello world") >= 0

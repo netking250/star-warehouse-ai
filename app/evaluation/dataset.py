@@ -91,7 +91,7 @@ def load_golden_dataset(path: str | Path) -> GoldenDataset:
                 raise ValueError(f"Validation failed on line {line_number}: {exc}") from exc
             records.append(record)
 
-    return GoldenDataset(records=records, source_path=str(file_path))
+    return GoldenDataset(records=records, source_path=file_path.as_posix())
 
 
 def validate_dataset_dimensions(

@@ -8,14 +8,31 @@ from app.models.alert import (
     AlertStatus,
 )
 from app.models.audit import AuditAction, AuditLog, RiskLevel
+from app.models.authorization_audit import AuthorizationAuditAction, AuthorizationAuditEvent
 from app.models.complaint import (
     ComplaintCategory,
     ComplaintStatus,
     ComplaintTicket,
     ExpectedResolution,
 )
+from app.models.compliance import (
+    ApprovalRequest,
+    ApprovalStatus,
+    ComplianceAuditEvent,
+    SensitiveExportArtifact,
+)
+from app.models.conversation import (
+    Conversation,
+    ConversationRun,
+    ConversationRuntimeEvent,
+    ConversationToolExecution,
+    ConversationTurn,
+    RuntimeEventType,
+    ToolExecutionStatus,
+)
 from app.models.evaluation import ConfidenceAudit, MessageFeedback, QualityScore
 from app.models.experiment import Experiment, ExperimentAssignment, ExperimentVariant
+from app.models.external_identity import ExternalIdentity
 from app.models.knowledge_document import KnowledgeDocument
 from app.models.memory import (
     AgentConfig,
@@ -31,10 +48,13 @@ from app.models.message import MessageCard, MessageStatus, MessageType
 from app.models.multi_intent_log import MultiIntentDecisionLog
 from app.models.observability import GraphExecutionLog, GraphNodeLog
 from app.models.order import Order, OrderStatus
+from app.models.outbox import OutboxEvent, OutboxStatus
 from app.models.pii_audit import PIIAuditLog
 from app.models.prompt_effect_report import PromptEffectReport
 from app.models.refund import RefundApplication, RefundReason, RefundStatus
 from app.models.review import ReviewerMetrics, ReviewStatus, ReviewTicket
+from app.models.task_receipt import TaskExecutionReceipt, TaskReceiptStatus
+from app.models.tenant import Tenant
 from app.models.token_usage import (
     OptimizationSuggestion,
     OptimizationSuggestionStatus,
@@ -55,14 +75,25 @@ __all__ = [
     "AgentConfigVersion",
     "AuditAction",
     "AuditLog",
+    "AuthorizationAuditAction",
+    "AuthorizationAuditEvent",
     "ComplaintCategory",
     "ComplaintStatus",
     "ComplaintTicket",
+    "ComplianceAuditEvent",
+    "Conversation",
+    "ConversationRun",
+    "ConversationRuntimeEvent",
+    "ConversationToolExecution",
+    "ConversationTurn",
     "ConfidenceAudit",
+    "ApprovalRequest",
+    "ApprovalStatus",
     "Experiment",
     "ExperimentAssignment",
     "ExperimentVariant",
     "ExpectedResolution",
+    "ExternalIdentity",
     "GraphExecutionLog",
     "GraphNodeLog",
     "InteractionSummary",
@@ -76,6 +107,11 @@ __all__ = [
     "OptimizationSuggestionStatus",
     "Order",
     "OrderStatus",
+    "OutboxEvent",
+    "OutboxStatus",
+    "TaskExecutionReceipt",
+    "TaskReceiptStatus",
+    "Tenant",
     "PIIAuditLog",
     "PromptEffectReport",
     "QualityScore",
@@ -86,8 +122,11 @@ __all__ = [
     "ReviewTicket",
     "ReviewerMetrics",
     "RiskLevel",
+    "RuntimeEventType",
     "RoutingRule",
+    "SensitiveExportArtifact",
     "TokenUsageLog",
+    "ToolExecutionStatus",
     "User",
     "UserFact",
     "UserPreference",

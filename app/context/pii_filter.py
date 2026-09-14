@@ -406,41 +406,34 @@ class GDPRComplianceManager:
     async def _delete_user_vectors(self, vector_manager: Any, user_id: int) -> int:
         from qdrant_client import models
 
-        from app.core.tenancy import get_current_tenant_id
+        from app.retrieval.tenant_boundary import tenant_filter, tenant_filter_selector
 
         await vector_manager.ensure_collection()
         total_deleted = 0
         offset = None
+        user_condition = models.FieldCondition(
+            key="user_id", match=models.MatchValue(value=user_id)
+        )
         while True:
             batch, offset = await vector_manager.client.scroll(
                 collection_name=vector_manager.COLLECTION_NAME,
                 limit=1000,
                 offset=offset,
                 with_payload=True,
-                scroll_filter=models.Filter(
-                    must=[
-                        models.FieldCondition(
-                            key="tenant_id",
-                            match=models.MatchValue(value=get_current_tenant_id()),
-                        )
-                    ]
-                ),
+                scroll_filter=tenant_filter(user_condition),
             )
             if not batch:
                 break
-            point_ids: list[Any] = [
-                str(point.id)
-                for point in batch
-                if point.payload is not None and point.payload.get("user_id") == user_id
-            ]
+            point_ids: list[Any] = [str(point.id) for point in batch if point.payload is not None]
             if point_ids:
-                await vector_manager.client.delete(
-                    collection_name=vector_manager.COLLECTION_NAME,
-                    points_selector=models.PointIdsList(points=point_ids),
-                )
                 total_deleted += len(point_ids)
             if offset is None:
                 break
+        if total_deleted:
+            await vector_manager.client.delete(
+                collection_name=vector_manager.COLLECTION_NAME,
+                points_selector=tenant_filter_selector(user_condition),
+            )
         return total_deleted
 
     async def _delete_user_structured_memory(self, db_session: Any, user_id: int) -> int:

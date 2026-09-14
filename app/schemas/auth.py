@@ -4,14 +4,7 @@ from pydantic import BaseModel, EmailStr, Field
 class LoginRequest(BaseModel):
     username: str = Field(..., min_length=3, max_length=50, description="用户名")
     password: str = Field(..., min_length=6, description="密码")
-    tenant_id: str = Field(default="default", min_length=1, max_length=64, description="租户 ID")
-
-
-class EnterpriseLoginRequest(BaseModel):
-    """Exchange a validated enterprise access token for a platform token."""
-
-    access_token: str = Field(min_length=16, max_length=8192)
-    tenant_id: str = Field(default="default", min_length=1, max_length=64)
+    tenant_id: str | None = Field(default=None, min_length=1, max_length=64, description="租户 ID")
 
 
 class RegisterRequest(BaseModel):
@@ -20,6 +13,7 @@ class RegisterRequest(BaseModel):
     email: EmailStr = Field(..., description="邮箱")
     full_name: str = Field(..., min_length=2, max_length=100, description="真实姓名")
     phone: str | None = Field(default=None, description="手机号")
+    tenant_id: str | None = Field(default=None, min_length=1, max_length=64, description="租户 ID")
 
 
 class TokenResponse(BaseModel):
@@ -33,6 +27,25 @@ class TokenResponse(BaseModel):
     roles: list[str] = Field(description="Assigned RBAC roles")
     scopes: list[str] = Field(description="Granted authorization scopes")
     session_id: str = Field(description="Authenticated login session ID")
+
+
+class BrowserLoginResponse(BaseModel):
+    """Browser login result without a JavaScript-readable authentication credential."""
+
+    user_id: int = Field(description="Authenticated user ID")
+    username: str = Field(description="Authenticated username")
+    full_name: str = Field(description="User display name")
+    is_admin: bool = Field(description="Backward-compatible administrator flag")
+    tenant_id: str = Field(description="Tenant namespace")
+    roles: list[str] = Field(description="Assigned RBAC roles")
+    scopes: list[str] = Field(description="Granted authorization scopes")
+    session_id: str = Field(description="Authenticated login session ID")
+
+
+class CsrfTokenResponse(BaseModel):
+    """Session-bound CSRF token intended for in-memory browser use."""
+
+    csrf_token: str
 
 
 class UserInfoResponse(BaseModel):

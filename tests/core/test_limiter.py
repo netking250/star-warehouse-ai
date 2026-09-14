@@ -3,8 +3,14 @@
 import pytest
 from fastapi import HTTPException
 
-from app.core.limiter import check_user_rate_limit
+from app.core.limiter import SLOWAPI_CONFIG_FILE, check_user_rate_limit, limiter
 from app.core.redis import create_redis_client
+
+
+def test_limiter_initializes_with_the_application_utf8_env_file_present():
+    """Limiter initialization should not reparse the application's .env file."""
+    assert SLOWAPI_CONFIG_FILE.is_file()
+    assert limiter is not None
 
 
 @pytest.mark.asyncio

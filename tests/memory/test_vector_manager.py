@@ -1,6 +1,9 @@
 import pytest
+from qdrant_client import AsyncQdrantClient
 
 from app.core.config import settings
+from app.core.tenancy import tenant_scope
+from app.memory.consistency import MemoryVectorDocument
 from app.memory.vector_manager import VectorMemoryManager
 
 
@@ -69,6 +72,51 @@ async def test_upsert_message(qdrant_client, deterministic_embedder):
     assert payload["thread_id"] == "t1"
     assert payload["message_role"] == "user"
     assert payload["tenant_id"] == "default"
+
+
+@pytest.mark.asyncio
+async def test_summary_projection_uses_stable_point_and_supports_delete(
+    deterministic_embedder,
+):
+    client = AsyncQdrantClient(location=":memory:")
+    collection_name = "test_summary_projection"
+    manager = VectorMemoryManager(client=client, embedder=deterministic_embedder)
+    manager.COLLECTION_NAME = collection_name
+    tenant_id = "tenant-vector-projection"
+    first = MemoryVectorDocument(
+        tenant_id=tenant_id,
+        memory_id=73,
+        user_id=8,
+        thread_id="thread-vector",
+        version=1,
+        summary_text="First summary",
+        resolved_intent="LOGISTICS",
+        updated_at="2026-09-12T00:00:00+00:00",
+    )
+    second = first.model_copy(update={"version": 2, "summary_text": "Second summary"})
+
+    with tenant_scope(tenant_id):
+        await manager.upsert_summary(first)
+        await manager.upsert_summary(second)
+        indexed_version = await manager.get_summary_version(tenant_id=tenant_id, memory_id=73)
+
+        points = await client.query_points(
+            collection_name=collection_name,
+            query=[0.1] * 1024,
+            using="dense",
+            limit=10,
+            with_payload=True,
+        )
+        await manager.delete_summary(tenant_id=tenant_id, memory_id=73)
+        deleted_version = await manager.get_summary_version(tenant_id=tenant_id, memory_id=73)
+
+    assert len(points.points) == 1
+    point_payload = points.points[0].payload
+    assert point_payload is not None
+    assert point_payload["content"] == "Second summary"
+    assert indexed_version == 2
+    assert deleted_version is None
+    await client.close()
 
 
 @pytest.mark.asyncio

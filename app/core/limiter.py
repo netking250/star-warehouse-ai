@@ -2,6 +2,7 @@
 """Rate limiter configuration using slowapi with Redis storage."""
 
 import time
+from pathlib import Path
 
 import redis.asyncio as aioredis
 from fastapi import HTTPException, Request, status
@@ -10,6 +11,8 @@ from slowapi import Limiter
 from app.core.config import settings
 from app.core.tenancy import namespaced_key
 from app.observability.metrics import record_rate_limit_hit
+
+SLOWAPI_CONFIG_FILE = Path(__file__).with_name("slowapi.env")
 
 
 def get_client_ip(request: Request) -> str:
@@ -22,6 +25,7 @@ def get_client_ip(request: Request) -> str:
 limiter = Limiter(
     key_func=get_client_ip,
     storage_uri=settings.REDIS_URL,
+    config_filename=str(SLOWAPI_CONFIG_FILE),
     in_memory_fallback_enabled=False,
     swallow_errors=False,
     headers_enabled=True,

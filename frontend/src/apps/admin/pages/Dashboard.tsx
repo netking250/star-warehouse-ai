@@ -279,7 +279,12 @@ export function Dashboard() {
                   <p className="text-[10px] text-slate-400">平台管理员</p>
                 </div>
               </div>
-              <Button variant="ghost" size="sm" onClick={() => void logout()}>
+              <Button
+                variant="ghost"
+                size="sm"
+                data-testid="logout-button"
+                onClick={() => void logout()}
+              >
                 <LogOut className="h-4 w-4 mr-1" />
                 退出
               </Button>

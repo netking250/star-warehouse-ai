@@ -1,10 +1,19 @@
 # app/core/config.py
 from typing import Literal
 
-from pydantic import Field, PostgresDsn, RedisDsn, SecretStr, computed_field, field_validator
+from pydantic import (
+    Field,
+    PostgresDsn,
+    RedisDsn,
+    SecretStr,
+    computed_field,
+    field_validator,
+    model_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.core.branding import PRODUCT_NAME_ZH, SERVICE_SLUG, normalize_product_name
+from app.model_gateway.config import ModelRouteSettings, default_model_routes
 
 
 class ConfidenceSettings(BaseSettings):
@@ -67,6 +76,7 @@ class Settings(BaseSettings):
     ALERT_DEDUP_PREFIX: str = SERVICE_SLUG
     API_V1_STR: str
     ENVIRONMENT: str = "development"
+    LOCAL_BOOTSTRAP_TENANT_ID: str = "default"
 
     # Database
     POSTGRES_SERVER: str
@@ -74,6 +84,11 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: SecretStr
     POSTGRES_DB: str
     POSTGRES_PORT: int
+    POSTGRES_RUNTIME_USER: str | None = None
+    POSTGRES_RUNTIME_PASSWORD: SecretStr | None = None
+    POSTGRES_MAINTENANCE_USER: str | None = None
+    POSTGRES_MAINTENANCE_PASSWORD: SecretStr | None = None
+    DB_CAPABILITY: Literal["runtime", "maintenance"] = "runtime"
 
     DB_POOL_SIZE: int = 20
     DB_MAX_OVERFLOW: int = 10
@@ -85,25 +100,53 @@ class Settings(BaseSettings):
     @computed_field
     @property
     def DATABASE_URL(self) -> str:
-        return str(
-            PostgresDsn.build(
-                scheme="postgresql+asyncpg",
-                username=self.POSTGRES_USER,
-                password=self.POSTGRES_PASSWORD.get_secret_value(),
-                host=self.POSTGRES_SERVER,
-                port=self.POSTGRES_PORT,
-                path=self.POSTGRES_DB,
-            )
+        username, password = self._application_database_credentials()
+        return self._database_url(
+            scheme="postgresql+asyncpg",
+            username=username,
+            password=password,
         )
 
     @computed_field
     @property
     def SYNC_DATABASE_URL(self) -> str:
+        username, password = self._application_database_credentials()
+        return self._database_url(
+            scheme="postgresql",
+            username=username,
+            password=password,
+        )
+
+    @computed_field
+    @property
+    def MIGRATION_DATABASE_URL(self) -> str:
+        """Return the administrative URL reserved for Alembic and role provisioning."""
+        return self._database_url(
+            scheme="postgresql+asyncpg",
+            username=self.POSTGRES_USER,
+            password=self.POSTGRES_PASSWORD,
+        )
+
+    def _application_database_credentials(self) -> tuple[str, SecretStr]:
+        if self.DB_CAPABILITY == "maintenance":
+            if self.POSTGRES_MAINTENANCE_USER is not None and (
+                self.POSTGRES_MAINTENANCE_PASSWORD is not None
+            ):
+                return self.POSTGRES_MAINTENANCE_USER, self.POSTGRES_MAINTENANCE_PASSWORD
+        elif self.POSTGRES_RUNTIME_USER is not None and self.POSTGRES_RUNTIME_PASSWORD is not None:
+            return self.POSTGRES_RUNTIME_USER, self.POSTGRES_RUNTIME_PASSWORD
+        if self.POSTGRES_DB.startswith("test_"):
+            return self.POSTGRES_USER, self.POSTGRES_PASSWORD
+        raise ValueError(
+            f"Dedicated PostgreSQL credentials are required for {self.DB_CAPABILITY!r} capability"
+        )
+
+    def _database_url(self, *, scheme: str, username: str, password: SecretStr) -> str:
         return str(
             PostgresDsn.build(
-                scheme="postgresql",
-                username=self.POSTGRES_USER,
-                password=self.POSTGRES_PASSWORD.get_secret_value(),
+                scheme=scheme,
+                username=username,
+                password=password.get_secret_value(),
                 host=self.POSTGRES_SERVER,
                 port=self.POSTGRES_PORT,
                 path=self.POSTGRES_DB,
@@ -113,17 +156,10 @@ class Settings(BaseSettings):
     # Redis
     REDIS_HOST: str
     REDIS_PORT: int
+    REDIS_DB: int = Field(default=0, ge=0)
     REDIS_PASSWORD: SecretStr
-    REDIS_POOL_SIZE: int = 20
-    REDIS_MAX_CONNECTIONS: int = 50
-    REDIS_SOCKET_TIMEOUT: int = 5
-    REDIS_SOCKET_CONNECT_TIMEOUT: int = 5
-    REDIS_HEALTH_CHECK_INTERVAL: int = 30
-    REDIS_CIRCUIT_FAILURE_THRESHOLD: int = 5
-    REDIS_CIRCUIT_RECOVERY_TIMEOUT: int = 30
 
     # Redis connection pool settings
-    REDIS_POOL_SIZE: int = 10
     REDIS_MAX_CONNECTIONS: int = 50
     REDIS_SOCKET_TIMEOUT: float = 5.0
     REDIS_SOCKET_CONNECT_TIMEOUT: float = 5.0
@@ -154,14 +190,21 @@ class Settings(BaseSettings):
                 host=self.REDIS_HOST,
                 port=self.REDIS_PORT,
                 password=self.REDIS_PASSWORD.get_secret_value(),
+                path=str(self.REDIS_DB),
             )
         )
 
-    # LLM (Qwen)
+    # Legacy embedding endpoint plus Dynamic Model Gateway provider configuration
     OPENAI_BASE_URL: str
     OPENAI_API_KEY: SecretStr
     DASHSCOPE_API_KEY: SecretStr
     LLM_MODEL: str = "qwen-plus"
+    MODEL_OPENAI_BASE_URL: str = "https://api.openai.com/v1"
+    MODEL_DASHSCOPE_BASE_URL: str = "https://dashscope.aliyuncs.com/compatible-api/v1"
+    MODEL_GATEWAY_DEFAULT_TIMEOUT_SECONDS: float = Field(default=30.0, gt=0, le=300)
+    MODEL_ROUTES: dict[str, ModelRouteSettings] = Field(default_factory=default_model_routes)
+    RUN_REAL_LLM_TESTS: bool = False
+    REAL_LLM_TEST_ROUTE: str = "default_chat"
     EMBEDDING_MODEL: str = "text-embedding-v3"
     EMBEDDING_DIM: int = 1024
 
@@ -213,7 +256,21 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int
     JWT_ISSUER: str = "star-warehouse-ai"
     JWT_AUDIENCE: str = "star-warehouse-api"
-    OIDC_USERINFO_URL: str = ""
+    BROWSER_AUTH_COOKIE_NAME: str = "star_warehouse_session"
+    BROWSER_AUTH_COOKIE_SECURE: bool = True
+    BROWSER_AUTH_COOKIE_SAMESITE: Literal["lax", "strict", "none"] = "lax"
+    BROWSER_POST_LOGIN_REDIRECT_PATH: str = "/app"
+    OIDC_ENABLED: bool = False
+    OIDC_PROVIDER_NAME: str = "oidc"
+    OIDC_ISSUER: str = ""
+    OIDC_CLIENT_ID: str = ""
+    OIDC_CLIENT_SECRET: SecretStr = SecretStr("")
+    OIDC_REDIRECT_URI: str = "http://localhost:8000/api/v1/oidc/callback"
+    OIDC_ALLOWED_ALGORITHMS: list[str] = Field(default_factory=lambda: ["RS256"])
+    OIDC_LINK_VERIFIED_EMAIL: bool = False
+    OIDC_STATE_TTL_SECONDS: int = Field(default=300, ge=60, le=900)
+    OIDC_METADATA_CACHE_SECONDS: int = Field(default=3600, ge=60, le=86400)
+    OIDC_CLOCK_SKEW_SECONDS: int = Field(default=30, ge=0, le=300)
     OIDC_TIMEOUT_SECONDS: float = 5.0
     OIDC_ALLOW_INSECURE_HTTP: bool = False
 
@@ -236,6 +293,13 @@ class Settings(BaseSettings):
     # Celery 配置
     CELERY_BROKER_URL: SecretStr
     CELERY_RESULT_BACKEND: str
+
+    # Transactional outbox relay
+    OUTBOX_BATCH_SIZE: int = 50
+    OUTBOX_POLL_INTERVAL_SECONDS: float = 1.0
+    OUTBOX_LEASE_SECONDS: int = 60
+    OUTBOX_RETRY_BASE_SECONDS: int = 5
+    OUTBOX_RETRY_MAX_SECONDS: int = 300
 
     # 风控阈值配置
     HIGH_RISK_REFUND_AMOUNT: float = 2000.0  # 高风险退款金额阈值
@@ -323,6 +387,9 @@ class Settings(BaseSettings):
     FUNCTION_CALLING_THRESHOLD: float = 0.7
 
     MEMORY_RETENTION_DAYS: int = 90
+    RETENTION_EXECUTION_ENABLED: bool = True
+    RETENTION_BATCH_LIMIT: int = Field(default=100, ge=1, le=1000)
+    RETENTION_TENANT_BATCH_LIMIT: int = Field(default=100, ge=1, le=1000)
     MEMORY_CONTEXT_TOKEN_BUDGET: int = 2048
     HISTORY_CONTEXT_TOKEN_BUDGET: int = 1024
     COMPACTION_THRESHOLD: float = 0.75
@@ -368,6 +435,33 @@ class Settings(BaseSettings):
     def normalize_legacy_project_name(cls, value: object) -> object:
         """Normalize known v4 product names during the v5 compatibility window."""
         return normalize_product_name(value) if isinstance(value, str) else value
+
+    @field_validator("BROWSER_AUTH_COOKIE_NAME")
+    @classmethod
+    def validate_browser_auth_cookie_name(cls, value: str) -> str:
+        """Reject cookie names that cannot be represented safely in HTTP headers."""
+        if not value or not value.replace("_", "").replace("-", "").isalnum():
+            raise ValueError(
+                "BROWSER_AUTH_COOKIE_NAME must contain only letters, digits, '_' or '-'"
+            )
+        return value
+
+    @field_validator("BROWSER_POST_LOGIN_REDIRECT_PATH")
+    @classmethod
+    def validate_browser_post_login_redirect_path(cls, value: str) -> str:
+        """Keep the OIDC completion redirect on this application origin."""
+        if not value.startswith("/") or value.startswith("//") or "?" in value or "#" in value:
+            raise ValueError("BROWSER_POST_LOGIN_REDIRECT_PATH must be an absolute local path")
+        return value
+
+    @model_validator(mode="after")
+    def validate_browser_cookie_security(self) -> "Settings":
+        """Fail closed for insecure production or SameSite=None cookie settings."""
+        if self.ENVIRONMENT.lower() == "production" and not self.BROWSER_AUTH_COOKIE_SECURE:
+            raise ValueError("Production browser authentication cookies must be Secure")
+        if self.BROWSER_AUTH_COOKIE_SAMESITE == "none" and not self.BROWSER_AUTH_COOKIE_SECURE:
+            raise ValueError("SameSite=None browser authentication cookies must be Secure")
+        return self
 
 
 def _create_settings() -> Settings:

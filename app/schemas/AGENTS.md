@@ -20,10 +20,11 @@ Pydantic v2 request and response schemas for API validation. Defines structured 
 
 | Role | File | Notes |
 |------|------|-------|
-| Auth schemas | `@app/schemas/auth.py` | Auth requests and tenant/RBAC-aware token and user context responses |
+| Auth schemas | `@app/schemas/auth.py` | Bearer token, browser identity/CSRF, and tenant/RBAC-aware user context responses |
 | Admin schemas | `@app/schemas/admin.py` | Admin-related request/response schemas |
 | Agent config schemas | `@app/schemas/agent_config.py` | Agent configuration schemas |
 | Status schemas | `@app/schemas/status.py` | Thread status response schema |
+| Authorization schemas | `@app/schemas/authorization.py` | Membership, role assignment, and membership status API contracts |
 
 ## Commands
 

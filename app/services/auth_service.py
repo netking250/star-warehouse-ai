@@ -2,6 +2,7 @@
 """Authentication business logic service."""
 
 import asyncio
+import logging
 
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
@@ -9,6 +10,8 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models.user import User
+
+logger = logging.getLogger(__name__)
 
 
 class AuthService:
@@ -19,7 +22,7 @@ class AuthService:
         session: AsyncSession,
         username: str,
         password: str,
-        tenant_id: str = "default",
+        tenant_id: str,
     ) -> User:
         """
         Query user by username and verify credentials.
@@ -33,6 +36,10 @@ class AuthService:
         user = result.first()
 
         if not user:
+            logger.info(
+                "local_login_failure",
+                extra={"event": "local_login_failure", "result": "invalid_credentials"},
+            )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="用户名或密码错误",
@@ -40,6 +47,14 @@ class AuthService:
             )
 
         if not user.is_active:
+            logger.info(
+                "local_login_failure",
+                extra={
+                    "event": "local_login_failure",
+                    "user_id": user.id,
+                    "result": "user_inactive",
+                },
+            )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="账号已被禁用，请联系管理员",
@@ -47,12 +62,24 @@ class AuthService:
 
         is_valid = await asyncio.to_thread(user.verify_password, password)
         if not is_valid:
+            logger.info(
+                "local_login_failure",
+                extra={
+                    "event": "local_login_failure",
+                    "user_id": user.id,
+                    "result": "invalid_credentials",
+                },
+            )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="用户名或密码错误",
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
+        logger.info(
+            "local_login_success",
+            extra={"event": "local_login_success", "user_id": user.id, "result": "success"},
+        )
         return user
 
     async def register_user(
@@ -101,12 +128,8 @@ class AuthService:
             return user
 
         try:
-            if session.in_transaction():
-                user = await _do_register()
-                await session.flush()
-            else:
-                async with session.begin():
-                    user = await _do_register()
+            user = await _do_register()
+            await session.flush()
         except IntegrityError as exc:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

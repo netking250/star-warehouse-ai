@@ -45,7 +45,7 @@ General Python rules are defined in the root `AGENTS.md`. Context-specific conve
 - Test token budget allocation with various memory sizes.
 - Verify masking correctly hides sensitive data while preserving structure.
 - Test truncation behavior at boundary conditions (exact budget, over budget by 1 token).
-- Mock LLM token counting for deterministic tests.
+- Inject the deterministic encoder from `@tests/_tokenizer.py` for token-budget tests; normal tests must not download tiktoken assets.
 
 ## Conventions
 

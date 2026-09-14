@@ -65,6 +65,8 @@ General Python rules are defined in the root `AGENTS.md`. Agent-specific convent
 - **Memory injection priority**: summaries → facts/profile → preferences → vector messages.
 - **User isolation**: All order/refund/cart queries must filter by `user_id`. Never return cross-user data.
 - **Return contract**: `AgentProcessResult` must include `response` (string); optionally carry `updated_state`.
+- **Model seam**: Agents receive a provider-neutral `BaseChatModel` backed by `ModelGateway`; never
+  instantiate OpenAI/DashScope clients or select provider endpoints inside an agent.
 
 ## Routing
 

@@ -5,12 +5,12 @@ WebSocket 路由
 
 import logging
 
-from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from opentelemetry import trace
 
 from app.core.logging import generate_correlation_id, set_correlation_id
 from app.core.redis import get_redis_client
-from app.core.security import extract_bearer_token, get_admin_user_id_ws, get_current_user_id_ws
+from app.core.security import get_admin_user_id_ws, get_current_user_id_ws, get_websocket_auth_token
 from app.core.utils import build_thread_id
 
 router = APIRouter()
@@ -23,8 +23,7 @@ tracer = trace.get_tracer(__name__)
 async def websocket_endpoint(
     websocket: WebSocket,
     thread_id: str,
-    token: str | None = Query(None),
-):
+) -> None:
     """
     用户 WebSocket 连接
 
@@ -37,14 +36,8 @@ async def websocket_endpoint(
         cid = websocket.headers.get("x-correlation-id") or generate_correlation_id()
         set_correlation_id(cid)
 
-        auth_header = websocket.headers.get("authorization", "")
-        bearer_token = extract_bearer_token(auth_header)
-        if bearer_token:
-            token = bearer_token
-        if not token:
-            await websocket.close(code=1008, reason="Missing authentication token")
-            return
         try:
+            token = get_websocket_auth_token(websocket)
             # 验证 Token
             redis = getattr(websocket.app.state, "redis_client", None) or await get_redis_client()
             user_id = await get_current_user_id_ws(token, redis)
@@ -89,8 +82,7 @@ async def websocket_endpoint(
 async def admin_websocket_endpoint(
     websocket: WebSocket,
     admin_id: int,
-    token: str | None = Query(None),
-):
+) -> None:
     """
     管理员 WebSocket 连接
 
@@ -104,14 +96,8 @@ async def admin_websocket_endpoint(
         cid = websocket.headers.get("x-correlation-id") or generate_correlation_id()
         set_correlation_id(cid)
 
-        auth_header = websocket.headers.get("authorization", "")
-        bearer_token = extract_bearer_token(auth_header)
-        if bearer_token:
-            token = bearer_token
-        if not token:
-            await websocket.close(code=1008, reason="Missing authentication token")
-            return
         try:
+            token = get_websocket_auth_token(websocket)
             redis = getattr(websocket.app.state, "redis_client", None) or await get_redis_client()
             token_admin_id = await get_admin_user_id_ws(token, redis)
         except HTTPException:

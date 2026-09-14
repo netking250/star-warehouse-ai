@@ -22,9 +22,12 @@ SQLModel/Pydantic data models for database entities and agent state. Defines the
 |------|------|-------|
 | Alert models | `@app/models/alert.py` | `AlertRule`, `AlertEvent`, `AlertNotification` models with P0/P1/P2 severity levels |
 | Agent state | `@app/models/state.py` | `AgentState` TypedDict, `AgentProcessResult`, `make_agent_state()` factory |
-| Memory models | `@app/models/memory.py` | `UserProfile`, `UserPreference`, `InteractionSummary`, `UserFact`, `AgentConfig`, `RoutingRule` |
+| Memory models | `@app/models/memory.py` | `UserProfile`, `UserPreference`, versioned/tombstoned `InteractionSummary`, `UserFact`, `AgentConfig`, `RoutingRule` |
 | User model | `@app/models/user.py` | User account model with tenant namespace and RBAC role |
+| External identity | `@app/models/external_identity.py` | Tenant-owned durable OIDC `issuer + subject` binding to a local user |
 | Order model | `@app/models/order.py` | Order entity model |
+| Outbox model | `@app/models/outbox.py` | Cross-tenant relay record with explicit tenant and idempotency identity |
+| Consumer receipt | `@app/models/task_receipt.py` | Cross-tenant execution identity, lease/retry state, and durable result |
 | Refund model | `@app/models/refund.py` | Refund request model |
 | Complaint model | `@app/models/complaint.py` | Complaint ticket model |
 | Message model | `@app/models/message.py` | Chat message model |
@@ -38,7 +41,9 @@ SQLModel/Pydantic data models for database entities and agent state. Defines the
 | PII audit | `@app/models/pii_audit.py` | `PIIAuditLog` model for GDPR compliance tracking |
 | Review models | `@app/models/review.py` | `ReviewTicket`, `ReviewerMetrics` models for human review workflow |
 | Token usage | `@app/models/token_usage.py` | `TokenUsageLog`, `OptimizationSuggestion` models for cost optimization |
-| Tenant base | `@app/models/tenant.py` | `TenantScopedModel` required by every platform-owned SQL table |
+| Tenant domain/base | `@app/models/tenant.py` | Global `Tenant` registry and `TenantScopedModel` required by tenant-owned SQL tables |
+| Authorization audit | `@app/models/authorization_audit.py` | Tenant-owned atomic evidence for role and membership mutations |
+| Compliance lifecycle | `@app/models/compliance.py` | Append-only compliance audit, approval request, and short-lived export artifact models |
 
 ## Commands
 
@@ -65,7 +70,8 @@ General Python rules are defined in the root `AGENTS.md`. Model-specific convent
 ## Conventions
 
 - **Table names**: Use plural snake_case for table names (e.g., `users`, `orders`).
-- **Tenant scope**: Every platform-owned table must inherit `TenantScopedModel`; tenant-local natural keys must use composite unique constraints including `tenant_id`.
+- **Tenant scope**: Every tenant-owned business table must inherit `TenantScopedModel`; tenant-local natural keys use composite unique constraints including `tenant_id`. Cross-tenant operational tables such as `OutboxEvent` and `TaskExecutionReceipt` instead require a non-defaulted `tenant_id` plus explicit tenant validation/binding at their write interface so infrastructure runtimes can scan them safely.
+- **External identity key**: OIDC bindings are globally unique by `issuer + subject`; email remains mutable metadata and must never be the durable identity key.
 - **Primary keys**: Use auto-incrementing integers for primary keys.
 - **Timestamps**: Include `created_at` and `updated_at` on all models.
 - **Soft deletes**: Use `is_deleted` flag rather than hard deletion where appropriate.

@@ -51,6 +51,7 @@ General Python rules are defined in the root `AGENTS.md`. WebSocket-specific con
 - **Message format**: Use structured JSON messages with `type` and `payload` fields.
 - **Heartbeat**: Implement ping/pong heartbeat to detect stale connections.
 - **Cleanup**: Remove disconnected clients from connection pools immediately.
+- **Authentication transport**: Browser clients authenticate with the HttpOnly cookie and an exact trusted Origin; query-string credentials are forbidden, while safe non-browser Bearer headers remain compatible.
 
 ## Anti-Patterns
 

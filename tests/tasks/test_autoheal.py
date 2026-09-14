@@ -64,12 +64,18 @@ class TestClearRedisCache:
             {"used_memory": 600 * 1024 * 1024},
             {"used_memory": 400 * 1024 * 1024},
         ]
-        mock_client.scan_iter.return_value = ["cache:key1", "cache:key2"]
+        mock_client.scan_iter.side_effect = lambda *, match, count: [
+            match.replace("*", "tenant-a", 1).replace("*", "key-1"),
+            match.replace("*", "tenant-b", 1).replace("*", "key-2"),
+        ]
 
         result = clear_redis_cache.run(memory_threshold_mb=512.0)
 
-        assert result["keys_removed"] == 6
+        assert result["keys_removed"] == 22
         assert result["memory_before_mb"] >= 512.0
+        scanned_patterns = [call.kwargs["match"] for call in mock_client.scan_iter.call_args_list]
+        assert all(":tenant:*:" in pattern for pattern in scanned_patterns)
+        assert all(":system:" not in pattern for pattern in scanned_patterns)
         mock_client.close.assert_called_once()
 
     @patch("app.tasks.autoheal.sync_redis.from_url")

@@ -35,7 +35,7 @@ receivers:
 
   - name: 'pagerduty-critical'
     pagerduty_configs:
-      - service_key: '${PAGERDUTY_SERVICE_KEY}'
+      - service_key: '${PAGERDUTY_INTEGRATION_KEY}'
         severity: critical
         send_resolved: true
 

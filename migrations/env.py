@@ -1,32 +1,17 @@
 import asyncio
 from logging.config import fileConfig
 
+from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
-
-from alembic import context
-
-# 1. 引入配置和模型
-from app.core.config import settings
 from sqlmodel import SQLModel
 
+# 1. 引入配置和模型
+import app.models  # noqa: F401
+from app.core.config import settings
+
 # 导入所有模型以确保被注册
-from app.models.order import Order
-from app.models.refund import RefundApplication
-from app.models.audit import AuditLog
-from app.models.message import MessageCard
-from app.models.user import User
-from app.models.knowledge_document import KnowledgeDocument
-from app.models.observability import GraphExecutionLog, GraphNodeLog, SupervisorDecision
-from app.models.memory import (
-    AgentConfig,
-    InteractionSummary,
-    RoutingRule,
-    UserFact,
-    UserPreference,
-    UserProfile,
-)
 # ==========================================
 
 config = context.config
@@ -41,7 +26,7 @@ target_metadata = SQLModel.metadata
 # 强制处理数据库 URL 协议
 # =========================================================
 def get_url():
-    url = settings.DATABASE_URL
+    url = settings.MIGRATION_DATABASE_URL
     # 如果配置的是标准 postgresql://，强制替换为异步驱动 postgresql+asyncpg://
     # 这样既兼容了同步代码(用 psycopg2)，也兼容了这里的异步迁移
     if url.startswith("postgresql://"):

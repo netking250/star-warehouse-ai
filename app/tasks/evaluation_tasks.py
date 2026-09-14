@@ -2,24 +2,34 @@ import logging
 from pathlib import Path
 
 from asgiref.sync import async_to_sync
+from pydantic import BaseModel, ConfigDict
 
 from app.celery_app import celery_app
 from app.celery_tracing import setup_celery_langsmith_tracing
-from app.core.config import settings
-from app.core.llm_factory import create_llm
 from app.core.redis import create_redis_client
 from app.core.tracing import build_llm_config
 from app.evaluation.adversarial import AdversarialRunner
 from app.evaluation.few_shot_eval import compare_few_shot_performance
 from app.intent.service import IntentRecognitionService
+from app.model_gateway.factory import create_model_client
+from app.task_runtime.binding import task_execution_scope
+from app.task_runtime.envelope import TaskEnvelope, parse_task_envelope
 
 logger = logging.getLogger(__name__)
 
 
+class AdversarialSuitePayload(BaseModel):
+    """Origin metadata for one adversarial evaluation run."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    triggered_by: str
+
+
 async def _run_few_shot_evaluation() -> dict:
     setup_celery_langsmith_tracing()
-    llm = create_llm(
-        settings.LLM_MODEL,
+    llm = create_model_client(
+        "evaluation",
         temperature=0.0,
         default_config=build_llm_config(
             agent_name="few_shot_evaluator", tags=["evaluation", "internal"]
@@ -29,8 +39,14 @@ async def _run_few_shot_evaluation() -> dict:
 
 
 @celery_app.task(bind=True, name="evaluation.run_few_shot_evaluation")
-def run_few_shot_evaluation(_self) -> dict:
-    return async_to_sync(_run_few_shot_evaluation)()
+def run_few_shot_evaluation(self, envelope: dict[str, object]) -> dict:
+    task_envelope = TaskEnvelope.from_message(envelope)
+    with task_execution_scope(
+        task_envelope.task_context,
+        task_name="celery.evaluation.run_few_shot_evaluation",
+        task_id=getattr(self.request, "id", None),
+    ):
+        return async_to_sync(_run_few_shot_evaluation)()
 
 
 async def _run_adversarial_suite(triggered_by: str = "scheduled") -> dict:
@@ -50,8 +66,8 @@ async def _run_adversarial_suite(triggered_by: str = "scheduled") -> dict:
 
     redis_client = create_redis_client()
     try:
-        llm = create_llm(
-            settings.LLM_MODEL,
+        llm = create_model_client(
+            "intent",
             temperature=0.0,
             default_config=build_llm_config(
                 agent_name="adversarial_runner", tags=["evaluation", "adversarial", "internal"]
@@ -90,5 +106,12 @@ async def _run_adversarial_suite(triggered_by: str = "scheduled") -> dict:
 
 
 @celery_app.task(bind=True, name="evaluation.run_adversarial_suite")
-def run_adversarial_suite(_self, triggered_by: str = "scheduled") -> dict:
-    return async_to_sync(_run_adversarial_suite)(triggered_by)
+def run_adversarial_suite(self, envelope: dict[str, object]) -> dict:
+    task_envelope = parse_task_envelope(envelope)
+    payload = AdversarialSuitePayload.model_validate(task_envelope.payload)
+    with task_execution_scope(
+        task_envelope.task_context,
+        task_name="celery.evaluation.run_adversarial_suite",
+        task_id=getattr(self.request, "id", None),
+    ):
+        return async_to_sync(_run_adversarial_suite)(payload.triggered_by)

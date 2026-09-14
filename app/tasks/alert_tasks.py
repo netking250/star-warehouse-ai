@@ -19,6 +19,7 @@ from app.core.database import sync_session_maker
 from app.models.alert import AlertEvent, AlertRule, AlertRuleStatus, AlertStatus
 from app.models.observability import GraphExecutionLog
 from app.services.alert_service import AlertService
+from app.task_runtime.system import system_task_handler
 
 logger = logging.getLogger(__name__)
 
@@ -179,6 +180,7 @@ def _auto_resolve_cleared_alerts(session: Any) -> None:
 
 
 @celery_app.task(bind=True, name="alerting.evaluate_rules")
+@system_task_handler("alerting.evaluate_rules")
 def evaluate_alert_rules(_self) -> dict:
     """Evaluate all enabled alert rules and fire alerts for breached thresholds."""
     alerts_fired = 0
@@ -226,6 +228,7 @@ def evaluate_alert_rules(_self) -> dict:
 
 
 @celery_app.task(bind=True, name="alerting.check_service_health")
+@system_task_handler("alerting.check_service_health")
 def check_service_health(_self) -> dict:
     """Quick health check that fires a P0 alert if the service is unreachable."""
     value, metadata = _get_metric_value("health_status", 30)

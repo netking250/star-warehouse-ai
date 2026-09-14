@@ -9,7 +9,6 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from app.core.config import settings
-from app.core.llm_factory import maybe_add_cache_control
 from app.core.tracing import build_llm_config
 from app.models.state import AgentProcessResult, AgentState
 
@@ -143,10 +142,10 @@ class BaseAgent(ABC):
         try:
             llm = self.llm
             if metadata and metadata.get("variant_llm_model"):
-                from app.core.llm_factory import create_openai_llm
+                from app.model_gateway.factory import create_model_client
 
                 variant_model = metadata.get("variant_llm_model")
-                llm = create_openai_llm(model=variant_model)
+                llm = create_model_client("default_chat", model_override=str(variant_model))
             llm = llm.bind(temperature=temperature) if temperature is not None else llm
             config = build_llm_config(
                 agent_name=self.name,
@@ -155,6 +154,17 @@ class BaseAgent(ABC):
             )
             response = await llm.ainvoke(messages, config=config)
             content = str(response.content)
+            if metadata is not None:
+                provider = response.response_metadata.get("provider")
+                model = response.response_metadata.get("model")
+                if provider is not None:
+                    metadata["model_provider"] = str(provider)
+                if model is not None:
+                    metadata["model_name"] = str(model)
+                if response.usage_metadata is not None:
+                    metadata["model_input_tokens"] = response.usage_metadata.get("input_tokens")
+                    metadata["model_output_tokens"] = response.usage_metadata.get("output_tokens")
+                    metadata["model_total_tokens"] = response.usage_metadata.get("total_tokens")
 
             from app.safety import OutputModerator
 
@@ -283,7 +293,7 @@ class BaseAgent(ABC):
                 user_prompt = examples_text + "\n" + user_prompt
         date_prefix = f"今天是 {datetime.date.today().isoformat()}。\n\n"
         messages.append(HumanMessage(content=date_prefix + user_prompt))
-        return maybe_add_cache_control(messages)
+        return messages
 
     def _format_memory_prefix(
         self,

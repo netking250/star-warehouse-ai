@@ -22,10 +22,11 @@ Backend test suite using pytest + pytest-asyncio with a flat directory structure
 
 | Task | File/Directory | Description |
 |------|---------------|-------------|
-| Global fixtures | `@tests/conftest.py` | `client`, `db_session`, `redis_client` |
+| Global fixtures | `@tests/conftest.py` | `client`, `db_session`, `db_sync_session`, `test_maintenance_engine`, `redis_client`, `redis_checkpointer`, `qdrant_client`, `active_tenant`, `tenant_context` |
 | Test DB config | `@tests/_db_config.py` | Auto-prefixes DB names with `test_` |
 | Agent mock | `@tests/_agents.py` | Agent mock factory and test helpers |
 | LLM mock | `@tests/_llm.py` | LLM call mocks and response helpers |
+| Tokenizer mock | `@tests/_tokenizer.py` | Deterministic token counting without external tokenizer assets |
 | API tests | `@tests/test_auth_api.py`, `@tests/test_chat_api.py`, `@tests/test_admin_api.py` | Route-layer validation |
 | Service tests | `@tests/test_order_service.py`, `@tests/test_refund_service.py`, `@tests/test_auth_service.py`, `@tests/test_status_service.py`, `@tests/test_admin_service.py` | Business logic validation |
 | Module unit tests | `@tests/agents/`, `@tests/graph/`, `@tests/intent/`, `@tests/memory/`, `@tests/tools/`, `@tests/retrieval/`, `@tests/evaluation/`, `@tests/context/`, `@tests/observability/`, `@tests/core/`, `@tests/models/`, `@tests/performance/` | Agent/graph/intent/memory/RAG/evaluation/context/observability/core/model/performance tests |
@@ -38,7 +39,12 @@ Backend test suite using pytest + pytest-asyncio with a flat directory structure
 | Service tests | `@tests/services/test_continuous_improvement.py`, `@tests/services/test_alert_service.py` | Business service validation |
 | Task tests | `@tests/tasks/`, `@tests/tasks/test_autoheal.py`, `@tests/tasks/test_continuous_improvement_tasks.py`, `@tests/tasks/test_shadow_tasks.py` | Celery task tests including autoheal, CI, and shadow testing |
 | Integration tests | `@tests/integration/test_workflow_invoke.py` | LangGraph integration (including parallel multi-intent scenarios) |
+| PostgreSQL RLS | `@tests/integration/test_postgres_rls.py` | Fresh migrated database, runtime-role reality, raw cross-tenant access, pool leakage, worker propagation, and catalog inventory |
 | Security tests | `@tests/test_main_security.py`, `@tests/test_security.py`, `@tests/test_auth_rate_limit.py` | Security and rate limiting validation |
+| Enterprise identity | `@tests/identity/`, `@tests/integration/test_keycloak_oidc.py` | OIDC crypto negatives, state/nonce/PKCE, durable linking, and optional real Keycloak evidence |
+| Enterprise authorization | `@tests/authorization/` | Current membership/role policy, revocation, audit atomicity, and HTTP/WebSocket inventory guards |
+| Compliance lifecycle | `@tests/compliance/` | Classification, retention, immutable audit, approval/export, metrics, and route guards |
+| Secure browser session | `@tests/test_browser_session.py` | Cookie flags/lifetime, CSRF/Origin, ambiguity, logout revocation, and current-role behavior |
 | WebSocket tests | `@tests/test_websocket.py`, `@tests/test_websocket_manager.py` | WebSocket connection tests |
 | Confidence tests | `@tests/test_confidence_signals.py` | Confidence signal validation |
 | User tests | `@tests/test_users.py` | User model and endpoint tests |
@@ -86,12 +92,18 @@ General Python rules are defined in the root `AGENTS.md`. Test-specific conventi
 
 ## Testing Patterns
 
+- **Real model opt-in**: Tests marked `requires_llm` must use the existing `real_llm` fixture and
+  remain skipped unless `RUN_REAL_LLM_TESTS=1` plus a usable provider key are configured. Normal
+  test runs never infer public-network permission from credentials alone.
+
 - **Bug-fix TDD**: Every bug fix must start with a failing reproduction test. Confirm the test fails before applying the fix.
 - **Async tests**: All async tests must be decorated with `@pytest.mark.asyncio`.
 - **State factory**: Use `make_agent_state()` from `@app/models/state.py` to construct agent state; avoid assembling state objects inline across multiple tests.
 - **LLM mocking**: Use helpers in `@tests/_llm.py` to construct mock responses. Prefer real LLM tests for components that directly invoke LLMs; use mocks for error handling, edge cases, batch operations, and components that do not directly call LLMs.
+- **Hermetic model adapters**: Normal unit/domain tests must inject deterministic tokenizer or embedding providers; only explicitly designated real-model integration tests may download model assets.
 - **External service isolation**: Unit tests should not call database, Redis, Qdrant, or SMS gateways directly. Integration tests may access the test DB in controlled environments.
 - **Real LLM tests**: Mark tests that require a real LLM with `@pytest.mark.requires_llm`. These tests skip automatically when `OPENAI_API_KEY` or `DASHSCOPE_API_KEY` is not configured. Use the `real_llm` fixture from `@tests/conftest.py` for real LLM instances.
+- **Real Keycloak tests**: Mark the optional local profile with `@pytest.mark.keycloak`; it runs only when `T08_KEYCLOAK_ISSUER` is explicitly configured and must not be presented as browser E2E evidence.
 - **Coverage gate**: CI enforces `pytest --cov=app --cov-fail-under=75`. Do not lower the threshold; add tests for uncovered code instead.
 
 ## Conventions
@@ -99,7 +111,16 @@ General Python rules are defined in the root `AGENTS.md`. Test-specific conventi
 - **Flat structure**: Tests do not strictly mirror `app/` subpackage paths.
 - **Naming**: Descriptive test names that convey scenario and expected outcome.
 - **Fixture reuse**: Use session-scoped fixtures from `@tests/conftest.py` to avoid repeated DB connection overhead.
-- **Database isolation**: Import `tests._db_config` before any `app` module. Destructive setup is allowed only when `POSTGRES_DB` starts with `test_`.
+- **Infrastructure isolation**: Import `tests._db_config` before any `app` module. Destructive PostgreSQL setup is allowed only when `POSTGRES_DB` starts with `test_`. Generic tests use Redis DB 15, a process-scoped Qdrant collection, loopback proxy bypass for host-local services, and in-memory Celery broker/result transports. RedisVL-backed checkpointer tests use DB 0 only through run-scoped index/key prefixes and never flush the database. Real RabbitMQ tests require `T04_RABBITMQ_URL` to select a vhost whose name starts with `test_`.
+- **Database cleanup privilege separation**: `test_maintenance_engine` and the autouse
+  `_truncate_leaky_tables` fixture use the administrative migration URL only inside the trusted
+  test harness. Application, repository, API, and worker tests use the runtime URL; the runtime
+  role intentionally has no `TRUNCATE`, `BYPASSRLS`, `SUPERUSER`, ownership, or maintenance-role
+  assumption capability. Never pass the maintenance engine into production code or bind a fake
+  tenant context for global cleanup.
+- **RLS integration**: RLS tests create an exact disposable `test_t07_*` database, migrate it to head, provision disposable non-superuser logins, and clean up only those exact resources. Run this module with `--noconftest` so generic SQLModel fixture recreation cannot replace migrated policy metadata.
+- **Tenant context**: Tenant-owned tests must request `active_tenant` or `tenant_context` explicitly; do not add an autouse default-tenant fixture, because missing, unknown, suspended, and disabled tenant tests must remain fail-closed.
+- **WebSocket database lifecycle**: WebSocket tests that access the database must keep their test engine, connections, and disposal on the same TestClient portal event loop.
 
 ## Anti-Patterns
 

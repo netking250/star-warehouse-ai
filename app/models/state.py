@@ -31,6 +31,9 @@ class AgentState(TypedDict):
     question: str
     user_id: int
     thread_id: str
+    tenant_id: str | None
+    correlation_id: str | None
+    trace_id: str | None
 
     current_agent: Annotated[str | None, _last_value]
     next_agent: Annotated[str | None, _last_value]
@@ -81,6 +84,11 @@ class AgentState(TypedDict):
 
     context_tokens: Annotated[int | None, _last_value]
     context_utilization: Annotated[float | None, _last_value]
+    model_provider: Annotated[str | None, _last_value]
+    model_name: Annotated[str | None, _last_value]
+    model_input_tokens: Annotated[int | None, _last_value]
+    model_output_tokens: Annotated[int | None, _last_value]
+    model_total_tokens: Annotated[int | None, _last_value]
 
     variant_llm_model: Annotated[str | None, _last_value]
     variant_retriever_top_k: Annotated[int | None, _last_value]
@@ -92,6 +100,9 @@ def make_agent_state(
     question: str,
     user_id: int = 1,
     thread_id: str = "default",
+    tenant_id: str | None = None,
+    correlation_id: str | None = None,
+    trace_id: str | None = None,
     current_agent: str | None = None,
     next_agent: str | None = None,
     iteration_count: int = 0,
@@ -129,6 +140,11 @@ def make_agent_state(
     memory_context_config: dict[str, Any] | None = None,
     context_tokens: int | None = None,
     context_utilization: float | None = None,
+    model_provider: str | None = None,
+    model_name: str | None = None,
+    model_input_tokens: int | None = None,
+    model_output_tokens: int | None = None,
+    model_total_tokens: int | None = None,
     variant_llm_model: str | None = None,
     variant_retriever_top_k: int | None = None,
     variant_reranker_enabled: bool | None = None,
@@ -137,6 +153,9 @@ def make_agent_state(
         "question": question,
         "user_id": user_id,
         "thread_id": thread_id,
+        "tenant_id": tenant_id,
+        "correlation_id": correlation_id,
+        "trace_id": trace_id,
         "history": history if history is not None else [],
         "current_agent": current_agent,
         "next_agent": next_agent,
@@ -174,6 +193,11 @@ def make_agent_state(
         "memory_context_config": memory_context_config,
         "context_tokens": context_tokens,
         "context_utilization": context_utilization,
+        "model_provider": model_provider,
+        "model_name": model_name,
+        "model_input_tokens": model_input_tokens,
+        "model_output_tokens": model_output_tokens,
+        "model_total_tokens": model_total_tokens,
         "variant_llm_model": variant_llm_model,
         "variant_retriever_top_k": variant_retriever_top_k,
         "variant_reranker_enabled": variant_reranker_enabled,

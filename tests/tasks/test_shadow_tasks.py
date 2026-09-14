@@ -4,6 +4,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from app.task_runtime.context import build_task_context
+from app.task_runtime.envelope import TaskEnvelope
 from app.tasks.shadow_tasks import _run_shadow_test, run_shadow_test
 
 
@@ -122,6 +124,13 @@ class TestRunShadowTest:
     def test_run_shadow_test_celery_task(self):
         with patch("app.tasks.shadow_tasks._run_shadow_test") as mock_run:
             mock_run.return_value = {"sampled": True, "query": "test"}
-            result = run_shadow_test.run("test query")
+            context = build_task_context(
+                task_name="tests.shadow",
+                tenant_id="default",
+                user_id=1,
+                correlation_id="shadow-test",
+            )
+            envelope = TaskEnvelope(task_context=context, payload={"query": "test query"})
+            result = run_shadow_test.run(envelope.to_message())
             assert result["sampled"] is True
             mock_run.assert_called_once()

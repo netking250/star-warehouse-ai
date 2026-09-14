@@ -1,6 +1,7 @@
 import logging
 from datetime import UTC, datetime, timedelta
 
+from pydantic import BaseModel, ConfigDict, Field
 from sqlmodel import func, select
 
 from app.celery_app import celery_app
@@ -8,8 +9,20 @@ from app.core.config import settings
 from app.core.database import sync_session_maker
 from app.models.complaint import ComplaintTicket
 from app.models.evaluation import MessageFeedback
+from app.task_runtime.binding import task_execution_scope
+from app.task_runtime.envelope import TaskEnvelope
+from app.task_runtime.system import system_task_handler
 
 logger = logging.getLogger(__name__)
+
+
+class ComplaintEmailPayload(BaseModel):
+    """Minimal recipient data required for a complaint notification."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    ticket_id: int = Field(gt=0)
+    recipient_email: str = Field(min_length=3, max_length=320)
 
 
 def _sync_send_email(to_emails: list[str], subject: str, body: str) -> dict:
@@ -40,22 +53,37 @@ def _sync_send_email(to_emails: list[str], subject: str, body: str) -> dict:
 
 
 @celery_app.task(bind=True, name="notifications.send_complaint_alert", max_retries=2)
-def send_complaint_alert(_self, ticket_id: int, recipient_email: str) -> dict:
-    subject = f"投诉工单 #{ticket_id} 高优先级告警"
-    body = f"工单 #{ticket_id} 被标记为高优先级，请及时处理。"
-    result = _sync_send_email([recipient_email], subject, body)
-    return {"ticket_id": ticket_id, "recipient": recipient_email, **result}
+def send_complaint_alert(self, envelope: dict[str, object]) -> dict:
+    task_envelope = TaskEnvelope.from_message(envelope)
+    payload = ComplaintEmailPayload.model_validate(task_envelope.payload)
+    with task_execution_scope(
+        task_envelope.task_context,
+        task_name="celery.notifications.send_complaint_alert",
+        task_id=getattr(self.request, "id", None),
+    ):
+        subject = f"投诉工单 #{payload.ticket_id} 高优先级告警"
+        body = f"工单 #{payload.ticket_id} 被标记为高优先级，请及时处理。"
+        result = _sync_send_email([payload.recipient_email], subject, body)
+        return {"ticket_id": payload.ticket_id, **result}
 
 
 @celery_app.task(bind=True, name="notifications.send_status_update", max_retries=2)
-def send_status_update(_self, ticket_id: int, recipient_email: str) -> dict:
-    subject = f"投诉工单 #{ticket_id} 状态更新"
-    body = f"工单 #{ticket_id} 状态已更新，请登录后台查看详情。"
-    result = _sync_send_email([recipient_email], subject, body)
-    return {"ticket_id": ticket_id, "recipient": recipient_email, **result}
+def send_status_update(self, envelope: dict[str, object]) -> dict:
+    task_envelope = TaskEnvelope.from_message(envelope)
+    payload = ComplaintEmailPayload.model_validate(task_envelope.payload)
+    with task_execution_scope(
+        task_envelope.task_context,
+        task_name="celery.notifications.send_status_update",
+        task_id=getattr(self.request, "id", None),
+    ):
+        subject = f"投诉工单 #{payload.ticket_id} 状态更新"
+        body = f"工单 #{payload.ticket_id} 状态已更新，请登录后台查看详情。"
+        result = _sync_send_email([payload.recipient_email], subject, body)
+        return {"ticket_id": payload.ticket_id, **result}
 
 
 @celery_app.task(bind=True, name="notifications.check_quality_alerts")
+@system_task_handler("notifications.check_quality_alerts")
 def check_quality_alerts(_self) -> dict:
     window_hours = getattr(settings, "ALERT_COMPLAINT_WINDOW_HOURS", 24)
     csat_threshold = getattr(settings, "ALERT_CSAT_THRESHOLD", 0.7)

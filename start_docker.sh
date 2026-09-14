@@ -14,19 +14,22 @@ if ! docker compose version >/dev/null 2>&1; then
 fi
 
 echo "Building the application images..."
-docker compose build app celery_worker
+docker compose build app celery_worker celery_maintenance celery_scheduler outbox_relay
 
-echo "Starting PostgreSQL, Redis, and Qdrant..."
-docker compose up -d --wait db redis qdrant
+echo "Starting PostgreSQL, Redis, RabbitMQ, and Qdrant..."
+docker compose up -d --wait db redis rabbitmq qdrant
 
 echo "Applying database migrations..."
 docker compose run --rm --no-deps app alembic upgrade head
+
+echo "Provisioning least-privilege PostgreSQL runtime roles..."
+docker compose run --rm --no-deps app python -m app.core.database_roles
 
 echo "Initializing tenant vector data..."
 docker compose run --rm --no-deps app python scripts/initialize_vector_data.py
 
 echo "Recreating application containers to refresh WSL bind mounts..."
-docker compose up -d --force-recreate --no-deps celery_worker app
+docker compose up -d --force-recreate --no-deps celery_worker celery_maintenance celery_scheduler outbox_relay app
 
 echo "Waiting for the API health endpoint..."
 for attempt in {1..90}; do

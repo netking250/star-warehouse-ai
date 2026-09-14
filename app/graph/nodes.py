@@ -3,9 +3,9 @@ import json
 import logging
 import time
 from collections.abc import Awaitable, Callable
-from contextlib import asynccontextmanager
 from typing import Any, Literal
 
+from langchain_core.exceptions import LangChainException
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage
 from langgraph.types import Command
@@ -36,7 +36,9 @@ from app.memory.vector_manager import VectorMemoryManager
 from app.models.observability import SupervisorDecision
 from app.models.state import AgentProcessResult, AgentState
 from app.observability.metrics import observe_agent_latency
-from app.tasks.memory_tasks import extract_and_save_facts
+from app.task_runtime.context import build_task_context
+from app.task_runtime.dispatch import dispatch_task
+from app.tasks.memory_tasks import build_extract_facts_payload, extract_and_save_facts
 
 
 def _log_supervisor_decision(
@@ -87,13 +89,22 @@ async def _alog_supervisor_decision(
 logger = logging.getLogger(__name__)
 
 
-@asynccontextmanager
-async def _memory_session(session: AsyncSession | None = None):
-    if session is not None:
-        yield session
-    else:
-        async with async_session_maker() as s:
-            yield s
+async def _run_owned_memory_query[MemoryQueryResult](
+    query: Callable[[AsyncSession], Awaitable[MemoryQueryResult]],
+) -> MemoryQueryResult:
+    """Run one concurrent memory read in its own session and transaction."""
+    async with async_session_maker() as session, session.begin():
+        return await query(session)
+
+
+async def _capture_memory_query_error[MemoryQueryResult](
+    query: Awaitable[MemoryQueryResult],
+) -> MemoryQueryResult | Exception:
+    """Preserve per-query degradation for an externally owned session."""
+    try:
+        return await query
+    except Exception as error:
+        return error
 
 
 def build_router_node(
@@ -134,142 +145,175 @@ def build_memory_node(
                 break
 
         memory_context: dict[str, Any] = {}
+        vector_recall_degraded = False
         budgeter = MemoryTokenBudget()
 
-        if (
-            structured_manager is not None
-            and vector_manager is not None
-            and user_id is not None
-            and thread_id is not None
-        ):
+        if structured_manager is not None and user_id is not None and thread_id is not None:
             token_budget = settings.MEMORY_CONTEXT_TOKEN_BUDGET
             fetch_limits = budgeter.calculate_fetch_limits(token_budget)
 
-            async with _memory_session(session) as mem_session:
-                # Parallelize structured memory queries to reduce latency.
-                # All four queries are independent and can run concurrently.
-                profile_task = structured_manager.get_user_profile(mem_session, user_id)
-                preferences_task = structured_manager.get_user_preferences(mem_session, user_id)
-                facts_task = structured_manager.get_user_facts(
-                    mem_session, user_id, limit=fetch_limits["facts_limit"]
-                )
-                summaries_task = structured_manager.get_recent_summaries(
-                    mem_session, user_id, limit=fetch_limits["summaries_limit"]
-                )
-
-                try:
-                    profile, preferences, facts, summaries = await asyncio.gather(
-                        profile_task,
-                        preferences_task,
-                        facts_task,
-                        summaries_task,
-                        return_exceptions=True,
-                    )
-                except SQLAlchemyError:
-                    logger.exception("Failed to fetch structured memory in parallel")
-                    profile = preferences = facts = summaries = None
-
-                if isinstance(profile, Exception):
-                    logger.exception("Failed to fetch user profile for memory context")
-                    profile = None
-                if isinstance(preferences, Exception):
-                    logger.exception("Failed to fetch user preferences for memory context")
-                    preferences = None
-                if isinstance(facts, Exception):
-                    logger.exception("Failed to fetch user facts for memory context")
-                    facts = None
-                if isinstance(summaries, Exception):
-                    logger.exception("Failed to fetch interaction summaries for memory context")
-                    summaries = None
-
-                if profile:
-                    memory_context["user_profile"] = {
-                        "user_id": profile.user_id,
-                        "membership_level": profile.membership_level,
-                        "preferred_language": profile.preferred_language,
-                        "timezone": profile.timezone,
-                        "total_orders": profile.total_orders,
-                        "lifetime_value": profile.lifetime_value,
-                    }
-                if preferences:
-                    memory_context["preferences"] = [
-                        {
-                            "preference_key": p.preference_key,
-                            "preference_value": p.preference_value,
-                        }
-                        for p in preferences
-                    ]
-                if facts:
-                    memory_context["structured_facts"] = [
-                        {
-                            "fact_type": f.fact_type,
-                            "content": f.content,
-                            "confidence": f.confidence,
-                        }
-                        for f in facts
-                    ]
-                if summaries:
-                    memory_context["interaction_summaries"] = [
-                        {
-                            "summary_text": s.summary_text,
-                            "resolved_intent": s.resolved_intent,
-                            "created_at": s.created_at.isoformat() if s.created_at else None,
-                        }
-                        for s in summaries
-                    ]
-
             try:
-                if last_user_message:
-                    # Parallelize vector searches to reduce Qdrant round-trip latency.
-                    summary_results, message_results = await asyncio.gather(
-                        vector_manager.search_similar(
-                            user_id,
-                            query_text=last_user_message,
-                            top_k=fetch_limits["vector_top_k"],
-                            message_role="summary",
+                if session is None:
+                    # Each concurrent operation owns its SQLAlchemy session/transaction.
+                    profile, preferences, facts, summaries = await asyncio.gather(
+                        _run_owned_memory_query(
+                            lambda owned_session: structured_manager.get_user_profile(
+                                owned_session, user_id
+                            )
                         ),
-                        vector_manager.search_similar(
-                            user_id,
-                            query_text=last_user_message,
-                            top_k=fetch_limits["vector_top_k"],
+                        _run_owned_memory_query(
+                            lambda owned_session: structured_manager.get_user_preferences(
+                                owned_session, user_id
+                            )
+                        ),
+                        _run_owned_memory_query(
+                            lambda owned_session: structured_manager.get_user_facts(
+                                owned_session,
+                                user_id,
+                                limit=fetch_limits["facts_limit"],
+                            )
+                        ),
+                        _run_owned_memory_query(
+                            lambda owned_session: structured_manager.get_recent_summaries(
+                                owned_session,
+                                user_id,
+                                limit=fetch_limits["summaries_limit"],
+                            )
                         ),
                         return_exceptions=True,
                     )
+                else:
+                    # A caller-owned session cannot be shared concurrently; retain the
+                    # compatibility seam with ordered reads inside its transaction.
+                    profile = await _capture_memory_query_error(
+                        structured_manager.get_user_profile(session, user_id)
+                    )
+                    preferences = await _capture_memory_query_error(
+                        structured_manager.get_user_preferences(session, user_id)
+                    )
+                    facts = await _capture_memory_query_error(
+                        structured_manager.get_user_facts(
+                            session, user_id, limit=fetch_limits["facts_limit"]
+                        )
+                    )
+                    summaries = await _capture_memory_query_error(
+                        structured_manager.get_recent_summaries(
+                            session, user_id, limit=fetch_limits["summaries_limit"]
+                        )
+                    )
+            except SQLAlchemyError:
+                logger.exception("Failed to fetch structured memory")
+                profile = preferences = facts = summaries = None
 
-                    if isinstance(summary_results, Exception):
-                        logger.exception("Failed to fetch summary vector memory")
-                        summary_results = []
-                    if isinstance(message_results, Exception):
-                        logger.exception("Failed to fetch message vector memory")
-                        message_results = []
+            if isinstance(profile, Exception):
+                logger.exception("Failed to fetch user profile for memory context")
+                profile = None
+            if isinstance(preferences, Exception):
+                logger.exception("Failed to fetch user preferences for memory context")
+                preferences = None
+            if isinstance(facts, Exception):
+                logger.exception("Failed to fetch user facts for memory context")
+                facts = None
+            if isinstance(summaries, Exception):
+                logger.exception("Failed to fetch interaction summaries for memory context")
+                summaries = None
 
-                    # Filter by relevance score threshold before deduplication
-                    threshold = settings.VECTOR_MEMORY_SCORE_THRESHOLD
-                    filtered = [
-                        p
-                        for p in summary_results + message_results
-                        if p.get("score", 0) >= threshold
-                    ]
-                    seen_contents: set[str] = set()
-                    combined: list[dict] = []
-                    for payload in filtered:
-                        content = str(payload.get("content", ""))
-                        if content and content not in seen_contents:
-                            seen_contents.add(content)
-                            combined.append(payload)
-                    if combined:
-                        memory_context["relevant_past_messages"] = [
-                            {
-                                "role": payload.get("message_role", "user"),
-                                "content": payload.get("content", ""),
-                            }
-                            for payload in combined[:10]
+            if profile:
+                memory_context["user_profile"] = {
+                    "user_id": profile.user_id,
+                    "membership_level": profile.membership_level,
+                    "preferred_language": profile.preferred_language,
+                    "timezone": profile.timezone,
+                    "total_orders": profile.total_orders,
+                    "lifetime_value": profile.lifetime_value,
+                }
+            if preferences:
+                memory_context["preferences"] = [
+                    {
+                        "preference_key": p.preference_key,
+                        "preference_value": p.preference_value,
+                    }
+                    for p in preferences
+                ]
+            if facts:
+                memory_context["structured_facts"] = [
+                    {
+                        "fact_type": f.fact_type,
+                        "content": f.content,
+                        "confidence": f.confidence,
+                    }
+                    for f in facts
+                ]
+            if summaries:
+                memory_context["interaction_summaries"] = [
+                    {
+                        "summary_text": s.summary_text,
+                        "resolved_intent": s.resolved_intent,
+                        "created_at": s.created_at.isoformat() if s.created_at else None,
+                    }
+                    for s in summaries
+                ]
+
+            if vector_manager is None:
+                vector_recall_degraded = True
+            else:
+                try:
+                    if last_user_message:
+                        # Parallelize vector searches to reduce Qdrant round-trip latency.
+                        summary_results, message_results = await asyncio.gather(
+                            vector_manager.search_similar(
+                                user_id,
+                                query_text=last_user_message,
+                                top_k=fetch_limits["vector_top_k"],
+                                message_role="summary",
+                            ),
+                            vector_manager.search_similar(
+                                user_id,
+                                query_text=last_user_message,
+                                top_k=fetch_limits["vector_top_k"],
+                            ),
+                            return_exceptions=True,
+                        )
+
+                        if isinstance(summary_results, Exception):
+                            logger.exception("Failed to fetch summary vector memory")
+                            summary_results = []
+                            vector_recall_degraded = True
+                        if isinstance(message_results, Exception):
+                            logger.exception("Failed to fetch message vector memory")
+                            message_results = []
+                            vector_recall_degraded = True
+
+                        # Filter by relevance score threshold before deduplication
+                        threshold = settings.VECTOR_MEMORY_SCORE_THRESHOLD
+                        filtered = [
+                            p
+                            for p in summary_results + message_results
+                            if p.get("score", 0) >= threshold
                         ]
-            except (OperationalError, OSError):
-                logger.exception("Failed to fetch vector memory for memory context")
+                        seen_contents: set[str] = set()
+                        combined: list[dict] = []
+                        for payload in filtered:
+                            content = str(payload.get("content", ""))
+                            if content and content not in seen_contents:
+                                seen_contents.add(content)
+                                combined.append(payload)
+                        if combined:
+                            memory_context["relevant_past_messages"] = [
+                                {
+                                    "role": payload.get("message_role", "user"),
+                                    "content": payload.get("content", ""),
+                                }
+                                for payload in combined[:10]
+                            ]
+                except (OperationalError, OSError):
+                    logger.exception("Failed to fetch vector memory for memory context")
+                    vector_recall_degraded = True
 
         memory_context_config = state.get("memory_context_config")
         memory_context = budgeter.allocate(memory_context, config=memory_context_config)
+        if vector_recall_degraded:
+            memory_context["vector_recall_degraded"] = True
 
         if not use_supervisor:
             next_agent = state.get("next_agent")
@@ -373,6 +417,25 @@ def build_synthesis_node(
             )
             response = await llm.ainvoke(messages, config=config)
             synthesized = str(response.content)
+            model_metadata = {
+                "model_provider": response.response_metadata.get("provider"),
+                "model_name": response.response_metadata.get("model"),
+                "model_input_tokens": (
+                    response.usage_metadata.get("input_tokens")
+                    if response.usage_metadata is not None
+                    else None
+                ),
+                "model_output_tokens": (
+                    response.usage_metadata.get("output_tokens")
+                    if response.usage_metadata is not None
+                    else None
+                ),
+                "model_total_tokens": (
+                    response.usage_metadata.get("total_tokens")
+                    if response.usage_metadata is not None
+                    else None
+                ),
+            }
 
             from app.safety import OutputModerator
 
@@ -380,9 +443,10 @@ def build_synthesis_node(
             mod_result = await moderator.moderate(synthesized, context="synthesis_node")
             if not mod_result.is_safe and mod_result.replacement_text:
                 synthesized = mod_result.replacement_text
-        except OSError as exc:
+        except (LangChainException, OSError) as exc:
             logger.error("Synthesis LLM call failed: %s", exc)
             synthesized = "\n\n".join(parts)
+            model_metadata = {}
 
         return Command(
             goto="evaluator_node",
@@ -390,6 +454,7 @@ def build_synthesis_node(
                 "answer": synthesized,
                 "synthesized_answer": synthesized,
                 "current_agent": sub_answers[0]["agent"],
+                **model_metadata,
                 **merged_state,
             },
         )
@@ -618,9 +683,14 @@ def build_decider_node(
         if not needs_human and not awaiting_clarification:
             user_id = state.get("user_id")
             thread_id = state.get("thread_id")
-            if user_id is not None and thread_id is not None:
-                history_json = json.dumps(history)
-
+            tenant_id = state.get("tenant_id")
+            correlation_id = state.get("correlation_id")
+            if (
+                user_id is not None
+                and thread_id is not None
+                and tenant_id is not None
+                and correlation_id is not None
+            ):
                 question = ""
                 answer = ""
                 for msg in reversed(history):
@@ -634,8 +704,25 @@ def build_decider_node(
                     answer = state.get("answer", "")
 
                 try:
-                    extract_and_save_facts.delay(user_id, thread_id, history_json, question, answer)
-                except (OperationalError, KeyError):
+                    task_context = build_task_context(
+                        task_name="memory.extract_and_save_facts",
+                        tenant_id=tenant_id,
+                        user_id=user_id,
+                        correlation_id=correlation_id,
+                        trace_id=state.get("trace_id"),
+                        thread_id=thread_id,
+                    )
+                    payload = build_extract_facts_payload(
+                        history=history,
+                        question=question,
+                        answer=answer,
+                    )
+                    dispatch_task(
+                        extract_and_save_facts,
+                        task_context=task_context,
+                        payload=payload,
+                    )
+                except (OperationalError, KeyError, ValueError):
                     logger.exception("Failed to enqueue fact extraction")
 
         if should_summarize_flag:
@@ -648,7 +735,6 @@ def build_decider_node(
                     await summarizer.run(
                         state,
                         session,
-                        vector_manager=vector_manager,
                         utilization=context_utilization,
                         threshold=compaction_threshold,
                     )

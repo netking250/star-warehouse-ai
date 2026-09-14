@@ -11,13 +11,16 @@ from app.adapters.errors import AdapterError
 from app.adapters.local import LocalOrderAdapter
 from app.adapters.ports import OrderPort
 from app.core.database import async_session_maker
+from app.core.logging import get_correlation_id
+from app.core.tenancy import get_current_tenant_id
 from app.models.state import AgentProcessResult
+from app.outbox import enqueue_task
 from app.services.refund_service import (
     RefundRiskService,
     get_order_by_sn,
     process_refund_for_order,
 )
-from app.tasks.refund_tasks import notify_admin_audit
+from app.task_runtime.context import build_task_context
 from app.utils.order_utils import classify_refund_reason, extract_order_sn
 
 logger = logging.getLogger(__name__)
@@ -59,7 +62,14 @@ class OrderService:
             raise
 
     async def _handle_refund_request_body(
-        self, question: str, user_id: int, thread_id: str, session: AsyncSession
+        self,
+        question: str,
+        user_id: int,
+        thread_id: str,
+        session: AsyncSession,
+        tenant_id: str | None,
+        correlation_id: str | None,
+        trace_id: str | None,
     ) -> AgentProcessResult:
         order_sn = extract_order_sn(question)
 
@@ -119,25 +129,69 @@ class OrderService:
                 "amount": refund_data["amount"],
             }
 
-        await session.commit()
-
-        # 事务提交成功后，再派发 Celery 通知任务
+        # The business transaction owns both the refund audit and its outbox intent.
         if audit is not None:
-            notify_admin_audit.delay(audit.id)
+            if audit.id is None:
+                raise RuntimeError("Audit ID is missing after persistence")
+            effective_correlation = correlation_id or get_correlation_id()
+            if effective_correlation == "-":
+                effective_correlation = f"refund-audit:{audit.id}:{user_id}"
+            task_context = build_task_context(
+                task_name="refund.notify_admin",
+                tenant_id=tenant_id or get_current_tenant_id(),
+                user_id=user_id,
+                correlation_id=effective_correlation,
+                trace_id=trace_id,
+                thread_id=thread_id or audit.thread_id,
+                operation_id=f"audit:{audit.id}:notify",
+            )
+            await enqueue_task(
+                session=session,
+                task_name="refund.notify_admin",
+                task_context=task_context,
+                payload={"audit_log_id": audit.id},
+                event_type="refund.audit_requested",
+                aggregate_type="audit_log",
+                aggregate_id=str(audit.id),
+            )
+
+        await session.commit()
 
         return {"response": f"✅ {message}", "updated_state": updated_state}
 
     async def handle_refund_request(
-        self, question: str, user_id: int, thread_id: str = "", session: AsyncSession | None = None
+        self,
+        question: str,
+        user_id: int,
+        thread_id: str = "",
+        session: AsyncSession | None = None,
+        *,
+        tenant_id: str | None = None,
+        correlation_id: str | None = None,
+        trace_id: str | None = None,
     ) -> AgentProcessResult:
         """处理退货申请，封装数据库事务与 Celery 副作用。"""
         try:
             if session is None:
                 async with async_session_maker() as session:
                     return await self._handle_refund_request_body(
-                        question, user_id, thread_id, session
+                        question,
+                        user_id,
+                        thread_id,
+                        session,
+                        tenant_id,
+                        correlation_id,
+                        trace_id,
                     )
-            return await self._handle_refund_request_body(question, user_id, thread_id, session)
+            return await self._handle_refund_request_body(
+                question,
+                user_id,
+                thread_id,
+                session,
+                tenant_id,
+                correlation_id,
+                trace_id,
+            )
         except SQLAlchemyError:
             logger.exception("[OrderService] Database error handling refund request")
             raise
