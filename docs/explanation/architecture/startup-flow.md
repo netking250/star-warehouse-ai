@@ -1,26 +1,28 @@
-# 启动流程
+# Startup Flow
 
 ```mermaid
 flowchart LR
-    A[docker-compose up] --> B[PostgreSQL]
-    A --> C[Redis]
-    A --> Q[Qdrant]
-    B --> D[FastAPI App]
-    C --> D
-    Q --> D
-    C --> E[Celery Worker]
-    D --> F[初始化数据库]
-    D --> G[编译 LangGraph]
-    F --> H[系统就绪]
-    G --> H
+    C[Docker Compose] --> P[(PostgreSQL)]
+    C --> R[(Redis)]
+    C --> M[(RabbitMQ)]
+    C --> Q[(Qdrant)]
+    P --> A[FastAPI]
+    R --> A
+    Q --> A
+    M --> W[Celery worker]
+    P --> O[Outbox relay]
+    O --> M
+    S[Celery scheduler] --> M
+    A --> H[/health]
 ```
 
-## 启动步骤
+The canonical complete local flow is `./start_docker.sh`:
 
-1. **启动基础设施**：`docker compose up -d db redis qdrant`
-2. **数据库迁移**：`uv run alembic upgrade head`
-3. **启动 FastAPI**：`uv run uvicorn app.main:app --reload`
-4. **启动 Celery Worker**：`uv run celery -A app.celery_app worker --loglevel=info --concurrency=4 --pool=solo --beat`
-5. **系统就绪**：访问 `http://localhost:8000/health` 验证
+1. Build the shared application image.
+2. Start and wait for `db`, `redis`, `rabbitmq`, and `qdrant`.
+3. Apply `alembic upgrade head` and initialize missing bundled vector data.
+4. Start independent `celery_worker`, `celery_scheduler`, `outbox_relay`, and `app` roles.
+5. Wait for <http://localhost:8000/health>.
 
-> 一键启动脚本 `./start.sh` 已封装以上步骤。
+For host-process development, follow the
+[local development guide](../../tutorials/local-development.md).

@@ -1,5 +1,5 @@
 from app.core.config import settings
-from app.core.llm_factory import create_openai_llm
+from app.model_gateway.factory import create_model_client
 from app.retrieval.client import QdrantKnowledgeClient
 from app.retrieval.embeddings import create_embedding_model
 from app.retrieval.reranker import QwenReranker
@@ -24,8 +24,8 @@ def create_retriever(llm, redis_client=None, cache_manager=None) -> HybridRetrie
             model=settings.RERANK_MODEL,
         ),
         rewriter=QueryRewriter(
-            llm=create_openai_llm(
-                model=settings.REWRITE_MODEL,
+            llm=create_model_client(
+                "rewrite",
                 timeout=settings.REWRITE_TIMEOUT,
             ),
             redis_client=redis_client,

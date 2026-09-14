@@ -377,9 +377,10 @@ async def test_invalid_function_result_falls_back_to_rules(classifier, determini
 
 
 @pytest.mark.asyncio
-async def test_dashscope_uses_auto_tool_choice(classifier, monkeypatch):
-    """Regression: DashScope/Qwen rejects object-format tool_choice in thinking mode.
-    Verify that tool_choice falls back to 'auto' for DashScope endpoints."""
+async def test_classifier_uses_auto_tool_choice_with_legacy_dashscope_settings(
+    classifier, monkeypatch
+):
+    """Provider-neutral classifier semantics ignore legacy endpoint differences."""
     monkeypatch.setattr(
         "app.intent.classifier.settings.OPENAI_BASE_URL", "https://dashscope.aliyuncs.com/v1"
     )
@@ -401,8 +402,10 @@ async def test_dashscope_uses_auto_tool_choice(classifier, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_non_dashscope_uses_object_tool_choice(classifier, monkeypatch):
-    """Verify non-DashScope endpoints still use object-format tool_choice."""
+async def test_classifier_uses_auto_tool_choice_with_legacy_openai_settings(
+    classifier, monkeypatch
+):
+    """Tool selection remains provider-neutral for legacy OpenAI settings."""
     monkeypatch.setattr(
         "app.intent.classifier.settings.OPENAI_BASE_URL", "https://api.openai.com/v1"
     )
@@ -420,7 +423,7 @@ async def test_non_dashscope_uses_object_tool_choice(classifier, monkeypatch):
 
     classifier._fast_llm = _FakeLLM()
     await classifier._classify_with_function_calling("测试")
-    assert bound_tools_calls == [{"type": "function", "function": {"name": "classify_intent"}}]
+    assert bound_tools_calls == ["auto"]
 
 
 @pytest.fixture

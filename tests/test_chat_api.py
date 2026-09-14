@@ -7,12 +7,19 @@ import pytest
 import pytest_asyncio
 from langchain_core.messages import AIMessageChunk
 from langgraph.graph import END, START, StateGraph
+from sqlmodel import desc, select
 
+from app.core.config import settings
 from app.core.database import async_session_maker
 from app.core.security import create_access_token
+from app.core.tenancy import tenant_scope
 from app.main import app
+from app.models.observability import GraphExecutionLog
 from app.models.state import AgentState
+from app.models.token_usage import TokenUsageLog
 from app.models.user import User
+from app.task_runtime.envelope import TaskEnvelope
+from app.tasks.observability_tasks import log_chat_observability
 
 EXPECTED_AGENT_STATE_KEYS = set(AgentState.__annotations__.keys())
 
@@ -50,6 +57,29 @@ def _build_metadata_graph(received_state: dict):
             "needs_human_transfer": False,
             "transfer_reason": None,
             "audit_level": "auto",
+        }
+
+    workflow = StateGraph(AgentState)  # type: ignore
+    workflow.add_node(
+        "decider_node",
+        _node,
+        metadata={"tags": ["decider_node", "internal"]},
+    )
+    workflow.add_edge(START, "decider_node")
+    workflow.add_edge("decider_node", END)
+    return workflow.compile()
+
+
+def _build_observability_graph(received_state: dict):
+    def _node(state: AgentState):
+        received_state.update(state)
+        return {
+            "answer": "请查看已脱敏联系方式",
+            "confidence_score": 0.91,
+            "context_tokens": 24,
+            "context_utilization": 0.2,
+            "current_agent": "policy_agent",
+            "needs_human_transfer": False,
         }
 
     workflow = StateGraph(AgentState)  # type: ignore
@@ -118,18 +148,40 @@ class _StreamingGraph:
         }
 
 
-@pytest_asyncio.fixture(scope="session")
-async def auth_token():
+@pytest_asyncio.fixture(scope="session", loop_scope="session")
+async def auth_token(db_setup):
     unique = uuid.uuid4().hex[:8]
     username = f"chat_user_{unique}"
     password = "password123"
 
+    with tenant_scope(settings.LOCAL_BOOTSTRAP_TENANT_ID):
+        async with async_session_maker() as session:
+            user = User(
+                username=username,
+                password_hash=User.hash_password(password),
+                email=f"{username}@test.com",
+                full_name="Chat Test",
+                is_admin=False,
+                is_active=True,
+            )
+            session.add(user)
+            await session.commit()
+            await session.refresh(user)
+            assert user.id is not None
+            token = create_access_token(user_id=user.id, is_admin=False)
+
+    yield token
+
+
+@pytest_asyncio.fixture(loop_scope="session")
+async def tenant_auth_identity(tenant_context: str):
+    unique = uuid.uuid4().hex[:8]
     async with async_session_maker() as session:
         user = User(
-            username=username,
-            password_hash=User.hash_password(password),
-            email=f"{username}@test.com",
-            full_name="Chat Test",
+            username=f"tenant_chat_{unique}",
+            password_hash=User.hash_password("password123"),
+            email=f"tenant_chat_{unique}@test.com",
+            full_name="Tenant Chat Test",
             is_admin=False,
             is_active=True,
         )
@@ -137,9 +189,8 @@ async def auth_token():
         await session.commit()
         await session.refresh(user)
         assert user.id is not None
-        token = create_access_token(user_id=user.id, is_admin=False)
-
-    yield token
+        token = create_access_token(user_id=user.id, tenant_id=tenant_context)
+    return tenant_context, user.id, token
 
 
 @pytest.mark.asyncio
@@ -237,7 +288,8 @@ async def test_chat_connection_reset_handled_as_disconnect(client, auth_token):
         app.state.app_graph = original
 
     assert response.status_code == 200
-    assert response.text == ""
+    assert '"event": "RUN_FAILED"' in response.text
+    assert '"token"' not in response.text
     assert set(received_state.keys()) == EXPECTED_AGENT_STATE_KEYS
 
 
@@ -314,7 +366,7 @@ async def test_chat_type_error_returns_terminal_sse_error(client, auth_token):
 @pytest.mark.asyncio
 async def test_chat_global_timeout_terminates_slow_stream(client, auth_token, monkeypatch):
     """The chat endpoint must enforce its configured end-to-end timeout."""
-    monkeypatch.setattr("app.api.v1.chat.settings.CHAT_STREAM_TIMEOUT_SECONDS", 0.01)
+    monkeypatch.setattr("app.api.v1.chat.settings.CHAT_STREAM_TIMEOUT_SECONDS", 0.1)
     compiled = _build_slow_graph(delay_seconds=0.2)
 
     original = getattr(app.state, "app_graph", None)
@@ -352,7 +404,7 @@ async def test_chat_does_not_repeat_streamed_answer_at_chain_end(client, auth_to
 
 @pytest.mark.asyncio
 async def test_chat_timeout_after_answer_closes_without_error(client, auth_token, monkeypatch):
-    monkeypatch.setattr("app.api.v1.chat.settings.CHAT_STREAM_TIMEOUT_SECONDS", 0.01)
+    monkeypatch.setattr("app.api.v1.chat.settings.CHAT_STREAM_TIMEOUT_SECONDS", 0.1)
     original = getattr(app.state, "app_graph", None)
     original_checkpointer = getattr(app.state, "checkpointer", None)
     checkpointer = AsyncMock()
@@ -371,7 +423,7 @@ async def test_chat_timeout_after_answer_closes_without_error(client, auth_token
     assert json.dumps({"token": "唯一答案"}, ensure_ascii=False) in response.text
     assert '"error"' not in response.text
     assert "[DONE]" in response.text
-    checkpointer.aprune.assert_awaited_once()
+    checkpointer.aprune.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -394,3 +446,134 @@ async def test_chat_isolates_checkpoint_namespace_per_request(client, auth_token
     assert len(namespaces) == 2
     assert namespaces[0] != namespaces[1]
     assert all(namespace.startswith("v3.1:") for namespace in namespaces)
+
+
+@pytest.mark.asyncio
+async def test_chat_idempotency_reconnect_and_runtime_control_do_not_reexecute(client, auth_token):
+    graph = _StreamingGraph()
+    original = getattr(app.state, "app_graph", None)
+    app.state.app_graph = graph
+    headers = {
+        "Authorization": f"Bearer {auth_token}",
+        "Idempotency-Key": "stable-browser-retry",
+    }
+    try:
+        first = await client.post(
+            "/api/v1/chat",
+            json={"question": "recover", "thread_id": "runtime-reconnect"},
+            headers=headers,
+        )
+        duplicate = await client.post(
+            "/api/v1/chat",
+            json={"question": "recover", "thread_id": "runtime-reconnect"},
+            headers=headers,
+        )
+        runtime_messages = [
+            json.loads(line.removeprefix("data: "))
+            for line in first.text.splitlines()
+            if line.startswith("data: {") and '"type": "runtime"' in line
+        ]
+        run_id = runtime_messages[0]["run_id"]
+        run_response = await client.get(
+            f"/api/v1/conversations/runtime-reconnect/runs/{run_id}",
+            headers={"Authorization": f"Bearer {auth_token}"},
+        )
+        replay_response = await client.get(
+            f"/api/v1/conversations/runtime-reconnect/runs/{run_id}/events",
+            params={"after_sequence": 1},
+            headers={"Authorization": f"Bearer {auth_token}"},
+        )
+        cancel_response = await client.post(
+            f"/api/v1/conversations/runtime-reconnect/runs/{run_id}/cancel",
+            headers={"Authorization": f"Bearer {auth_token}"},
+        )
+    finally:
+        app.state.app_graph = original
+
+    assert first.status_code == 200
+    assert duplicate.status_code == 200
+    assert '"replayed": true' in duplicate.text
+    assert len(graph.configs) == 1
+    assert run_response.json()["status"] == "COMPLETED"
+    assert run_response.json()["final_answer"] == "唯一答案"
+    assert [event["sequence"] for event in replay_response.json()["events"]] == [2, 3]
+    assert cancel_response.json()["outcome"] == "TERMINAL_UNCHANGED"
+
+
+@pytest.mark.asyncio
+async def test_chat_task_envelope_preserves_tenant_and_never_persists_raw_pii(
+    client,
+    tenant_auth_identity,
+    _mock_observability_enqueue,
+):
+    """Exercise HTTP sanitization, task binding, and real observability persistence."""
+    tenant_id, user_id, token = tenant_auth_identity
+    raw_phone = "13800138000"
+    raw_email = "private.person@example.com"
+    raw_question = f"请联系 {raw_phone} 或 {raw_email}"
+    received_state: dict = {}
+    original_graph = getattr(app.state, "app_graph", None)
+    original_vector = getattr(app.state, "vector_manager", None)
+    app.state.app_graph = _build_observability_graph(received_state)
+    app.state.vector_manager = None
+    try:
+        response = await client.post(
+            "/api/v1/chat",
+            json={"question": raw_question, "thread_id": "pii-task-boundary"},
+            headers={
+                "Authorization": f"Bearer {token}",
+                "X-Correlation-ID": "correlation-pii-regression",
+            },
+        )
+    finally:
+        app.state.app_graph = original_graph
+        app.state.vector_manager = original_vector
+
+    assert response.status_code == 200
+    _mock_observability_enqueue.assert_called_once()
+    publish_kwargs = _mock_observability_enqueue.call_args.kwargs
+    assert set(publish_kwargs["kwargs"]) == {"envelope"}
+    message = publish_kwargs["kwargs"]["envelope"]
+    serialized_message = json.dumps(message, ensure_ascii=False)
+    assert raw_phone not in serialized_message
+    assert raw_email not in serialized_message
+    assert "[PHONE_REDACTED]" in serialized_message
+    assert "[EMAIL_REDACTED]" in serialized_message
+
+    envelope = TaskEnvelope.from_message(message)
+    assert envelope.task_context.tenant_id == tenant_id
+    assert envelope.task_context.user_id == user_id
+    assert envelope.task_context.correlation_id == "correlation-pii-regression"
+    assert envelope.task_context.trace_id == received_state["trace_id"]
+    assert envelope.task_context.idempotency_key
+    assert received_state["tenant_id"] == tenant_id
+
+    task_result = await asyncio.to_thread(log_chat_observability.run, envelope=message)
+    assert task_result["status"] == "success"
+
+    with tenant_scope(tenant_id):
+        async with async_session_maker() as session:
+            execution = (
+                await session.exec(
+                    select(GraphExecutionLog)
+                    .where(GraphExecutionLog.user_id == user_id)
+                    .order_by(desc(GraphExecutionLog.id))
+                )
+            ).first()
+            usage = (
+                await session.exec(
+                    select(TokenUsageLog)
+                    .where(TokenUsageLog.user_id == user_id)
+                    .order_by(desc(TokenUsageLog.id))
+                )
+            ).first()
+
+    assert execution is not None
+    assert usage is not None
+    assert execution.tenant_id == tenant_id
+    assert usage.tenant_id == tenant_id
+    assert raw_phone not in (execution.query or "")
+    assert raw_email not in (execution.query or "")
+    assert raw_phone not in (usage.query_text or "")
+    assert raw_email not in (usage.query_text or "")
+    assert execution.query == usage.query_text

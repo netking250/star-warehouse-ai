@@ -7,9 +7,10 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_session
+from app.core.logging import get_correlation_id
 from app.core.redis import create_redis_client
 from app.core.security import get_admin_user_id
-from app.core.tenancy import namespaced_key
+from app.core.tenancy import get_current_tenant_id, namespaced_key
 from app.models.memory import AgentConfig, AgentConfigAuditLog, AgentConfigVersion, RoutingRule
 from app.models.multi_intent_log import MultiIntentDecisionLog
 from app.models.prompt_effect_report import PromptEffectReport
@@ -29,6 +30,8 @@ from app.schemas.agent_config import (
     RoutingRuleResponse,
     RoutingRuleUpdateRequest,
 )
+from app.task_runtime.context import build_task_context
+from app.task_runtime.dispatch import dispatch_task
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -436,7 +439,7 @@ async def get_agent_config_reports(
 async def trigger_agent_config_report(
     agent_name: str,
     report_month: str,
-    _current_admin_id: int = Depends(get_admin_user_id),
+    current_admin_id: int = Depends(get_admin_user_id),
     session: AsyncSession = Depends(get_session),
 ):
     from app.tasks.prompt_effect_tasks import generate_monthly_report
@@ -450,14 +453,26 @@ async def trigger_agent_config_report(
             detail=f"Agent config for '{agent_name}' not found",
         )
 
-    task_result = generate_monthly_report.delay(agent_name, report_month)
+    correlation = get_correlation_id()
+    if correlation == "-":
+        correlation = f"prompt-report:{agent_name}:{report_month}"
+    task_result = dispatch_task(
+        generate_monthly_report,
+        task_context=build_task_context(
+            task_name="prompt_effect.generate_monthly_report",
+            tenant_id=get_current_tenant_id(),
+            user_id=current_admin_id,
+            correlation_id=correlation,
+        ),
+        payload={"agent_name": agent_name, "report_month": report_month},
+    )
     return {"task_id": task_result.id, "agent_name": agent_name, "report_month": report_month}
 
 
 @router.post("/config/{agent_name}/evaluate-few-shot")
 async def evaluate_few_shot(
     agent_name: str,
-    _current_admin_id: int = Depends(get_admin_user_id),
+    current_admin_id: int = Depends(get_admin_user_id),
     session: AsyncSession = Depends(get_session),
 ):
     from app.tasks.evaluation_tasks import run_few_shot_evaluation
@@ -471,7 +486,20 @@ async def evaluate_few_shot(
             detail=f"Agent config for '{agent_name}' not found",
         )
 
-    task_result = run_few_shot_evaluation.delay()
+    correlation = get_correlation_id()
+    if correlation == "-":
+        correlation = f"few-shot:{agent_name}:{current_admin_id}"
+    task_context = build_task_context(
+        task_name="evaluation.run_few_shot_evaluation",
+        tenant_id=get_current_tenant_id(),
+        user_id=current_admin_id,
+        correlation_id=correlation,
+    )
+    task_result = dispatch_task(
+        run_few_shot_evaluation,
+        task_context=task_context,
+        payload={},
+    )
     return {"task_id": task_result.id, "agent_name": agent_name, "status": "queued"}
 
 

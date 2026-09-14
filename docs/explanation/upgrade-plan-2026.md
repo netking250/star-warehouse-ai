@@ -1,5 +1,8 @@
 # Star Warehouse AI 改造/升级计划
 
+> Historical product plan. Current task gates and accepted architecture are maintained in
+> `docs/engineering/ROADMAP.md` and `docs/engineering/DECISIONS.md`.
+
 > **版本**: 1.0  
 > **日期**: 2026年4月  
 > **规划周期**: Q2 2026 - Q4 2026  

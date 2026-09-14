@@ -148,8 +148,11 @@ flowchart TB
         subgraph Redis["🔴 Redis"]
             REDIS_CACHE["Session Cache\u003cbr/\u003e状态缓存"]
             REDIS_CART["购物车缓存\u003cbr/\u003ecart:{user_id}"]
-            REDIS_CELERY["Celery Broker\u003cbr/\u003e任务队列"]
             REDIS_CHECK["LangGraph Checkpoint\u003cbr/\u003e检查点"]
+        end
+
+        subgraph RabbitMQ["🟠 RabbitMQ"]
+            RABBIT_TASKS["Celery Broker\u003cbr/\u003e任务队列"]
         end
     end
 
@@ -221,7 +224,7 @@ flowchart TB
     MEM_MGR <-->|"Embedding"| External
 
     DB --> PostgreSQL
-    CELERY --> REDIS_CELERY
+    CELERY --> RABBIT_TASKS
     GRAPH --> REDIS_CHECK
     REDIS_CART --> Redis
     MEM_MGR --> MemorySQL

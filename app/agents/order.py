@@ -47,7 +47,14 @@ class OrderAgent(BaseAgent):
             or intent_result.get("primary_intent") == "AFTER_SALES"
         ):
             thread_id = state.get("thread_id", "")
-            result = await self._handle_refund(question, user_id, thread_id)
+            result = await self._handle_refund(
+                question,
+                user_id,
+                thread_id,
+                tenant_id=state.get("tenant_id"),
+                correlation_id=state.get("correlation_id"),
+                trace_id=state.get("trace_id"),
+            )
             return result
         else:
             result = await self._handle_order_query(question, user_id)
@@ -73,10 +80,22 @@ class OrderAgent(BaseAgent):
         return {"response": response, "updated_state": {"order_data": order_data}}
 
     async def _handle_refund(
-        self, question: str, user_id: int, thread_id: str = ""
+        self,
+        question: str,
+        user_id: int,
+        thread_id: str = "",
+        *,
+        tenant_id: str | None = None,
+        correlation_id: str | None = None,
+        trace_id: str | None = None,
     ) -> AgentProcessResult:
         return await self.order_service.handle_refund_request(
-            question=question, user_id=user_id, thread_id=thread_id
+            question=question,
+            user_id=user_id,
+            thread_id=thread_id,
+            tenant_id=tenant_id,
+            correlation_id=correlation_id,
+            trace_id=trace_id,
         )
 
     def _format_order_response(self, order: dict) -> str:

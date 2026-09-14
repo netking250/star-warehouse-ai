@@ -20,7 +20,7 @@ class TestAuthenticateUser:
         await db_session.refresh(user)
 
         service = AuthService()
-        result = await service.authenticate_user(db_session, "alice", "secret")
+        result = await service.authenticate_user(db_session, "alice", "secret", "default")
 
         assert result.id == user.id
         assert result.username == "alice"
@@ -29,7 +29,7 @@ class TestAuthenticateUser:
     async def test_user_not_found_raises_401(self, db_session):
         service = AuthService()
         with pytest.raises(HTTPException) as exc_info:
-            await service.authenticate_user(db_session, "nobody", "secret")
+            await service.authenticate_user(db_session, "nobody", "secret", "default")
 
         assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
         assert "用户名或密码错误" in exc_info.value.detail
@@ -48,7 +48,7 @@ class TestAuthenticateUser:
 
         service = AuthService()
         with pytest.raises(HTTPException) as exc_info:
-            await service.authenticate_user(db_session, "alice", "secret")
+            await service.authenticate_user(db_session, "alice", "secret", "default")
 
         assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
         assert "账号已被禁用" in exc_info.value.detail
@@ -67,7 +67,7 @@ class TestAuthenticateUser:
 
         service = AuthService()
         with pytest.raises(HTTPException) as exc_info:
-            await service.authenticate_user(db_session, "alice", "wrongpass")
+            await service.authenticate_user(db_session, "alice", "wrongpass", "default")
 
         assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
         assert "用户名或密码错误" in exc_info.value.detail

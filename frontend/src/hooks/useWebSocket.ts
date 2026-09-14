@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { useAuthStore } from '@/stores/auth'
 import type { WSMessage } from '@/types'
 
 interface UseWebSocketOptions {
@@ -14,10 +13,10 @@ interface UseWebSocketResult {
   sendMessage: (message: WSMessage) => void
 }
 
-export function buildAuthenticatedWebSocketUrl(url: string, token: string | null): string | null {
-  if (!token) return null
+export function buildAuthenticatedWebSocketUrl(url: string): string {
   const authenticatedUrl = new URL(url)
-  authenticatedUrl.searchParams.set('token', token)
+  authenticatedUrl.searchParams.delete('token')
+  authenticatedUrl.searchParams.delete('access_token')
   return authenticatedUrl.toString()
 }
 
@@ -41,9 +40,7 @@ export function useWebSocket({
     }
 
     try {
-      const authenticatedUrl = buildAuthenticatedWebSocketUrl(url, useAuthStore.getState().token)
-      if (!authenticatedUrl) return
-
+      const authenticatedUrl = buildAuthenticatedWebSocketUrl(url)
       const ws = new WebSocket(authenticatedUrl)
       wsRef.current = ws
 

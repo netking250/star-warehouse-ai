@@ -7,8 +7,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import desc, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.core.llm_factory import create_openai_llm
 from app.core.tracing import build_llm_config
+from app.model_gateway.factory import create_model_client
 from app.models.evaluation import MessageFeedback, QualityScore, ScoreTypeEnum, SentimentEnum
 
 logger = logging.getLogger(__name__)
@@ -197,11 +197,12 @@ class OnlineEvalService:
         if not feedbacks:
             return []
 
-        llm = create_openai_llm(
+        llm = create_model_client(
+            "evaluation",
             default_config=build_llm_config(
                 agent_name="online_quality_evaluator",
                 tags=["evaluation", "internal"],
-            )
+            ),
         )
         scores: list[QualityScore] = []
         today = date.today()

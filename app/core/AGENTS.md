@@ -22,17 +22,21 @@ Core infrastructure and cross-cutting concerns: configuration, security, databas
 |------|------|-------|
 | Cache | `@app/core/cache.py` | `CacheManager` with 7 cache types (intent, profile, retrieval, facts, preferences, summaries, vector_search) + Redis connection pooling + circuit breaker + Prometheus metrics |
 | Branding | `@app/core/branding.py` | Canonical product identity, service slug, version, and v5 legacy-name normalization |
-| Configuration | `@app/core/config.py` | `Settings` with nested `ConfidenceSettings`; single source of truth for env vars. Uses `_create_settings()` factory to avoid top-level instantiation errors during static analysis |
-| Security | `@app/core/security.py` | JWT validation, immutable `AuthContext`, tenant claims, RBAC roles/scopes, authorization dependencies |
-| Tenancy | `@app/core/tenancy.py` | Async tenant context plus Redis/Qdrant namespace helpers |
-| Database | `@app/core/database.py` | AsyncSession makers, engine configuration, automatic tenant read/write enforcement |
+| Configuration | `@app/core/config.py` | `Settings` with nested `ConfidenceSettings`, bounded outbox settings, and generic OIDC provider settings; single source of truth for env vars. Uses `_create_settings()` factory to avoid top-level instantiation errors during static analysis |
+| Security | `@app/core/security.py` | JWT authentication adapters, current-membership resolution, HTTP/WS policy dependencies, and token/session revocation |
+| Browser session | `@app/core/browser_session.py` | Host-only auth cookie, signed session-bound CSRF, and exact trusted-origin validation |
+| Tenancy | `@app/core/tenancy.py` | Fail-closed tenant context plus Redis, Qdrant, and storage namespace primitives |
+| Tenant resolver | `@app/core/tenant_resolver.py` | Tenant existence/status validation for request and worker boundaries |
+| Database | `@app/core/database.py` | Async/sync session makers, application tenant guards, and centralized transaction-local RLS binding |
+| PostgreSQL RLS | `@app/core/rls.py` | Canonical `app.current_tenant_id`, fixed capability roles, and fail-closed transaction binding |
+| Database role provisioning | `@app/core/database_roles.py` | Creates/hardens configured login roles from secrets and grants non-login runtime/maintenance capabilities |
 | Redis | `@app/core/redis.py` | Redis client creation and connection pooling |
-| LLM factory | `@app/core/llm_factory.py` | LLM instance creation (OpenAI, DashScope, etc.) |
+| LLM compatibility factory | `@app/core/llm_factory.py` | Legacy names returning the canonical gateway-backed client; never constructs provider SDK objects |
 | Structured logging | `@app/core/structured_logging.py` | `JsonFormatter` with trace_id/span_id/correlation_id support, Filebeat/Fluentd integration |
 | Tracing | `@app/core/tracing.py` | OpenTelemetry/LangSmith tracing configuration |
 | Logging | `@app/core/logging.py` | Structured logging with correlation ID support |
 | Email | `@app/core/email.py` | Email sending utilities |
-| Rate limiting | `@app/core/limiter.py` | Request rate limiting configuration |
+| Rate limiting | `@app/core/limiter.py`, `@app/core/slowapi.env` | Request rate limiting configuration; SlowAPI reads its dedicated ASCII config so it does not reparse the UTF-8 application `.env` with Starlette defaults. |
 | Utilities | `@app/core/utils.py` | General utilities (`utc_now`, `build_thread_id`, `clamp_score`, etc.) |
 
 ## Commands
@@ -64,8 +68,17 @@ General Python rules are defined in the root `AGENTS.md`. Core-specific conventi
 - **Settings factory**: `_create_settings()` wraps `Settings()` instantiation to defer runtime env-file loading and avoid false positives during static analysis.
 - **Type checker compatibility**: `config.py` suppresses `ty: ignore[missing-argument]` on `Settings()` because `ty` does not understand `pydantic-settings` env-file defaulting. This follows root `AGENTS.md` Invariant #5 (Type Safety): suppression is allowed for third-party compatibility issues when scoped to the smallest region and annotated with the reason.
 - **Correlation IDs**: Use `logging.py` utilities to propagate correlation IDs across async boundaries.
+- **Model construction**: New code imports `create_model_client()` from `@app/model_gateway/factory.py`
+  and selects a configured route alias. Provider SDK clients exist only inside model-gateway adapters.
 - **Authorization context**: Protected APIs must depend on `get_active_auth_context`, `get_active_user_id`, `get_admin_user_id`, `require_roles`, or `require_scopes` so Redis token revocation is enforced. Signature-only helpers are for token parsing and compatibility tests, not route protection.
-- **Storage namespaces**: Construct Redis keys with `namespaced_key()` and Qdrant collection names with `namespaced_collection()`; never compose shared-storage keys without environment and tenant scope.
+- **Browser transport**: Cookie-authenticated unsafe requests require canonical CSRF and Origin checks; Bearer-only requests remain CSRF-independent, and ambiguous credentials fail closed.
+- **Tenant binding**: Production request and worker paths bind a resolver-produced `TenantContext`. `set_current_tenant_id()` and the configured `default` tenant are limited to explicit local/test/bootstrap work.
+- **Database tenant binding**: SQLAlchemy centrally applies `SET LOCAL` semantics through `set_config(..., true)` for `app.current_tenant_id`; never hand-set tenant GUCs in services or repositories.
+- **RLS transaction lifecycle**: Initial tenant binding occurs at `after_begin` and is valid only for
+  that transaction. Context refresh may rebind an already-active transaction after trusted tenant
+  resolution, but must not eagerly provision a new connection before the transaction begins.
+- **Database capabilities**: Alembic/role provisioning uses `MIGRATION_DATABASE_URL`; API and tenant workers use the runtime login/capability, while outbox and scheduled maintenance use the separately deployed maintenance login/capability. Application RBAC never selects a database capability.
+- **Storage namespaces**: Construct tenant Redis keys with `TenantNamespace`/`namespaced_key()`, system keys with `namespaced_system_key()`, and local object paths with `tenant_storage_path()`. Qdrant payloads and filters use the retrieval tenant-boundary seam; never hand-compose shared-storage namespaces.
 - **Secret management**: Never log secrets or tokens; use `SecretStr` in Pydantic models.
 - **LLM caching**: Cache LLM instances in `llm_factory.py` to avoid repeated initialization.
 
@@ -73,6 +86,7 @@ General Python rules are defined in the root `AGENTS.md`. Core-specific conventi
 
 - **Direct env access**: Never read `os.environ` outside `config.py`.
 - **Hardcoded secrets**: Never hardcode API keys, passwords, or tokens.
+- **RLS escape hatches**: Normal runtime code must not disable `row_security`, use `BYPASSRLS`, connect as a superuser/table owner, or expose the maintenance capability to request RBAC.
 - **Synchronous I/O**: All core I/O must be async.
 
 ## Related Files

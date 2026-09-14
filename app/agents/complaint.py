@@ -1,6 +1,7 @@
 import json
 import logging
 
+from langchain_core.exceptions import LangChainException
 from langchain_core.language_models.chat_models import BaseChatModel
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import SQLAlchemyError
@@ -60,6 +61,7 @@ class ComplaintAgent(BaseAgent):
 
         # Fast-path: skip LLM for common complaint patterns to ensure <2s response
         classification = self._classify_with_rules(question)
+        model_metadata: dict[str, str] = {}
 
         if classification.category == "other":
             try:
@@ -75,8 +77,14 @@ class ComplaintAgent(BaseAgent):
                     raw_output = response.content
                 else:
                     raw_output = str(response)
+                provider = response.response_metadata.get("provider")
+                model = response.response_metadata.get("model")
+                if provider is not None:
+                    model_metadata["model_provider"] = str(provider)
+                if model is not None:
+                    model_metadata["model_name"] = str(model)
                 classification = self._parse_classification(raw_output)
-            except (ConnectionError, OSError, RuntimeError):
+            except (LangChainException, ConnectionError, OSError, RuntimeError):
                 logger.exception("LLM classification failed, using defaults")
 
         try:
@@ -100,7 +108,7 @@ class ComplaintAgent(BaseAgent):
 
         return {
             "response": response_text,
-            "updated_state": {"answer": response_text},
+            "updated_state": {"answer": response_text, **model_metadata},
         }
 
     def _classify_with_rules(self, question: str) -> ComplaintClassification:

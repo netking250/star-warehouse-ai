@@ -8,7 +8,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from sqlalchemy import JSON, Column, DateTime, String, text
+from sqlalchemy import JSON, Column, DateTime, String, UniqueConstraint, text
 from sqlmodel import Field
 
 from app.core.utils import utc_now
@@ -40,11 +40,20 @@ class MessageCard(TenantScopedModel, table=True):
     """结构化消息表 - 支持富媒体卡片"""
 
     __tablename__ = "message_cards"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id", "logical_message_id", name="uq_message_cards_logical_message"
+        ),
+    )
 
     id: int | None = Field(default=None, primary_key=True)
 
     # 会话标识
     thread_id: str = Field(index=True, max_length=128, description="会话ID")
+    conversation_id: str | None = Field(default=None, index=True, max_length=128)
+    turn_id: str | None = Field(default=None, index=True, max_length=36)
+    run_id: str | None = Field(default=None, index=True, max_length=36)
+    logical_message_id: str | None = Field(default=None, max_length=128)
 
     # 消息类型
     message_type: MessageType = Field(

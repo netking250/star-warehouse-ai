@@ -13,11 +13,14 @@ from typing import Any, cast
 
 from app.celery_app import celery_app
 from app.core.config import settings
+from app.core.tenancy import all_tenant_key_pattern
+from app.task_runtime.system import system_task_handler
 
 logger = logging.getLogger(__name__)
 
 
 @celery_app.task(bind=True, name="autoheal.restart_stuck_workers")
+@system_task_handler("autoheal.restart_stuck_workers")
 def restart_stuck_workers(_self, uptime_threshold_seconds: float = 3600.0) -> dict[str, Any]:
     """Detect and restart Celery workers that appear stuck.
 
@@ -56,6 +59,7 @@ def restart_stuck_workers(_self, uptime_threshold_seconds: float = 3600.0) -> di
 
 
 @celery_app.task(bind=True, name="autoheal.clear_expired_redis_keys")
+@system_task_handler("autoheal.clear_expired_redis_keys")
 def clear_expired_redis_keys(_self, memory_threshold_mb: float = 512.0) -> dict[str, Any]:
     """Clear temporary Redis keys when memory usage exceeds threshold."""
     import redis as sync_redis
@@ -86,7 +90,22 @@ def clear_expired_redis_keys(_self, memory_threshold_mb: float = 512.0) -> dict[
             memory_threshold_mb,
         )
 
-        patterns = ["cache:*", "rate_limit:*", "temp:*"]
+        patterns = [
+            all_tenant_key_pattern(pattern)
+            for pattern in (
+                "intent:*",
+                "profile:*",
+                "retrieval:*",
+                "facts:*",
+                "preferences:*",
+                "summaries:*",
+                "vsearch:*",
+                "db_config:*",
+                "agent_config:*",
+                "rate_limit:*",
+                "temp:*",
+            )
+        ]
         removed = 0
         for pattern in patterns:
             keys = []
@@ -114,6 +133,7 @@ def clear_expired_redis_keys(_self, memory_threshold_mb: float = 512.0) -> dict[
 
 
 @celery_app.task(bind=True, name="autoheal.check_db_pool_health")
+@system_task_handler("autoheal.check_db_pool_health")
 def check_db_pool_health(_self, max_overflow_threshold: int = 20) -> dict[str, Any]:
     """Check database connection pool health and log warnings if saturated."""
     from sqlalchemy import text

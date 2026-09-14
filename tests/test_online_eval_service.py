@@ -163,7 +163,7 @@ async def test_compute_quality_scores_with_mock_llm(
     mock_llm = AsyncMock()
     mock_llm.ainvoke.return_value.content = '{"helpfulness": 4, "accuracy": 5, "empathy": 3}'
 
-    with patch("app.services.online_eval.create_openai_llm", return_value=mock_llm):
+    with patch("app.services.online_eval.create_model_client", return_value=mock_llm):
         scores = await online_eval_service.compute_quality_scores(db_session, sample_size=10)
 
     assert len(scores) == 3
@@ -184,7 +184,7 @@ async def test_compute_quality_scores_with_real_llm(
         db_session, user.id, score=1, comment="客服回复很及时，帮我解决了退款问题，态度也很好"
     )
 
-    with patch("app.services.online_eval.create_openai_llm", return_value=real_llm):
+    with patch("app.services.online_eval.create_model_client", return_value=real_llm):
         scores = await online_eval_service.compute_quality_scores(db_session, sample_size=10)
 
     assert len(scores) == 3

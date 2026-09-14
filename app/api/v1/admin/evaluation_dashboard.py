@@ -13,8 +13,12 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_session
+from app.core.logging import get_correlation_id
 from app.core.security import get_admin_user_id
+from app.core.tenancy import get_current_tenant_id
 from app.models.evaluation import AdversarialTestRun, ShadowTestResult
+from app.task_runtime.context import build_task_context
+from app.task_runtime.dispatch import dispatch_task
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -215,10 +219,23 @@ async def get_adversarial_runs(
 
 @router.post("/adversarial/trigger")
 async def trigger_adversarial_run(
-    _: int = Depends(get_admin_user_id),
+    current_admin_id: int = Depends(get_admin_user_id),
 ) -> dict[str, Any]:
     """Trigger a manual adversarial test suite run."""
     from app.tasks.evaluation_tasks import run_adversarial_suite
 
-    task = run_adversarial_suite.delay(triggered_by="manual")
+    correlation = get_correlation_id()
+    if correlation == "-":
+        correlation = f"adversarial-manual:{current_admin_id}"
+    task_context = build_task_context(
+        task_name="evaluation.run_adversarial_suite",
+        tenant_id=get_current_tenant_id(),
+        user_id=current_admin_id,
+        correlation_id=correlation,
+    )
+    task = dispatch_task(
+        run_adversarial_suite,
+        task_context=task_context,
+        payload={"triggered_by": "manual"},
+    )
     return {"task_id": task.id, "message": "Adversarial test suite triggered manually."}

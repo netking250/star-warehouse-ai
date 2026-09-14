@@ -1,5 +1,8 @@
 # Phase 1 Monitoring Unification: Detailed Execution Plan
 
+> Historical execution plan retained for unique design rationale. It is not an active task
+> plan or an operations guide. Active plans live under `docs/exec-plans/active/`.
+
 > **Status**: Planning Complete | **Ready for Review**
 
 ## Executive Summary

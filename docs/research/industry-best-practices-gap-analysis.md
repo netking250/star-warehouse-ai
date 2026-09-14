@@ -1,5 +1,8 @@
 # Star Warehouse AI 行业最佳实践差距分析报告
 
+> Historical research snapshot. It may describe superseded architecture; current accepted
+> decisions live in `docs/engineering/DECISIONS.md`.
+
 > **分析日期**: 2026-04-23  
 > **分析范围**: 工程实践、风控合规、性能优化、Agent效果、用户体验  
 > **基准年份**: 2024-2025  

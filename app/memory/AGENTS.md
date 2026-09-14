@@ -20,7 +20,7 @@ The memory system provides persistent, multi-tier memory for the agent:
 - **Structured memory** (PostgreSQL): User profiles, preferences, interaction summaries, and extracted facts with confidence scores.
 - **Vector conversation memory** (Qdrant): Semantic retrieval of past conversation turns for context injection.
 - **Fact extraction pipeline**: Async Celery tasks extract structured facts from conversation turns using LLMs, with PII filtering and confidence gating.
-- **Session summarization**: Dual-write summaries to both PostgreSQL and Qdrant for long-term retention.
+- **Session summarization**: Commits summaries and sanitized vector-sync intent atomically in PostgreSQL; Qdrant is updated asynchronously.
 
 ## Key Files
 
@@ -29,7 +29,8 @@ The memory system provides persistent, multi-tier memory for the agent:
 | Structured memory CRUD | `@app/memory/structured_manager.py` | `UserProfile`, `UserPreference`, `InteractionSummary`, `UserFact` |
 | Vector conversation memory | `@app/memory/vector_manager.py` | Qdrant `conversation_memory` collection; semantic search of chat history |
 | Fact extraction | `@app/memory/extractor.py` | `FactExtractor` using LLM + JSON parsing; confidence filtering at 0.7 |
-| Session summarization | `@app/memory/summarizer.py` | `SessionSummarizer`; dual-writes summary to PostgreSQL and Qdrant |
+| Memory consistency | `@app/memory/consistency.py` | Typed vector-sync event, authoritative reload, stale protection, and reconciliation |
+| Session summarization | `@app/memory/summarizer.py` | `SessionSummarizer`; owns summary + Outbox transaction commit |
 | Memory compaction | `@app/memory/compactor.py` | Compacts oversized memory context before prompt injection |
 | Data models | `@app/models/memory.py` | SQLModel definitions for all memory entities |
 | Async tasks | `@app/tasks/memory_tasks.py` | Celery tasks for async fact extraction and memory sync |
@@ -49,6 +50,8 @@ General Python rules are defined in the root `AGENTS.md`. Memory-specific conven
 - **Async-only I/O**: All database and Qdrant operations must be `async`. No synchronous calls in memory managers.
 - **PII filtering**: Use compiled regex patterns in `extractor.py`; do not recompile patterns on every call.
 - **User isolation**: Every public CRUD method must accept and enforce `user_id` filtering at the manager layer.
+- **Source of truth**: PostgreSQL structured memory is authoritative; Qdrant is a derived index and never participates in the database transaction.
+- **Transaction ownership**: Memory commands add the structured row/tombstone and Outbox event to the caller's transaction. The command orchestrator performs the single commit or rollback.
 
 ## Testing Patterns
 
@@ -62,9 +65,15 @@ General Python rules are defined in the root `AGENTS.md`. Memory-specific conven
 
 - **Confidence filter**: Facts with `confidence < 0.7` are discarded immediately after extraction.
 - **PII guards**: `extractor.py` regex-filters credit card numbers and password patterns before calling LLM; if PII is detected, extraction is skipped for that turn.
-- **Async Celery trigger**: `decider_node` triggers `extract_and_save_facts` via Celery after the turn ends; LLM calls do not block the SSE response.
+- **Async Celery trigger**: `decider_node` dispatches `extract_and_save_facts` through the Task Runtime envelope after the turn ends; the envelope carries explicit tenant/correlation/trace metadata and redacted history/question/answer.
 - **User ID isolation**: All structured memory queries must filter by `user_id`. Never return cross-user data.
-- **Dual-write summaries**: `SessionSummarizer` writes summaries to both PostgreSQL (`InteractionSummary`) and Qdrant (vector form).
+- **Transactional summary projection**: `SessionSummarizer` commits `InteractionSummary` and a PII-free `memory.sync_vector` Outbox envelope together. It must never call Qdrant directly.
+- **Stable projection identity**: Structured summary vectors use the stable tenant + memory ID point identity. Duplicate delivery may repeat an upsert/delete after a crash, but produces one logical vector state.
+- **Version ordering**: Every summary vector event carries the PostgreSQL version. Workers ignore stale events and load content from PostgreSQL rather than the broker payload.
+- **Deletion**: Delete is an authoritative PostgreSQL tombstone plus an Outbox vector-delete event. Qdrant failures remain retryable.
+- **Compatibility vector writes**: `VectorMemoryManager.upsert_message()` remains for non-transactional conversation-turn history only. New structured-memory writers must use the Outbox projection path.
+- **Model routes**: Fact extraction uses the configured `structured` route and summarization uses
+  `summarization`; memory code must not contain concrete remote chat-model IDs.
 
 ## Experiment Variant Configuration (`memory_context_config`)
 
@@ -112,6 +121,7 @@ When pruning is required (token budget exceeded), fields are dropped in this pri
 - **Oversized `memory_context` in prompts**: Use `compactor.py` to trim context before injection. Never stuff unbounded history into prompts.
 - **Synchronous LLM calls in extraction**: Always trigger fact extraction through Celery tasks. Synchronous LLM calls block the response stream.
 - **Unfiltered bulk queries**: Never return unfiltered bulk query results from `structured_manager.py`; always enforce `user_id` filtering.
+- **Structured-memory dual write**: Never persist structured memory and call Qdrant in the same request path. Enqueue a versioned projection event in the PostgreSQL transaction.
 
 ## Related Files
 

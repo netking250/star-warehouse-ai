@@ -50,31 +50,26 @@ if ! command -v docker >/dev/null 2>&1; then
     exit 1
 fi
 
-if ! docker compose version >/dev/null 2>&1 && ! docker-compose version >/dev/null 2>&1; then
+if ! docker compose version >/dev/null 2>&1; then
     error "docker compose plugin not found. Please install Docker Compose."
     exit 1
 fi
 
-# Determine docker compose command
-if docker compose version >/dev/null 2>&1; then
-    DOCKER_COMPOSE="docker compose -f ${COMPOSE_FILE}"
-else
-    DOCKER_COMPOSE="docker-compose -f ${COMPOSE_FILE}"
-fi
+DOCKER_COMPOSE=(docker compose -f "${COMPOSE_FILE}")
 
 # ---------------------------------------------------------------------------
 # Pull latest images
 # ---------------------------------------------------------------------------
 
 info "Pulling latest monitoring images..."
-$DOCKER_COMPOSE pull
+"${DOCKER_COMPOSE[@]}" pull
 
 # ---------------------------------------------------------------------------
 # Deploy services
 # ---------------------------------------------------------------------------
 
 info "Starting monitoring services..."
-$DOCKER_COMPOSE up -d
+"${DOCKER_COMPOSE[@]}" up -d
 
 # ---------------------------------------------------------------------------
 # Wait for services to start
@@ -146,7 +141,7 @@ echo "════════════════════════�
 echo "           Monitoring Stack Status"
 echo "═══════════════════════════════════════════════════"
 
-$DOCKER_COMPOSE ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
+"${DOCKER_COMPOSE[@]}" ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
 
 echo ""
 echo "───────────────────────────────────────────────────"

@@ -22,7 +22,11 @@ Business logic services that orchestrate domain operations. Services sit between
 |------|------|-------|
 | Admin service | `@app/services/admin_service.py` | Admin operations and user management |
 | Alert service | `@app/services/alert_service.py` | Email/webhook/PagerDuty/OpsGenie integrations, suppression, deduplication, and SLA tracking |
-| Auth service | `@app/services/auth_service.py` | Authentication and authorization logic |
+| Auth service | `@app/services/auth_service.py` | Local credentials and tenant-local user account operations |
+| Identity service | `@app/services/identity_service.py` | Durable issuer/subject resolution and fail-closed first-link policy |
+| Authorization service | `@app/services/authorization_service.py` | Transaction-participating tenant role/membership administration and last-admin safety |
+| Compliance service | `@app/services/compliance_service.py` | Exact-operation approval and idempotent sensitive feedback export transaction |
+| OIDC provider | `@app/services/identity_provider.py` | Generic discovery, JWKS, token validation, state, nonce, and PKCE adapter |
 | Continuous improvement | `@app/services/continuous_improvement.py` | CI pipeline for prompt and model optimization |
 | Experiment assigner | `@app/services/experiment_assigner.py` | User variant assignment for experiments |
 | Experiment management | `@app/services/experiment.py` | A/B experiment lifecycle management |
@@ -58,10 +62,14 @@ General Python rules are defined in the root `AGENTS.md`. Service-specific conve
 ## Conventions
 
 - **Service layer**: Services encapsulate business logic; they do not handle HTTP concerns.
-- **Transaction boundary**: Each service method should represent a single transaction boundary.
+- **Identity boundary**: OIDC claims prove identity only. Never derive tenant membership, application roles, or scopes from provider claims in identity services.
+- **Transaction boundary**: Each service method should represent a single transaction boundary. Required asynchronous intent joins the same caller-owned transaction through `app.outbox.enqueue_task`; nested collaborators and the outbox never commit.
+- **Async publication**: Business services never import Celery tasks or call `dispatch_task`, `.delay()`, `.apply_async()`, or `send_task()`.
 - **Idempotency**: Design service operations to be idempotent where possible.
 - **DTOs**: Use Pydantic models for service inputs/outputs rather than raw dicts.
 - **Business-system boundary**: External or authoritative business reads use `@app/adapters/ports.py`; keep high-risk writes inside controlled domain workflows until command adapters are introduced.
+- **Model seam**: AI-backed services select a configured model route and consume the normalized
+  LangChain-compatible client; they do not import real provider SDKs.
 
 ## Anti-Patterns
 

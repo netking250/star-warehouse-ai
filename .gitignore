@@ -52,6 +52,8 @@ venv.bak/
 # Testing
 .pytest_cache/
 .coverage
+.mypy_cache/
+.ty_cache/
 .tox/
 .nox/
 htmlcov/
@@ -68,6 +70,8 @@ coverage.xml
 # Logs
 *.log
 logs/
+*.pid
+reports/
 
 # Data files (except examples)
 data/*.pdf
@@ -83,7 +87,7 @@ data/*.md
 *.pb
 
 # Docker
-.dockerignore
+!.dockerignore
 
 # Redis
 *.rdb
@@ -97,9 +101,6 @@ temp/
 # Claude Code
 .remember/
 
-# uv
-uv.lock
-
 # Migration backups
 migrations/versions/*.bak
 
@@ -111,6 +112,9 @@ scripts/dev_*.py
 .worktrees/
 .serena
 .ruff_cache
+
+# Local runtime uploads (may contain user-provided documents)
+uploads/
 
 # Playwright CLI artifacts
 .playwright-cli/

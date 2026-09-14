@@ -1,6 +1,5 @@
 import { renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { useAuthStore } from '@/stores/auth'
 import { buildAuthenticatedWebSocketUrl, useWebSocket } from './useWebSocket'
 
 class FakeWebSocket {
@@ -26,26 +25,24 @@ class FakeWebSocket {
 
 afterEach(() => {
   FakeWebSocket.instances = []
-  useAuthStore.setState({ token: null, user: null, isAuthenticated: false })
   vi.unstubAllGlobals()
 })
 
 describe('buildAuthenticatedWebSocketUrl', () => {
-  it('adds the access token without dropping existing query parameters', () => {
-    expect(
-      buildAuthenticatedWebSocketUrl('ws://localhost:8000/ws?room=admins', 'token value')
-    ).toBe('ws://localhost:8000/ws?room=admins&token=token+value')
+  it('preserves the URL without adding a browser credential', () => {
+    expect(buildAuthenticatedWebSocketUrl('ws://localhost:8000/ws?room=admins')).toBe(
+      'ws://localhost:8000/ws?room=admins'
+    )
   })
 
-  it('does not create an unauthenticated websocket URL', () => {
-    expect(buildAuthenticatedWebSocketUrl('ws://localhost:8000/ws', null)).toBeNull()
+  it('never emits token query parameters', () => {
+    expect(buildAuthenticatedWebSocketUrl('ws://localhost:8000/ws')).not.toContain('token=')
   })
 })
 
 describe('useWebSocket', () => {
   it('does not reconnect when an inline message callback changes identity', () => {
     vi.stubGlobal('WebSocket', FakeWebSocket)
-    useAuthStore.setState({ token: 'jwt-token', isAuthenticated: true })
 
     const { rerender, unmount } = renderHook(
       ({ onMessage }) => useWebSocket({ url: 'ws://localhost:8000/ws', onMessage }),
@@ -53,6 +50,7 @@ describe('useWebSocket', () => {
     )
 
     expect(FakeWebSocket.instances).toHaveLength(1)
+    expect(FakeWebSocket.instances[0]?.url).toBe('ws://localhost:8000/ws')
     rerender({ onMessage: vi.fn() })
     expect(FakeWebSocket.instances).toHaveLength(1)
 

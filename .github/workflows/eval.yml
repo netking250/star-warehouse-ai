@@ -65,15 +65,17 @@ jobs:
       POSTGRES_DB: test_star_warehouse_ai
       REDIS_HOST: localhost
       REDIS_PORT: "6379"
+      REDIS_DB: "15"
       REDIS_PASSWORD: ""
       QDRANT_URL: http://localhost:6333
       QDRANT_API_KEY: ""
+      QDRANT_COLLECTION_NAME: test_star_warehouse_ai_${{ github.run_id }}
       OPENAI_API_KEY: sk-test
       OPENAI_BASE_URL: http://localhost:8000/v1
       DASHSCOPE_API_KEY: ""
       RERANK_BASE_URL: http://localhost:8000/v1
-      CELERY_BROKER_URL: redis://:testpassword@localhost:6379/0
-      CELERY_RESULT_BACKEND: redis://:testpassword@localhost:6379/0
+      CELERY_BROKER_URL: memory://
+      CELERY_RESULT_BACKEND: cache+memory://
       SECRET_KEY: test-secret-key-at-least-32-bytes-long-123
       ALGORITHM: HS256
       ACCESS_TOKEN_EXPIRE_MINUTES: "1440"

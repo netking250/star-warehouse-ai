@@ -1,10 +1,11 @@
 import json
 import os
 import tempfile
-from unittest.mock import MagicMock, patch
 
 import pytest
 
+from app.task_runtime.context import build_task_context
+from app.task_runtime.envelope import TaskEnvelope
 from app.tasks.knowledge_tasks import load_documents, sync_knowledge_document
 
 
@@ -45,30 +46,17 @@ class TestLoadDocuments:
             os.unlink(path)
 
 
-class TestRunEtlScript:
-    def test_run_etl_script_success(self):
-        from app.tasks.knowledge_tasks import _run_etl_script
-
-        with patch("app.tasks.knowledge_tasks.subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(stdout="ok", returncode=0)
-            result = _run_etl_script("/tmp/data", recreate=False)
-            assert result["status"] == "success"
-            assert "ok" in result["output"]
-            mock_run.assert_called_once()
-            assert "--no-recreate" in mock_run.call_args.args[0]
-
-    def test_run_etl_script_failure(self):
-        from app.tasks.knowledge_tasks import _run_etl_script
-
-        with patch("app.tasks.knowledge_tasks.subprocess.run") as mock_run:
-            import subprocess
-
-            mock_run.side_effect = subprocess.CalledProcessError(1, cmd=[], stderr="err")
-            with pytest.raises(RuntimeError, match="ETL script failed"):
-                _run_etl_script("/tmp/data")
-
-
 class TestSyncKnowledgeDocument:
     def test_sync_knowledge_document_not_found(self):
+        context = build_task_context(
+            task_name="tests.knowledge.sync",
+            tenant_id="default",
+            user_id=1,
+            correlation_id="knowledge-sync-not-found",
+        )
+        envelope = TaskEnvelope(
+            task_context=context,
+            payload={"document_id": 99999},
+        )
         with pytest.raises(ValueError, match="Knowledge document 99999 not found"):
-            sync_knowledge_document.run(99999)
+            sync_knowledge_document.run(envelope.to_message())

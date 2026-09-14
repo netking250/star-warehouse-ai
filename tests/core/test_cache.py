@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import json
+from collections.abc import AsyncIterator
+from fnmatch import fnmatchcase
+from typing import cast
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import redis.asyncio as aioredis
 
 from app.core.cache import CacheManager
-from app.core.tenancy import namespaced_key
+from app.core.tenancy import namespaced_key, namespaced_system_key, tenant_scope
 
 
 def _make_async_iter(items):
@@ -20,6 +23,29 @@ def _make_async_iter(items):
             yield item
 
     return _scan_iter
+
+
+class _InMemoryRedis:
+    def __init__(self) -> None:
+        self.values: dict[str, str] = {}
+
+    async def get(self, key: str) -> str | None:
+        return self.values.get(key)
+
+    async def setex(self, key: str, _ttl: int, value: str) -> bool:
+        self.values[key] = value
+        return True
+
+    async def delete(self, *keys: str) -> int:
+        removed = 0
+        for key in keys:
+            removed += int(self.values.pop(key, None) is not None)
+        return removed
+
+    async def scan_iter(self, *, match: str) -> AsyncIterator[str]:
+        for key in tuple(self.values):
+            if fnmatchcase(key, match):
+                yield key
 
 
 @pytest.fixture
@@ -201,6 +227,27 @@ class TestCacheManagerBulkInvalidation:
         mock_redis.delete = AsyncMock(return_value=4)
         await cache_manager.invalidate_all()
         assert mock_redis.delete.call_count == 4
+
+    @pytest.mark.asyncio
+    async def test_tenant_cleanup_preserves_other_tenant_and_system_keys(self):
+        redis = _InMemoryRedis()
+        manager = CacheManager(cast(aioredis.Redis, redis))
+
+        with tenant_scope("tenant-a"):
+            await manager.set_profile(7, {"tenant": "a"})
+            tenant_a_key = namespaced_key("profile:7")
+        with tenant_scope("tenant-b"):
+            await manager.set_profile(7, {"tenant": "b"})
+            tenant_b_key = namespaced_key("profile:7")
+        system_key = namespaced_system_key("profile:maintenance")
+        await redis.setex(system_key, 60, "system")
+
+        with tenant_scope("tenant-a"):
+            await manager.invalidate_all_profiles()
+
+        assert tenant_a_key not in redis.values
+        assert tenant_b_key in redis.values
+        assert system_key in redis.values
 
 
 class TestCacheManagerRedisErrorHandling:

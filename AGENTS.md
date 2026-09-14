@@ -13,8 +13,9 @@
 
 1. Read this root `AGENTS.md` for repo-wide rules, commands, and routing.
 2. Read the nearest nested `AGENTS.md` for the directory you are working in.
-3. For architecture details, read [`docs/explanation/architecture/`](./docs/explanation/architecture/).
-4. For project overview and screenshots, read [`README.md`](README.md).
+3. Before structural changes, read [`docs/architecture/ARCHITECTURE_GUARDRAILS.md`](docs/architecture/ARCHITECTURE_GUARDRAILS.md).
+4. For architecture details, read [`docs/explanation/architecture/`](./docs/explanation/architecture/).
+5. For project overview and screenshots, read [`README.md`](README.md).
 
 ## Context-Aware Loading
 
@@ -30,14 +31,20 @@ Use the right `AGENTS.md` for the area you're working in:
 - **Evaluation** (`@app/evaluation/**`) → [`app/evaluation/AGENTS.md`](app/evaluation/AGENTS.md)
 - **Observability** (`@app/observability/**`) → [`app/observability/AGENTS.md`](app/observability/AGENTS.md)
 - **Tasks** (`@app/tasks/**`) → [`app/tasks/AGENTS.md`](app/tasks/AGENTS.md)
+- **Task runtime** (`@app/task_runtime/**`) → [`app/task_runtime/AGENTS.md`](app/task_runtime/AGENTS.md)
+- **Transactional outbox** (`@app/outbox/**`) → [`app/outbox/AGENTS.md`](app/outbox/AGENTS.md)
 - **API layer** (`@app/api/**`) → [`app/api/AGENTS.md`](app/api/AGENTS.md)
 - **Schemas** (`@app/schemas/**`) → [`app/schemas/AGENTS.md`](app/schemas/AGENTS.md)
 - **Models** (`@app/models/**`) → [`app/models/AGENTS.md`](app/models/AGENTS.md)
 - **Services** (`@app/services/**`) → [`app/services/AGENTS.md`](app/services/AGENTS.md)
 - **Core** (`@app/core/**`) → [`app/core/AGENTS.md`](app/core/AGENTS.md)
+- **Model Gateway** (`@app/model_gateway/**`) → [`app/model_gateway/AGENTS.md`](app/model_gateway/AGENTS.md)
 - **Confidence** (`@app/confidence/**`) → [`app/confidence/AGENTS.md`](app/confidence/AGENTS.md)
 - **Context** (`@app/context/**`) → [`app/context/AGENTS.md`](app/context/AGENTS.md)
 - **Safety** (`@app/safety/**`) → [`app/safety/AGENTS.md`](app/safety/AGENTS.md)
+- **Authorization** (`@app/authorization/**`) → [`app/authorization/AGENTS.md`](app/authorization/AGENTS.md)
+- **Compliance lifecycle** (`@app/compliance/**`) → [`app/compliance/AGENTS.md`](app/compliance/AGENTS.md)
+- **Conversation runtime** (`@app/conversation/**`) → [`app/conversation/AGENTS.md`](app/conversation/AGENTS.md)
 - **WebSocket** (`@app/websocket/**`) → [`app/websocket/AGENTS.md`](app/websocket/AGENTS.md)
 - **Utils** (`@app/utils/**`) → [`app/utils/AGENTS.md`](app/utils/AGENTS.md)
 - **Tests** (`@tests/**`) → [`tests/AGENTS.md`](tests/AGENTS.md)
@@ -56,10 +63,12 @@ For any other area, this root file applies.
   - `@app/intent/`: Intent recognition pipeline (classifier, multi-intent, safety, clarification, slot validation, topic switch).
     - `@app/intent/few_shot_loader.py` - Few-shot example loading for intent classification.
   - `@app/memory/`: Multi-tier memory system (structured PostgreSQL, vector Qdrant, fact extraction, summarization, compaction).
+    - `@app/memory/consistency.py` - PostgreSQL-authoritative summary commands, minimal vector-sync events, stable projection, stale protection, and reconciliation.
     - `@app/memory/structured_manager.py` - Structured memory manager for user profiles/preferences/facts.
   - `@app/tools/`: Tool layer for agents (product, cart, logistics, payment, account, complaint tools + registry).
   - `@app/adapters/`: Business-system Ports, canonical DTOs, local/sandbox/mock/production implementations, and resilience policies.
   - `@app/tasks/`: Celery async tasks (memory, notifications, knowledge, refund, evaluation, continuous improvement, prompt effects, shadow testing).
+  - `@app/outbox/`: Transactional enqueue, concurrent-safe relay, and task publisher Port/Celery adapter.
     - `@app/tasks/alert_tasks.py` - Evaluate alert rules, check service health.
     - `@app/tasks/autoheal.py` - Self-healing orchestration module.
     - `@app/tasks/autoheal_tasks.py` - Restart stuck workers, clear expired Redis keys, check DB pool health.
@@ -83,15 +92,24 @@ For any other area, this root file applies.
     - `@app/models/pii_audit.py` - PIIAuditLog model for GDPR compliance.
     - `@app/models/review.py` - ReviewTicket, ReviewerMetrics models.
     - `@app/models/token_usage.py` - TokenUsageLog, OptimizationSuggestion models.
+    - `@app/models/outbox.py` - Transactional outbox event, lease, retry, and publication state.
   - `@app/services/`: Business logic services (auth, order, refund, admin, status, experiment, continuous improvement).
     - `@app/services/alert_service.py` - AlertService with email/webhook/PagerDuty/OpsGenie integrations, suppression, deduplication, SLA tracking.
     - `@app/services/online_eval.py` - OnlineEvalService for real-time evaluation from user feedback.
     - `@app/services/review_queue.py` - ReviewQueueService for human review tickets with SLA tracking.
   - `@app/core/`: Core configuration, security, database, Redis, LLM factory, tracing, logging (cross-cutting infrastructure).
+    - `@app/core/tenancy.py` / `tenant_resolver.py` - Canonical tenant identity, status validation, and infrastructure namespace primitives.
+    - `@app/core/rls.py` / `database_roles.py` - Transaction-local PostgreSQL tenant binding and least-privilege runtime/maintenance role provisioning.
     - `@app/core/cache.py` - CacheManager with 7 cache types + circuit breaker + Prometheus metrics.
+    - `@app/core/browser_session.py` - Host-only browser auth cookie, session-bound CSRF, and exact trusted-origin primitives.
     - `@app/core/structured_logging.py` - JsonFormatter with trace_id/span_id/correlation_id support.
   - `@app/core/utils.py`: Core cross-cutting utilities (`utc_now`, `build_thread_id`, `clamp_score`).
+  - `@app/model_gateway/`: Provider-neutral model routes, capabilities, requests/responses/streams,
+    OpenAI/DashScope/Mock adapters, and the LangChain compatibility client.
   - `@app/safety/`: Output content moderation system (4-layer pipeline: rule-based, regex, embedding similarity, LLM judge).
+  - `@app/authorization/`: Tenant-aware current-state RBAC, capability policy, and explicit HTTP/WebSocket route inventory.
+  - `@app/compliance/`: Data classification, bounded retention, immutable audit metadata, and exact-operation approval policy.
+  - `@app/conversation/`: PostgreSQL-authoritative conversation/turn/run lifecycle, idempotency, cancellation, ordered events, recovery, and executor boundary.
   - `@app/utils/`: Shared domain utility functions (order utilities, helpers).
 - `@frontend/`: React 19 + TypeScript frontend (Vite, Tailwind CSS, shadcn/ui).
   - `@frontend/src/apps/admin/`: B端管理后台 (dashboard, knowledge base, agent config, feedback, analytics).
@@ -113,19 +131,25 @@ For any other area, this root file applies.
 # data when missing, and recreates application containers to refresh bind mounts)
 ./start_docker.sh
 
-# One-shot startup (infrastructure + backend + frontend build)
-./start.sh
-
 # Manual backend
 uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 # Scripted Celery worker (recommended for local development)
-# Automatically waits for Redis, PostgreSQL, and Qdrant to be ready, then starts both worker and Beat scheduler
+# Automatically waits for RabbitMQ, Redis, PostgreSQL, and Qdrant, then starts the worker
 ./start_worker.sh
 
-# Manual Celery worker (use when dependencies are already running)
-# Start worker + Beat scheduler directly without health checks; requires Redis/PostgreSQL/Qdrant to be up
-uv run celery -A app.celery_app worker --loglevel=info --concurrency=4 --pool=solo --beat
+# Manual tenant Celery worker (use when dependencies are already running)
+# RabbitMQ is the broker; Redis may remain the result backend.
+uv run celery -A app.celery_app worker --loglevel=info --concurrency=4 --pool=solo --queues=critical,default
+
+# Separate maintenance worker; use POSTGRES_MAINTENANCE_* credentials and DB_CAPABILITY=maintenance
+uv run celery -A app.celery_app worker --loglevel=info --concurrency=2 --pool=solo --queues=maintenance
+
+# Independent Beat scheduler
+uv run celery -A app.celery_app beat --loglevel=info
+
+# Transactional outbox relay (independent runtime role)
+uv run python -m app.outbox
 ```
 
 ### Database
@@ -133,6 +157,9 @@ uv run celery -A app.celery_app worker --loglevel=info --concurrency=4 --pool=so
 ```bash
 # Run migrations
 uv run alembic upgrade head
+
+# Provision configured NO BYPASSRLS runtime/maintenance login roles after migration
+uv run python -m app.core.database_roles
 
 # Generate migration
 uv run alembic revision --autogenerate -m "description"
@@ -187,6 +214,13 @@ All backend code is async. Use `AsyncSession`, `await llm.ainvoke(...)`, async F
 
 ### 3. Multi-Tenant Isolation
 Every query involving orders, refunds, carts, or user memories must filter by the current `user_id`. Never return cross-user data.
+Tenant-owned work must also use a resolver-bound `TenantContext`; production request/task paths may
+not infer the local `default` tenant. PostgreSQL application guards, Redis namespaces, Qdrant
+payload/filter selectors, and local storage prefixes are defined in
+[`docs/architecture/TENANCY.md`](docs/architecture/TENANCY.md).
+PostgreSQL sessions bind `app.current_tenant_id` transaction-locally and run through the fixed
+runtime or explicitly separated maintenance capability role; normal API/tenant workers must never
+use a superuser, table-owner bypass, `BYPASSRLS`, or maintenance login.
 
 ### 4. No Hardcoded Secrets
 Use `app.core.config.settings` for all configuration. Never read `os.environ` directly outside of `@app/core/config.py`.
@@ -268,12 +302,56 @@ When modifying code in a scoped directory, check whether the nearest `AGENTS.md`
 - Passwords are hashed with `bcrypt`; never store plaintext.
 - Production must set `ENABLE_OPENAPI_DOCS=False` and rotate `SECRET_KEY`.
 - OpenTelemetry OTLP endpoint is optional; when absent, tracing falls back to a no-op exporter.
+- Browser JavaScript uses the HttpOnly application-auth cookie plus in-memory CSRF; never persist the JWT or put it in a WebSocket URL.
 
 ## Environment Variables
 
 Copy `.env.example` to `.env`. Key variables:
-- `POSTGRES_*`, `REDIS_*`, `QDRANT_URL`
+- `POSTGRES_*`, `REDIS_*`, `RABBITMQ_*`, `QDRANT_*`
 - `OPENAI_API_KEY` / `DASHSCOPE_API_KEY`
 - `SECRET_KEY`, `CELERY_BROKER_URL`
 
 See `.env.example` for the full list.
+
+<!-- PROJECT-EXECUTION-PROTOCOL:START -->
+## Persistent Project Execution Protocol
+
+The repository's cross-session execution memory is Git-tracked project documentation. It is separate from the historical architecture and product roadmap documents.
+
+### Context recovery is mandatory
+
+Before modifying any code or configuration in a new Codex thread, read:
+
+1. [`docs/engineering/PROJECT_STATE.md`](docs/engineering/PROJECT_STATE.md) — current source of truth.
+2. [`docs/engineering/ROADMAP.md`](docs/engineering/ROADMAP.md) — T-INIT through T21 status and gates.
+3. [`docs/engineering/DECISIONS.md`](docs/engineering/DECISIONS.md) — accepted architecture baseline.
+4. The most recent relevant entry in [`docs/engineering/EXECUTION_LOG.md`](docs/engineering/EXECUTION_LOG.md).
+5. The active task plan under [`docs/exec-plans/active/`](docs/exec-plans/active/), when one exists.
+
+Then run and record:
+
+```bash
+git status --short
+git branch --show-current
+git rev-parse --short HEAD
+```
+
+Confirm the current task, task status, last accepted task, next task, known blockers, and working-tree state before implementation. Do not begin code changes directly from a user prompt without completing this recovery.
+
+### Task lifecycle
+
+- At task start, set the matching `PROJECT_STATE.md` and `ROADMAP.md` status to `IN_PROGRESS` and record findings in the active execution plan.
+- During execution, record architecture conflicts, blockers, pre-existing worktree changes, test-infrastructure failures, and documentation drift in the state or active plan rather than relying on chat memory.
+- At finish, run actual verification commands, append an entry to `EXECUTION_LOG.md`, update `PROJECT_STATE.md`, update the active plan, and leave the task at `AWAITING_ACCEPTANCE`.
+- Codex must never mark its own work `PASS` or `PASS_WITH_NOTES`. Only an explicit external acceptance prompt may do that.
+- A task at `PASS`, `AWAITING_ACCEPTANCE`, `FAIL`, `NEEDS_EVIDENCE`, or `BLOCKED` is not a valid prerequisite for silently skipping its gate. Do not start a later task until the roadmap gate is satisfied, unless the user explicitly directs a change request or re-execution.
+- When a task is externally accepted, move its plan from `docs/exec-plans/active/` to `docs/exec-plans/completed/` and preserve the execution log entry.
+
+### Authority and change control
+
+Resolve conflicts in this order: explicit user instruction, applicable `AGENTS.md`, accepted decisions in `DECISIONS.md`, `PROJECT_STATE.md`, `ROADMAP.md`, the active execution plan, historical execution log, then older README/design documents. Accepted decisions are append-only: a changed decision requires a new entry with `Supersedes`, never a silent rewrite.
+
+The enterprise-hardening target is the frozen baseline in `DECISIONS.md`: modular monolith with independently deployable API/worker/scheduler/outbox boundaries, explicit tenant/task context, transactional outbox and RabbitMQ target, secure session cookies, unified model gateway, lifecycle compliance controls, evaluation and observability gates, Docker Compose demo plus k3s/AWS reference deployment, and no broad microservice rewrite. Do not expand business scope or implement later T00–T21 work while performing T-INIT.
+
+Do not reset, checkout, stash, delete, or commit unrelated user changes. Keep state files tracked and do not add them to `.gitignore`. The existing `docs/roadmap-star-warehouse-ai.md` and `docs/reference/adr.md` remain historical/product documentation; the `docs/engineering/` files are authoritative for this execution protocol.
+<!-- PROJECT-EXECUTION-PROTOCOL:END -->

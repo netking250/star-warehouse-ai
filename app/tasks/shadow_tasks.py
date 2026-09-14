@@ -2,11 +2,30 @@ import logging
 import uuid
 
 from asgiref.sync import async_to_sync
+from pydantic import BaseModel, ConfigDict, field_validator
 
 from app.celery_app import celery_app
+from app.context.pii_filter import pii_filter
 from app.evaluation.shadow import ShadowOrchestrator
+from app.task_runtime.binding import task_execution_scope
+from app.task_runtime.envelope import parse_task_envelope
 
 logger = logging.getLogger(__name__)
+
+
+class ShadowTestPayload(BaseModel):
+    """Sanitized query required for one shadow evaluation."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    query: str
+
+    @field_validator("query")
+    @classmethod
+    def _reject_raw_pii(cls, value: str) -> str:
+        if pii_filter.filter_text(value).has_pii:
+            raise ValueError("Shadow evaluation payload still contains supported PII")
+        return value
 
 
 async def _init_graphs():
@@ -26,8 +45,6 @@ async def _init_graphs():
     from app.agents.router import IntentRouterAgent
     from app.agents.supervisor import SupervisorAgent
     from app.celery_tracing import setup_celery_langsmith_tracing
-    from app.core.config import settings
-    from app.core.llm_factory import create_openai_llm
     from app.core.redis import create_redis_client
     from app.core.tracing import build_llm_config
     from app.graph.checkpointer import OptimizedRedisCheckpoint
@@ -35,6 +52,7 @@ async def _init_graphs():
     from app.intent.service import IntentRecognitionService
     from app.memory.structured_manager import StructuredMemoryManager
     from app.memory.vector_manager import VectorMemoryManager
+    from app.model_gateway.factory import create_model_client
     from app.retrieval import create_retriever
     from app.services.order_service import OrderService
     from app.tools import (
@@ -53,20 +71,26 @@ async def _init_graphs():
     checkpointer = OptimizedRedisCheckpoint(redis_client=redis_client)
     await checkpointer.setup()
 
-    prod_llm = create_openai_llm(
+    prod_llm = create_model_client(
+        "default_chat",
         default_config=build_llm_config(
             agent_name="shadow_production", tags=["shadow_test", "internal"]
-        )
+        ),
     )
-    shadow_model = getattr(settings, "SHADOW_MODEL", "gpt-4o-mini")
-    shadow_llm = create_openai_llm(
-        model=shadow_model,
+    prod_intent_llm = create_model_client(
+        "intent",
+        default_config=build_llm_config(
+            agent_name="shadow_production_intent", tags=["shadow_test", "intent", "internal"]
+        ),
+    )
+    shadow_llm = create_model_client(
+        "shadow",
         default_config=build_llm_config(
             agent_name="shadow_experiment", tags=["shadow_test", "internal"]
         ),
     )
 
-    prod_intent_service = IntentRecognitionService(llm=prod_llm, redis_client=redis_client)
+    prod_intent_service = IntentRecognitionService(llm=prod_intent_llm, redis_client=redis_client)
     shadow_intent_service = IntentRecognitionService(llm=shadow_llm, redis_client=redis_client)
 
     structured_manager = StructuredMemoryManager()
@@ -186,7 +210,12 @@ async def _run_shadow_test(query: str, thread_id: str | None = None) -> dict:
 
 
 @celery_app.task(bind=True, name="shadow.run_shadow_test")
-def run_shadow_test(_self, query: str | None = None) -> dict:
-    if query is None:
-        query = "test query"
-    return async_to_sync(_run_shadow_test)(query)
+def run_shadow_test(self, envelope: dict[str, object]) -> dict:
+    task_envelope = parse_task_envelope(envelope)
+    payload = ShadowTestPayload.model_validate(task_envelope.payload)
+    with task_execution_scope(
+        task_envelope.task_context,
+        task_name="celery.shadow.run_shadow_test",
+        task_id=getattr(self.request, "id", None),
+    ):
+        return async_to_sync(_run_shadow_test)(payload.query)

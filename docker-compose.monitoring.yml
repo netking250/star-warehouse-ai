@@ -1,7 +1,6 @@
 services:
   prometheus:
     image: prom/prometheus:v3.2.0
-    container_name: star-warehouse-ai-prometheus
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./prometheus/recording_rules.yml:/etc/prometheus/recording_rules.yml:ro
@@ -13,14 +12,13 @@ services:
       - "--web.console.templates=/etc/prometheus/consoles"
       - "--web.enable-lifecycle"
     ports:
-      - "9090:9090"
+      - "127.0.0.1:9090:9090"
     networks:
       - monitoring
     restart: unless-stopped
 
   grafana:
     image: grafana/grafana:11.5.0
-    container_name: star-warehouse-ai-grafana
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
@@ -34,7 +32,7 @@ services:
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
       - GF_SECURITY_ALLOW_EMBEDDING=true
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     networks:
       - monitoring
     restart: unless-stopped
@@ -43,9 +41,8 @@ services:
 
   alertmanager:
     image: prom/alertmanager:v0.27.0
-    container_name: star-warehouse-ai-alertmanager
     ports:
-      - "9093:9093"
+      - "127.0.0.1:9093:9093"
     volumes:
       - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
     networks:
@@ -56,9 +53,8 @@ services:
 
   loki:
     image: grafana/loki:3.0.0
-    container_name: star-warehouse-ai-loki
     ports:
-      - "3100:3100"
+      - "127.0.0.1:3100:3100"
     volumes:
       - ./loki/loki-config.yml:/etc/loki/local-config.yaml:ro
       - loki-data:/loki
@@ -69,7 +65,6 @@ services:
 
   promtail:
     image: grafana/promtail:3.0.0
-    container_name: star-warehouse-ai-promtail
     volumes:
       - ./promtail/promtail-config.yml:/etc/promtail/config.yml:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -82,9 +77,8 @@ services:
 
   tempo:
     image: grafana/tempo:2.7.0
-    container_name: star-warehouse-ai-tempo
     ports:
-      - "3200:3200"
+      - "127.0.0.1:3200:3200"
     volumes:
       - ./tempo/tempo.yml:/etc/tempo.yaml:ro
       - tempo_data:/tmp/tempo
@@ -96,11 +90,10 @@ services:
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.120.0
-    container_name: star-warehouse-ai-otel-collector
     ports:
-      - "4317:4317"
-      - "4318:4318"
-      - "13133:13133"
+      - "127.0.0.1:4317:4317"
+      - "127.0.0.1:4318:4318"
+      - "127.0.0.1:13133:13133"
     volumes:
       - ./otel/otel-collector-config.yml:/etc/otelcol-contrib/config.yaml:ro
     command:
@@ -113,9 +106,8 @@ services:
 
   mimir:
     image: grafana/mimir:2.15.0
-    container_name: star-warehouse-ai-mimir
     ports:
-      - "9009:9009"
+      - "127.0.0.1:9009:9009"
     volumes:
       - ./mimir:/etc/mimir:ro
       - mimir_data:/data/mimir

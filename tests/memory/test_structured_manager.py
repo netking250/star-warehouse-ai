@@ -2,9 +2,13 @@ import uuid
 
 import pytest
 
+from app.core.tenancy import tenant_scope
 from app.memory.structured_manager import StructuredMemoryManager
 from app.models.memory import UserFact, UserPreference, UserProfile
 from app.models.user import User
+from app.task_runtime.context import build_task_context
+
+_TEST_TENANT = "tenant-memory-structured"
 
 
 def _make_user(username: str) -> User:
@@ -19,6 +23,12 @@ def _make_user(username: str) -> User:
 @pytest.fixture
 def manager():
     return StructuredMemoryManager()
+
+
+@pytest.fixture(autouse=True)
+def _explicit_memory_tenant():
+    with tenant_scope(_TEST_TENANT):
+        yield
 
 
 @pytest.mark.asyncio
@@ -91,6 +101,14 @@ async def test_save_interaction_summary(manager, db_session):
     assert user.id is not None
     record = await manager.save_interaction_summary(
         session=db_session,
+        task_context=build_task_context(
+            task_name="memory.sync_vector",
+            tenant_id=_TEST_TENANT,
+            user_id=user.id,
+            thread_id="thread-abc",
+            correlation_id=f"corr-{uuid.uuid4().hex}",
+            operation_id="summary:thread-abc:v1:upsert",
+        ),
         user_id=user.id,
         thread_id="thread-abc",
         summary="User asked about shipping.",

@@ -1,5 +1,10 @@
 # 统一监控数据改造方案
 
+> Historical design plan. Current local monitoring configuration is
+> `docker-compose.monitoring.yml`; operational entry points are in
+> [`docs/runbooks/README.md`](../runbooks/README.md). Current project state is recorded in
+> [`docs/engineering/PROJECT_STATE.md`](../engineering/PROJECT_STATE.md).
+
 > **Version**: 1.0
 > **日期**: 2026-04-24
 > **状态**: 草案

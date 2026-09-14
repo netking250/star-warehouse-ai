@@ -57,7 +57,12 @@ General Python rules are defined in the root `AGENTS.md`. Graph-specific convent
 - **Node return standard**: Always return `Command(goto=..., update=...)`.
 - **Subgraph standard**: Each expert agent is wrapped as an independent `StateGraph`, consuming a subset of `AgentState` and producing `{"sub_answers": [...]}` merged via `operator.add`.
 - **Parallel dispatch**: `@app/graph/parallel.py` calls `are_independent()` from `@app/intent/multi_intent.py` to decide parallel execution.
+- **Concurrent database reads**: Every independent operation launched concurrently must own its
+  own `AsyncSession` and transaction. Never pass one caller-owned session to `asyncio.gather` or
+  parallel graph branches; ordered compatibility work may remain inside the caller's transaction.
 - **Node purity**: Node builders should avoid side effects; state modifications must be returned explicitly via the `update` dict.
+- **Model seam**: Graph nodes consume the gateway-backed normalized chat model. Provider SDK events
+  and request objects must never enter graph state; only safe provider/model/usage metadata may.
 
 ## State Isolation
 
@@ -71,7 +76,7 @@ Agent subgraphs receive only a filtered subset of `AgentState` keys to enforce s
 ### `_COMMON_ALLOWED_KEYS`
 
 Keys present in every agent's filtered state:
-- `question`, `user_id`, `thread_id`
+- `question`, `tenant_id`, `user_id`, `thread_id`, `correlation_id`, `trace_id`
 - `history`, `memory_context`, `memory_context_config`
 - `intent_result`, `slots`
 - `iteration_count`, `experiment_variant_id`
@@ -96,6 +101,7 @@ The subgraph wrapper (`@app/graph/subgraphs.py`) and direct agent nodes (`_build
 - **Over-coupled nodes**: Do not let a single node handle multiple unrelated responsibilities.
 - **Duplicate try/except blocks**: Consolidate repeated error handling into shared helpers or context managers.
 - **State mutation in nodes**: Do not mutate `AgentState` in place inside node functions; always return changes via `Command(update=...)`.
+- **Task context**: Request-sourced background work must copy trusted tenant/correlation/trace fields from `AgentState` into a validated TaskEnvelope and must pass only sanitized payload text.
 
 ## Related Files
 

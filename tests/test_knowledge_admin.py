@@ -1,6 +1,9 @@
 import io
 import os
 import uuid
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import pytest
 from sqlmodel import select
@@ -8,8 +11,17 @@ from sqlmodel import select
 from app.core.database import async_session_maker
 from app.core.security import create_access_token
 from app.models.knowledge_document import KnowledgeDocument
+from app.models.outbox import OutboxEvent, OutboxStatus
 from app.models.user import User
-from app.tasks.refund_tasks import send_refund_sms
+
+
+@pytest.fixture(autouse=True)
+def _mock_knowledge_task_dispatch(monkeypatch):
+    """Keep API tests independent of a running Celery broker and worker."""
+    monkeypatch.setattr(
+        "app.api.v1.admin.dispatch_task",
+        MagicMock(return_value=SimpleNamespace(id="knowledge-task-test")),
+    )
 
 
 async def create_admin_user() -> tuple[User, str]:
@@ -105,6 +117,18 @@ async def test_upload_knowledge_document(client):
         doc = result.one_or_none()
         assert doc is not None
         assert doc.doc_size_bytes == len(content)
+        assert tuple(Path(doc.storage_path).parts[-3:-1]) == ("tenant", "default")
+        outbox_event = (
+            await session.exec(
+                select(OutboxEvent).where(
+                    OutboxEvent.event_type == "knowledge.sync_requested",
+                    OutboxEvent.aggregate_id == str(doc.id),
+                )
+            )
+        ).one_or_none()
+        assert outbox_event is not None
+        assert outbox_event.status == OutboxStatus.PENDING
+        assert str(outbox_event.event_id) == data["task_id"]
         if os.path.exists(doc.storage_path):
             os.remove(doc.storage_path)
 
@@ -173,19 +197,25 @@ async def test_sync_knowledge_document_endpoint(client):
 
 
 @pytest.mark.asyncio
-async def test_get_knowledge_sync_status(client):
+async def test_get_knowledge_sync_status(client, monkeypatch):
     _admin, token = await create_admin_user()
+    task_id = "knowledge-status-test"
 
-    task = send_refund_sms.delay(1, "13800138000", "test")
+    from app.celery_app import celery_app
 
+    monkeypatch.setattr(
+        celery_app,
+        "AsyncResult",
+        MagicMock(return_value=SimpleNamespace(status="PENDING", result=None, ready=lambda: False)),
+    )
     response = await client.get(
-        f"/api/v1/admin/knowledge/sync/{task.id}",
+        f"/api/v1/admin/knowledge/sync/{task_id}",
         headers={"Authorization": f"Bearer {token}"},
     )
 
     assert response.status_code == 200
     data = response.json()
-    assert data["task_id"] == task.id
+    assert data["task_id"] == task_id
     assert isinstance(data["status"], str)
     assert len(data["status"]) > 0
 

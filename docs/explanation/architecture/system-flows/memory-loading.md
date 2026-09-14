@@ -1,38 +1,35 @@
-# 记忆系统加载流程
+# Memory consistency and loading flow
+
+PostgreSQL is authoritative for structured memory. Qdrant is a derived recall index and can be temporarily stale or unavailable without invalidating committed structured memory.
+
+## Write and projection
 
 ```mermaid
 sequenceDiagram
-    actor User
-    participant CUI as Customer UI
-    participant API as FastAPI
-    participant Graph as LangGraph
-    participant MemoryNode as memory_node
-    participant StructMgr as StructuredMemoryManager
-    participant VecMgr as VectorMemoryManager
+    participant Graph as LangGraph / memory command
     participant PG as PostgreSQL
-    participant Qdrant as Qdrant conversation_memory
+    participant Relay as Outbox relay
+    participant MQ as RabbitMQ
+    participant Worker as Reliable Celery consumer
+    participant Qdrant as Qdrant
 
-    User->>CUI: "我之前问过退货政策"
-    CUI->>API: POST /api/v1/chat (SSE)
-    API->>Graph: astream_events()
-    Graph->>Graph: router_node
-    Graph->>MemoryNode: 加载记忆
-
-    par 结构化记忆加载
-        MemoryNode->>StructMgr: get_memory_context(user_id)
-        StructMgr->>PG: SELECT user_profiles / preferences / facts / summaries
-        PG-->>StructMgr: 用户画像 + 偏好 + 事实
-        StructMgr-->>MemoryNode: memory_context (文本)
-    and 向量记忆召回
-        MemoryNode->>VecMgr: retrieve_similar_messages(query, user_id)
-        VecMgr->>Qdrant: semantic_search(embedding)
-        Qdrant-->>VecMgr: 相关历史消息 TopK
-        VecMgr-->>MemoryNode: relevant_history
-    end
-
-    MemoryNode-->>Graph: 更新 state.memory_context
-    Graph->>Graph: supervisor_node / Agent Subgraphs / synthesis_node
-    Graph-->>API: SSE Events
-    API-->>CUI: 流式显示（含记忆感知的回复）
-    CUI-->>User: 个性化回答
+    Graph->>PG: BEGIN
+    Graph->>PG: INSERT/UPDATE summary or tombstone
+    Graph->>PG: INSERT minimal vector event (memory_id, version, operation)
+    Graph->>PG: COMMIT
+    Relay->>MQ: Publish TaskEnvelope (at-least-once)
+    MQ->>Worker: Deliver or redeliver
+    Worker->>PG: Claim receipt and load authoritative tenant + memory row
+    Worker->>Qdrant: Stable-ID upsert or delete
+    Worker->>PG: Complete receipt
 ```
+
+The receipt lease can be recovered after a worker crash. A crash after Qdrant succeeds but before receipt completion can repeat the projection; the stable point identity makes that repetition idempotent. A delayed event whose version is older than PostgreSQL is ignored, so it cannot overwrite a newer summary or resurrect a tombstone.
+
+## Read degradation
+
+Structured memory and vector recall are loaded independently. If Qdrant fails, PostgreSQL-backed profile, preference, fact, and summary data remains available and `memory_context.vector_recall_degraded` is set. The response can therefore use authoritative structured memory while making the degraded vector-recall condition observable.
+
+## Reconciliation
+
+The tenant-scoped reconciliation command compares each PostgreSQL summary version with the Qdrant point version. Missing or mismatched active points enqueue an upsert; indexed tombstones enqueue a delete. The command only enqueues repair intent and leaves transaction commit ownership with its caller.

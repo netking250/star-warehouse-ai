@@ -8,8 +8,12 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_session
+from app.core.logging import get_correlation_id
 from app.core.security import get_admin_user_id
+from app.core.tenancy import get_current_tenant_id
 from app.models.complaint import ComplaintStatus, ComplaintTicket
+from app.task_runtime.context import build_task_context
+from app.task_runtime.dispatch import dispatch_task
 from app.tasks.notifications import send_status_update
 
 router = APIRouter()
@@ -152,7 +156,7 @@ async def assign_complaint(
 async def update_complaint_status(
     ticket_id: int,
     request: ComplaintStatusRequest,
-    _current_admin_id: int = Depends(get_admin_user_id),
+    current_admin_id: int = Depends(get_admin_user_id),
     session: AsyncSession = Depends(get_session),
 ):
     result = await session.exec(select(ComplaintTicket).where(ComplaintTicket.id == ticket_id))
@@ -165,8 +169,23 @@ async def update_complaint_status(
     await session.commit()
 
     if old_status != request.status and settings.ALERT_ADMIN_EMAILS:
-        for email in settings.ALERT_ADMIN_EMAILS:
-            send_status_update.delay(ticket_id, email)
+        correlation = get_correlation_id()
+        if correlation == "-":
+            correlation = f"complaint-status:{ticket_id}:{request.status}"
+        for index, email in enumerate(settings.ALERT_ADMIN_EMAILS):
+            task_context = build_task_context(
+                task_name="notifications.send_status_update",
+                tenant_id=get_current_tenant_id(),
+                user_id=current_admin_id,
+                correlation_id=correlation,
+                thread_id=ticket.thread_id,
+                operation_id=f"complaint:{ticket_id}:status:{request.status}:recipient:{index}",
+            )
+            dispatch_task(
+                send_status_update,
+                task_context=task_context,
+                payload={"ticket_id": ticket_id, "recipient_email": email},
+            )
 
     return {"success": True, "ticket_id": ticket_id, "status": request.status}
 

@@ -1,91 +1,53 @@
 # 常用命令速查表
 
-## 一键启动
+## Full local stack
 
 ```bash
-# WSL + Docker 完整启动（推荐）
 ./start_docker.sh
-
-# 本地进程模式
-./start.sh
+docker compose ps
+docker compose logs -f app
 ```
 
-如果 WSL 重启后容器显示 `Up`、但应用报 `Could not import module "app.main"`，执行
-`./start_docker.sh`，脚本会重建应用容器并刷新源码挂载。
-
-## 后端开发
+## Host-process development
 
 ```bash
-# 安装依赖
-uv sync
-
-# 数据库迁移
+uv sync --frozen
+docker compose up -d --wait db redis rabbitmq qdrant
 uv run alembic upgrade head
-
-# 启动 FastAPI
 uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-
-# 启动 Celery Worker（含 Beat）
-# 方式一：推荐脚本（自动等待 Redis/PostgreSQL/Qdrant 就绪）
 ./start_worker.sh
-
-# 方式二：手动启动（需确保依赖服务已就绪）
-uv run celery -A app.celery_app worker --loglevel=info --concurrency=4 --pool=solo --beat
+uv run celery -A app.celery_app beat --loglevel=info
+uv run python -m app.outbox
+cd frontend && npm ci && npm run dev
 ```
 
-## 前端开发
+## Tests and quality
 
 ```bash
-cd frontend
-npm install
-npm run dev
-```
-
-## 测试
-
-```bash
-# 后端测试
-uv run pytest
+uv run ruff check app tests
+uv run ruff format --check app tests
+uv run ty check --error-on-warning app tests
 uv run pytest --cov=app --cov-fail-under=75
 
-# 前端构建验证
-cd frontend && npm run build
-
-# 前端 E2E 测试
-cd frontend && npm run test:e2e
+cd frontend
+npm run format:check
+npm run lint
+npm run test
+npm run build
+npm run test:e2e
 ```
 
-## 代码质量
+## Database
 
 ```bash
-# 安装 pre-commit hook
-pre-commit install
-
-# 手动检查
-uv run ruff check app tests --fix
-uv run ruff format app tests
-uv run ty check --error-on-warning app tests
-
-# 前端检查
-cd frontend && npm run lint && npm run format
-```
-
-## 数据库
-
-```bash
-# 生成迁移
-uv run alembic revision --autogenerate -m "description"
-
-# 执行迁移
 uv run alembic upgrade head
+uv run alembic heads
+uv run alembic revision --autogenerate -m "description"
 ```
 
-## 健康检查
+## Optional monitoring
 
 ```bash
-# API
-curl http://localhost:8000/health
-
-# Celery Worker
-uv run celery -A app.celery_app inspect ping
+docker compose -f docker-compose.monitoring.yml config
+./scripts/deploy-monitoring.sh
 ```

@@ -5,7 +5,13 @@ from qdrant_client.http.exceptions import UnexpectedResponse
 from qdrant_client.models import Distance, Modifier, SparseVectorParams, VectorParams
 
 from app.core.config import settings
-from app.core.tenancy import get_current_tenant_id, namespaced_collection
+from app.core.tenancy import namespaced_collection
+from app.retrieval.tenant_boundary import (
+    active_vector_tenant,
+    tenant_filter,
+    tenant_filter_selector,
+    tenant_payload,
+)
 
 
 class QdrantKnowledgeClient:
@@ -52,17 +58,28 @@ class QdrantKnowledgeClient:
         await self.ensure_collection()
 
     async def upsert_chunks(self, points: list[models.PointStruct]) -> None:
-        tenant_id = get_current_tenant_id()
+        tenant_id = active_vector_tenant()
         scoped_points = [
             point.model_copy(
                 update={
                     "id": str(uuid.uuid5(uuid.NAMESPACE_URL, f"{tenant_id}:{point.id}")),
-                    "payload": {**(point.payload or {}), "tenant_id": tenant_id},
+                    "payload": tenant_payload(point.payload or {}),
                 }
             )
             for point in points
         ]
         await self.client.upsert(collection_name=self.collection_name, points=scoped_points)
+
+    async def delete_document(self, document_id: int) -> bool:
+        """Delete only the active tenant's chunks for a knowledge document."""
+        await self.client.delete(
+            collection_name=self.collection_name,
+            points_selector=tenant_filter_selector(
+                models.FieldCondition(key="doc_id", match=models.MatchValue(value=document_id))
+            ),
+            wait=True,
+        )
+        return True
 
     async def query_hybrid(
         self,
@@ -87,7 +104,7 @@ class QdrantKnowledgeClient:
                 ),
             ],
             query=models.RrfQuery(rrf=models.Rrf(k=settings.RETRIEVER_RRF_K)),
-            query_filter=self._tenant_filter(),
+            query_filter=tenant_filter(),
             limit=limit,
             with_payload=True,
         )
@@ -102,18 +119,8 @@ class QdrantKnowledgeClient:
             collection_name=self.collection_name,
             query=dense_vector,
             using="dense",
-            query_filter=self._tenant_filter(),
+            query_filter=tenant_filter(),
             limit=limit,
             with_payload=True,
         )
         return list(response.points)
-
-    @staticmethod
-    def _tenant_filter() -> models.Filter:
-        return models.Filter(
-            must=[
-                models.FieldCondition(
-                    key="tenant_id", match=models.MatchValue(value=get_current_tenant_id())
-                )
-            ]
-        )

@@ -61,6 +61,8 @@ General Python rules are defined in the root `AGENTS.md`. Evaluation-specific co
 - **Hallucination detection**: Binary scoring (0.0 or 1.0); target false positive rate ≤ 0.05.
 - **Containment check**: Verify responses are contained within retrieved context; flag violations.
 - **Dataset versioning**: Version evaluation datasets to track changes over time.
+- **Model routes**: Evaluation and shadow runners select configured `evaluation`, `safety`, or
+  `shadow` route aliases; evaluation code must not construct provider clients or hard-code models.
 
 ## Anti-Patterns
 

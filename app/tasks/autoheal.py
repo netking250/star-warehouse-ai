@@ -14,11 +14,14 @@ from celery.app.control import Control
 
 from app.celery_app import celery_app
 from app.core.config import settings
+from app.core.tenancy import all_tenant_key_pattern
+from app.task_runtime.system import system_task_handler
 
 logger = logging.getLogger(__name__)
 
 
 @celery_app.task(bind=True, name="autoheal.check_celery_workers")
+@system_task_handler("autoheal.check_celery_workers")
 def check_celery_workers(_self) -> dict:
     control = Control(celery_app)
     try:
@@ -50,6 +53,7 @@ def check_celery_workers(_self) -> dict:
 
 
 @celery_app.task(bind=True, name="autoheal.clear_redis_cache")
+@system_task_handler("autoheal.clear_redis_cache")
 def clear_redis_cache(_self, memory_threshold_mb: float = 512.0) -> dict:
     redis_url = settings.REDIS_URL
     try:
@@ -75,7 +79,22 @@ def clear_redis_cache(_self, memory_threshold_mb: float = 512.0) -> dict:
             "Redis memory %.1fMB > threshold %.1fMB; clearing cache", used_mb, memory_threshold_mb
         )
 
-        patterns = ["cache:*", "rate_limit:*", "temp:*"]
+        patterns = [
+            all_tenant_key_pattern(pattern)
+            for pattern in (
+                "intent:*",
+                "profile:*",
+                "retrieval:*",
+                "facts:*",
+                "preferences:*",
+                "summaries:*",
+                "vsearch:*",
+                "db_config:*",
+                "agent_config:*",
+                "rate_limit:*",
+                "temp:*",
+            )
+        ]
         removed = 0
         for pattern in patterns:
             keys = []

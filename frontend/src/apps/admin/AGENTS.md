@@ -82,7 +82,7 @@ General frontend rules are defined in the root `AGENTS.md`. Admin-specific conve
 
 - **shadcn/ui**: Prefer base components in `@frontend/src/components/ui/`. Do not re-invent primitives.
 - **Server-state hooks**: TanStack Query hooks should live in `@frontend/src/hooks/` and be reused across admin pages.
-- **Auth boundaries**: Admin pages requiring authentication must gate rendering via `@frontend/src/stores/auth.ts`.
+- **Auth boundaries**: Admin pages bootstrap `/me` through `useAuth`, then gate rendering from the in-memory user state in `@frontend/src/stores/auth.ts`.
 
 ## Testing Patterns
 
@@ -107,11 +107,11 @@ The admin frontend is a multi-page dashboard with complex CRUD operations across
 
 | Concern              | Solution                                 | Rationale                                                                                                                                                                                                                                         |
 | -------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Global auth state    | Zustand (`@frontend/src/stores/auth.ts`) | Auth token and user identity are needed by every page. Zustand provides lightweight, synchronous access without re-fetching.                                                                                                                      |
+| Global auth state    | Zustand (`@frontend/src/stores/auth.ts`) | Server-derived user identity is shared in memory; the HttpOnly credential is browser-managed and never persisted by JavaScript.                                                                                                                   |
 | Server state caching | TanStack Query (`@frontend/src/hooks/`)  | Domain data (tasks, complaints, metrics, configs) is fetched from the API, cached, and synchronized across routes. TanStack Query handles background refetching, cache invalidation, optimistic updates, and request deduplication automatically. |
 | Complex CRUD         | TanStack Query mutations                 | Knowledge base uploads, agent config edits, and experiment updates require server-side synchronization that local state cannot provide.                                                                                                           |
 
-This split was chosen over a single global store because server state and client auth state have different lifecycles. Server state is transient and must stay in sync with the backend. Auth state is stable for the session and does not need background refetching. Keeping them separate makes server state predictable and client state minimal.
+This split was chosen over a single global store because server state and client auth state have different lifecycles. Server state is transient and must stay in sync with the backend. Auth state is restored from `/me` and remains revocation-aware on server requests. Keeping them separate makes server state predictable and client state minimal.
 
 ### Comparison with Customer Frontend
 

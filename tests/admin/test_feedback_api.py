@@ -77,14 +77,29 @@ async def test_list_feedback_rejects_non_admin(client):
 
 @pytest.mark.asyncio
 async def test_export_feedback(client):
-    _admin, token = await create_admin_user()
+    _admin, requester_token = await create_admin_user()
+    _approver, approver_token = await create_admin_user()
     user = await create_regular_user()
     thread_id = f"thread_{uuid.uuid4().hex[:8]}"
     await create_feedback(user.id or 0, thread_id, 0, score=1, comment="Good")
 
+    requested = await client.post(
+        "/api/v1/admin/feedback/export-requests",
+        headers={"Authorization": f"Bearer {requester_token}"},
+        json={},
+    )
+    assert requested.status_code == 200
+    approval_id = requested.json()["id"]
+    decided = await client.post(
+        f"/api/v1/admin/compliance/approvals/{approval_id}/decision",
+        headers={"Authorization": f"Bearer {approver_token}"},
+        json={"decision": "APPROVE"},
+    )
+    assert decided.status_code == 200
     response = await client.get(
         "/api/v1/admin/feedback/export",
-        headers={"Authorization": f"Bearer {token}"},
+        params={"approval_id": approval_id},
+        headers={"Authorization": f"Bearer {requester_token}"},
     )
     assert response.status_code == 200
     data = response.json()
@@ -101,6 +116,7 @@ async def test_export_feedback_rejects_non_admin(client):
 
     response = await client.get(
         "/api/v1/admin/feedback/export",
+        params={"approval_id": str(uuid.uuid4())},
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 403
@@ -164,7 +180,7 @@ async def test_run_quality_score_with_comments(client):
     mock_response.content = '{"helpfulness": 5, "accuracy": 4, "empathy": 5}'
     mock_llm.ainvoke = AsyncMock(return_value=mock_response)
 
-    with patch("app.services.online_eval.create_openai_llm", return_value=mock_llm):
+    with patch("app.services.online_eval.create_model_client", return_value=mock_llm):
         response = await client.post(
             "/api/v1/admin/feedback/quality-score/run",
             headers={"Authorization": f"Bearer {token}"},

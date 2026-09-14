@@ -1,60 +1,58 @@
-# 部署指南
+# Deployment Profiles
 
-## Docker Compose 部署（推荐）
+本页是部署边界的权威入口。当前仓库可直接执行的是本地 Docker Compose profile；
+公开 demo 的 k3s/Helm 和 AWS EKS production reference 是已接受的目标架构，不能在实现和
+验证完成前描述为现有能力。
 
-项目已提供 `docker-compose.yaml`，可直接启动完整环境：
+## Local Docker Compose (implemented)
 
 ```bash
 cp .env.example .env
-# 配置生产密钥与服务地址后启动
-docker compose up -d --build
+# Replace local placeholders before starting.
+./start_docker.sh
 ```
 
-包含的服务：
-- `app` — FastAPI 主应用
-- `celery_worker` — Celery 异步任务 worker（通过 `docker-compose.yaml` 自动启动，无需手动运行 `start_worker.sh`）
-- `db` — PostgreSQL 数据库
-- `redis` — Redis 缓存与消息队列
-- `qdrant` — Qdrant 向量数据库
+Canonical Compose: `docker-compose.yaml`.
 
-## 纯 Docker 部署
+| Service | Responsibility |
+| --- | --- |
+| `db` | PostgreSQL primary relational store |
+| `redis` | Cache/session/rate-limit/lock/checkpoint state and optional result backend |
+| `rabbitmq` | Celery broker |
+| `qdrant` | Vector index |
+| `app` | FastAPI and built frontend |
+| `celery_worker` | Async execution |
+| `celery_scheduler` | Beat scheduling |
+| `outbox_relay` | PostgreSQL outbox publication boundary |
 
-若使用自定义编排，需确保镜像构建时包含以下文件：
+Docker Compose uses service discovery names inside its network and project-scoped container
+names. PostgreSQL, Redis, RabbitMQ, Qdrant, and local monitoring ports bind to loopback;
+the API remains exposed on port 8000.
 
-```dockerfile
-COPY app/ ./app/
-COPY scripts/ ./scripts/
-COPY start.sh ./
-COPY start_worker.sh ./
-COPY migrations/ ./migrations/
-COPY data/ ./data/
-COPY alembic.ini ./
-```
-
-启动命令：
+## Optional local monitoring (implemented)
 
 ```bash
-# 主应用
-uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
-
-# Worker
-./start_worker.sh
+docker compose -f docker-compose.monitoring.yml config
+./scripts/deploy-monitoring.sh
 ```
 
-## Kubernetes 部署要点
+This separate Compose file is intentional because the monitoring stack has its own lifecycle.
 
-1. **ConfigMap/Secret**: 将 `.env` 中的配置注入为环境变量
-2. **PersistentVolume**: PostgreSQL 与 Qdrant 需要持久化存储
-3. **Service**: 暴露 FastAPI 的 8000 端口
-4. **HPA**: 根据 CPU/内存自动扩缩容 `app` 与 `worker`
-5. **Ingress**: 配置域名与 HTTPS 证书
+## Demo and production reference (planned)
 
-## 环境检查清单
+Accepted architecture decisions target:
 
-- [ ] `SECRET_KEY` 长度 ≥ 32 字节
-- [ ] `ENABLE_OPENAPI_DOCS=False`（生产环境）
-- [ ] `CORS_ORIGINS` 配置为实际域名（禁止 `*` + `allow_credentials=True`）
-- [ ] PostgreSQL、Redis、Qdrant 可正常连接
-- [ ] `OPENAI_API_KEY` 或 `DASHSCOPE_API_KEY` 已配置且余额充足
+- low-cost k3s/Helm for a public demo profile;
+- AWS EKS plus managed PostgreSQL, Redis, object storage, and secret management as a
+  production reference.
 
-> 完整环境变量说明请参考 [环境变量参考](../reference/environment-variables.md)。
+Those manifests and delivery gates belong to later roadmap tasks. Do not treat local Compose
+as a production topology. See [ADR-015 and ADR-016](../engineering/DECISIONS.md).
+
+## Non-local checklist
+
+- Replace every local/default credential; never commit `.env`.
+- Set `ENABLE_OPENAPI_DOCS=False` and explicit HTTPS `CORS_ORIGINS`.
+- Do not publish database, Redis, RabbitMQ management, Qdrant, or monitoring admin ports.
+- Run Alembic forward migrations; never rewrite released revisions.
+- Operate API, worker, scheduler, and outbox relay as independent runtime roles.

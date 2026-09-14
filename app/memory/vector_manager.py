@@ -11,10 +11,23 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.context.pii_filter import log_pii_detection, pii_filter
 from app.core.cache import CacheManager
 from app.core.config import settings
-from app.core.tenancy import get_current_tenant_id, namespaced_collection
+from app.core.tenancy import namespaced_collection
+from app.memory.consistency import MemoryVectorDocument, VectorIndexUnavailableError
 from app.retrieval.embeddings import create_embedding_model
+from app.retrieval.tenant_boundary import (
+    active_vector_tenant,
+    tenant_filter,
+    tenant_filter_selector,
+    tenant_payload,
+)
 
 logger = logging.getLogger(__name__)
+_SUMMARY_POINT_NAMESPACE = uuid.UUID("9c47969d-3f15-48ee-a488-9b404b445936")
+
+
+def _summary_point_id(*, tenant_id: str, memory_id: int) -> str:
+    """Return the stable Qdrant point identity for one structured summary."""
+    return str(uuid.uuid5(_SUMMARY_POINT_NAMESPACE, f"{tenant_id}:interaction_summary:{memory_id}"))
 
 
 class VectorMemoryManager:
@@ -76,6 +89,11 @@ class VectorMemoryManager:
         timestamp: str,
         intent: str | None = None,
     ) -> None:
+        """Write compatibility conversation history outside structured memory.
+
+        New structured-memory callers must use ``upsert_summary`` through the
+        transactional outbox projection path.
+        """
         await self.ensure_collection()
 
         pii_result = pii_filter.filter_text(content)
@@ -92,14 +110,15 @@ class VectorMemoryManager:
         vector = embeddings[0]
 
         point_id = str(uuid.uuid4())
-        payload: dict[str, object] = {
-            "tenant_id": get_current_tenant_id(),
-            "user_id": user_id,
-            "thread_id": thread_id,
-            "message_role": message_role,
-            "content": filtered_content,
-            "timestamp": timestamp,
-        }
+        payload: dict[str, object] = tenant_payload(
+            {
+                "user_id": user_id,
+                "thread_id": thread_id,
+                "message_role": message_role,
+                "content": filtered_content,
+                "timestamp": timestamp,
+            }
+        )
         if intent is not None:
             payload["intent"] = intent
 
@@ -113,6 +132,88 @@ class VectorMemoryManager:
                 )
             ],
         )
+
+    async def upsert_summary(self, document: MemoryVectorDocument) -> None:
+        """Idempotently project an authoritative summary using a stable point ID."""
+        active_vector_tenant(document.tenant_id)
+        try:
+            await self.ensure_collection()
+            pii_result = pii_filter.filter_text(document.summary_text)
+            filtered_content = pii_result.redacted_text
+            if pii_result.has_pii:
+                log_pii_detection(
+                    user_id=document.user_id,
+                    thread_id=document.thread_id,
+                    source="structured_memory_vector",
+                    detections=pii_result.detections,
+                )
+            embeddings = await self._embedder.aembed_documents([filtered_content])
+            await self.client.upsert(
+                collection_name=self.COLLECTION_NAME,
+                points=[
+                    models.PointStruct(
+                        id=_summary_point_id(
+                            tenant_id=document.tenant_id,
+                            memory_id=document.memory_id,
+                        ),
+                        vector={"dense": embeddings[0]},
+                        payload=tenant_payload(
+                            {
+                                "memory_id": document.memory_id,
+                                "memory_version": document.version,
+                                "user_id": document.user_id,
+                                "thread_id": document.thread_id,
+                                "message_role": "summary",
+                                "content": filtered_content,
+                                "timestamp": document.updated_at,
+                                "intent": document.resolved_intent,
+                            },
+                            tenant_id=document.tenant_id,
+                        ),
+                    )
+                ],
+            )
+        except (UnexpectedResponse, ConnectionError, TimeoutError, OSError, RuntimeError) as error:
+            raise VectorIndexUnavailableError(type(error).__name__) from error
+
+    async def delete_summary(self, *, tenant_id: str, memory_id: int) -> None:
+        """Idempotently remove one derived summary point."""
+        active_vector_tenant(tenant_id)
+        try:
+            if not await self.client.collection_exists(self.COLLECTION_NAME):
+                return
+            await self.client.delete(
+                collection_name=self.COLLECTION_NAME,
+                points_selector=tenant_filter_selector(
+                    models.FieldCondition(
+                        key="memory_id", match=models.MatchValue(value=memory_id)
+                    ),
+                    tenant_id=tenant_id,
+                ),
+            )
+        except (UnexpectedResponse, ConnectionError, TimeoutError, OSError, RuntimeError) as error:
+            raise VectorIndexUnavailableError(type(error).__name__) from error
+
+    async def get_summary_version(self, *, tenant_id: str, memory_id: int) -> int | None:
+        """Read the indexed version used by the reconciliation command."""
+        active_vector_tenant(tenant_id)
+        try:
+            if not await self.client.collection_exists(self.COLLECTION_NAME):
+                return None
+            points = await self.client.retrieve(
+                collection_name=self.COLLECTION_NAME,
+                ids=[_summary_point_id(tenant_id=tenant_id, memory_id=memory_id)],
+                with_payload=True,
+                with_vectors=False,
+            )
+        except (UnexpectedResponse, ConnectionError, TimeoutError, OSError, RuntimeError) as error:
+            raise VectorIndexUnavailableError(type(error).__name__) from error
+        if not points or points[0].payload is None:
+            return None
+        if points[0].payload.get("tenant_id") != tenant_id:
+            return None
+        version = points[0].payload.get("memory_version")
+        return version if isinstance(version, int) else None
 
     async def search_similar(
         self,
@@ -134,11 +235,7 @@ class VectorMemoryManager:
         embeddings = await self._embedder.aembed_documents([query_text])
         query_vector = embeddings[0]
 
-        must_conditions: list = [
-            models.FieldCondition(
-                key="tenant_id",
-                match=models.MatchValue(value=get_current_tenant_id()),
-            ),
+        must_conditions: list[models.Condition] = [
             models.FieldCondition(
                 key="user_id",
                 match=models.MatchValue(value=user_id),
@@ -156,7 +253,7 @@ class VectorMemoryManager:
             collection_name=self.COLLECTION_NAME,
             query=query_vector,
             using="dense",
-            query_filter=models.Filter(must=must_conditions),
+            query_filter=tenant_filter(*must_conditions),
             limit=top_k,
             with_payload=True,
         )
@@ -192,14 +289,7 @@ class VectorMemoryManager:
                     limit=1000,
                     offset=offset,
                     with_payload=True,
-                    scroll_filter=models.Filter(
-                        must=[
-                            models.FieldCondition(
-                                key="tenant_id",
-                                match=models.MatchValue(value=get_current_tenant_id()),
-                            )
-                        ]
-                    ),
+                    scroll_filter=tenant_filter(),
                 )
             except UnexpectedResponse as exc:
                 if exc.status_code == 404:

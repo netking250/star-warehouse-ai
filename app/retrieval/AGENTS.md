@@ -26,6 +26,7 @@ Hybrid RAG retrieval system combining dense embeddings, sparse embeddings (BM25)
 | Reranker | `@app/retrieval/reranker.py` | Cross-encoder reranking for result refinement |
 | Query rewriter | `@app/retrieval/rewriter.py` | LLM-based query rewriting and expansion |
 | Qdrant client | `@app/retrieval/client.py` | Qdrant vector store client wrapper |
+| Tenant boundary | `@app/retrieval/tenant_boundary.py` | Mandatory tenant payload, query filter, and delete selector builders |
 
 ## Commands
 
@@ -55,12 +56,16 @@ General Python rules are defined in the root `AGENTS.md`. Retrieval-specific con
 - **Reranking**: Apply cross-encoder reranking to top-k candidates from hybrid retrieval for precision.
 - **Query rewriting**: Expand and disambiguate user queries before retrieval to improve match quality.
 - **Collection naming**: Use consistent Qdrant collection names (`product_catalog`, `conversation_memory`, `knowledge_chunks`).
+- **Tenant vector boundary**: Tenant-owned writes, queries, and deletes must use the builders in `tenant_boundary.py`; callers must not hand-build a tenant filter.
+- **Remote model seams**: Query rewriting uses the configured gateway `rewrite` route. Dense
+  embedding and reranking remain separate modality-specific adapters and are not chat gateway calls.
 
 ## Anti-Patterns
 
 - **Synchronous embedding calls**: Always use async embedding generation to avoid blocking.
 - **Unbounded retrieval**: Limit retrieval to top-k results (typically 5-10) to avoid context overflow.
 - **Ignoring reranking**: Skipping reranking reduces precision; always apply to hybrid results.
+- **Caller-enforced tenancy**: Never depend on a caller to add `tenant_id` to a payload or Qdrant filter.
 
 ## Related Files
 

@@ -1,5 +1,9 @@
 # 架构决策记录 (ADR)
 
+> Historical ADR-001–003. Current accepted enterprise decisions live in
+> [`docs/engineering/DECISIONS.md`](../engineering/DECISIONS.md). ADR-009 supersedes
+> Redis-as-Celery-broker guidance; RabbitMQ is the current broker.
+
 ## ADR-001: 使用 LangGraph 作为对话编排引擎
 
 **决策**: 采用 LangGraph 构建对话状态机，支持多意图并行执行与状态持久化。

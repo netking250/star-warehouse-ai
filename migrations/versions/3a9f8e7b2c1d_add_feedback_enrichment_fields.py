@@ -1,7 +1,7 @@
 """Add feedback category, agent_type, confidence_score fields
 
 Revision ID: 3a9f8e7b2c1d
-Revises: v4_2_add_confidence_audit_trigger_type
+Revises: 053eaa2f0a66
 Create Date: 2026-04-23 10:00:00.000000
 
 """
@@ -14,7 +14,7 @@ import sqlmodel.sql.sqltypes
 
 # revision identifiers, used by Alembic.
 revision: str = '3a9f8e7b2c1d'
-down_revision: Union[str, None] = 'v4_2_confidence_trigger'
+down_revision: Union[str, None] = '053eaa2f0a66'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

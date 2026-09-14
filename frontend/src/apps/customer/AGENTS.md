@@ -75,6 +75,7 @@ General frontend rules are defined in the root `AGENTS.md`. Customer-specific co
 
 - **State management**: Customer state is simple, primarily component-local `useState`. Chat state is encapsulated in `hooks/useChat.ts`.
 - **API calls**: Always use `apiFetch` from `@frontend/src/lib/api.ts`. Never use raw `fetch` directly.
+- **Browser authentication**: Use cookie credentials through `apiFetch`, keep CSRF only in module memory, restore identity from `/me`, and never add tokens to storage, headers, or WebSocket URLs.
 - **Streaming**: `hooks/useChat.ts` consumes backend `/api/v1/chat` SSE stream via `apiFetch` + `ReadableStream`.
 - **API proxy**: In dev mode, Vite proxies `/api` to `localhost:8000`.
 - **Type reuse**: Message types are defined in `@frontend/src/types/index.ts`.

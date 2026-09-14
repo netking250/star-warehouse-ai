@@ -11,15 +11,17 @@
 
 ## CI 流程
 
-1. 检出代码
-2. 设置 Python 3.12 + uv 0.6.5
-3. 创建 test database
-4. Cache uv dependencies (`actions/cache@v4`)
-5. `uv sync` 安装依赖
-6. `uv run ruff check app tests`
-7. `uv run ty check --error-on-warning app tests`
-8. `uv run pytest tests/evaluation/ -v -s`
-9. `uv run pytest --cov=app --cov-fail-under=75`
+现有 `.github/workflows/ci.yml` 分为：
+
+1. Brand/docs identity and local-link validation.
+2. Python 3.12 + uv 0.6.5 backend lint, format, and type checks.
+3. Isolated PostgreSQL/Redis/Qdrant backend tests with the 75% coverage gate.
+4. Node.js 22 frontend format, lint, unit, build, and Playwright checks.
+5. Docker image/build/startup health smoke using the canonical Compose file.
+
+Evaluation、monitoring 和 performance 使用独立 workflow。RabbitMQ 是运行时 broker；
+普通 pytest workflow 使用显式 `memory://` test transport，真实 broker 证据只在专用
+`test_` RabbitMQ vhost 中执行。
 
 ## 本地质量检查
 
@@ -29,7 +31,7 @@ pre-commit install
 
 # 手动检查
 uv run ruff check app tests --fix
-uv run ruff format app tests
+uv run ruff format --check app tests
 uv run ty check --error-on-warning app tests
 ```
 

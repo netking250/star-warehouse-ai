@@ -41,7 +41,14 @@ const QUICK_TASKS = [
 ]
 
 const App: FC = () => {
-  const { isAuthenticated, login, logout, isLoading: isLoginLoading, error: loginError } = useAuth()
+  const {
+    isAuthenticated,
+    isInitialized,
+    login,
+    logout,
+    isLoading: isLoginLoading,
+    error: loginError,
+  } = useAuth()
   const { messages, isLoading, sendMessage, submitFeedback, resetMessages } = useChat()
   const [input, setInput] = useState('')
   const [loginForm, setLoginForm] = useState({ username: '', password: '' })
@@ -114,6 +121,8 @@ const App: FC = () => {
   ): void => {
     void submitFeedback(messageId, sentiment, threadId.current, messageIndex, category, comment)
   }
+
+  if (!isInitialized) return <main className="min-h-screen bg-slate-950" />
 
   if (!isAuthenticated) {
     return (
@@ -336,6 +345,7 @@ const App: FC = () => {
               variant="ghost"
               size="sm"
               className="text-slate-500"
+              data-testid="logout-button"
               onClick={() => void logout()}
             >
               <LogOut className="h-4 w-4" />

@@ -1,59 +1,36 @@
 from unittest.mock import patch
 
-from langchain_core.messages import HumanMessage, SystemMessage
+import pytest
 
-from app.core.llm_factory import maybe_add_cache_control
+from app.core.llm_factory import create_llm, create_openai_llm
+from app.model_gateway.langchain import GatewayChatModel
 
 
-class TestMaybeAddCacheControl:
-    def test_non_anthropic_endpoint_returns_messages_unchanged(self):
-        messages = [SystemMessage(content="sys"), HumanMessage(content="user")]
-        with patch("app.core.llm_factory.is_anthropic_endpoint", return_value=False):
-            result = maybe_add_cache_control(messages)
-        assert len(result) == 2
-        assert result[0].content == "sys"
-        assert result[1].content == "user"
+def test_legacy_openai_factory_returns_gateway_client() -> None:
+    client = create_openai_llm(route="intent", temperature=0.2, timeout=3.0)
 
-    def test_anthropic_endpoint_marks_first_system_and_last_human(self):
-        messages = [
-            SystemMessage(content="sys1"),
-            HumanMessage(content="user1"),
-            SystemMessage(content="sys2"),
-            HumanMessage(content="user2"),
-        ]
-        with patch("app.core.llm_factory.is_anthropic_endpoint", return_value=True):
-            result = maybe_add_cache_control(messages)
+    assert isinstance(client, GatewayChatModel)
+    assert client.route == "intent"
+    assert client.temperature == 0.2
+    assert client.timeout_seconds == 3.0
 
-        # First system message gets persistent cache
-        assert isinstance(result[0].content, list)
-        assert result[0].content[0]["type"] == "text"
-        assert result[0].content[0]["text"] == "sys1"
-        assert result[0].content[0]["cache_control"]["type"] == "persistent"
 
-        # Intermediate messages unchanged
-        assert isinstance(result[1].content, str)
-        assert result[1].content == "user1"
-        assert isinstance(result[2].content, str)
-        assert result[2].content == "sys2"
+def test_legacy_openai_factory_rejects_retry_ownership() -> None:
+    with pytest.raises(ValueError, match="T14"):
+        create_openai_llm(max_retries=1)
 
-        # Last human message gets ephemeral cache
-        assert isinstance(result[3].content, list)
-        assert result[3].content[0]["type"] == "text"
-        assert result[3].content[0]["text"] == "user2"
-        assert result[3].content[0]["cache_control"]["type"] == "ephemeral"
 
-    def test_anthropic_with_only_system_message(self):
-        messages = [SystemMessage(content="sys")]
-        with patch("app.core.llm_factory.is_anthropic_endpoint", return_value=True):
-            result = maybe_add_cache_control(messages)
+def test_canonical_factory_delegates_to_gateway_client() -> None:
+    with patch("app.core.llm_factory.create_model_client") as factory:
+        expected = factory.return_value
 
-        assert isinstance(result[0].content, list)
-        assert result[0].content[0]["cache_control"]["type"] == "persistent"
+        result = create_llm(route="evaluation", model="configured-override")
 
-    def test_anthropic_with_only_human_message(self):
-        messages = [HumanMessage(content="user")]
-        with patch("app.core.llm_factory.is_anthropic_endpoint", return_value=True):
-            result = maybe_add_cache_control(messages)
-
-        assert isinstance(result[0].content, list)
-        assert result[0].content[0]["cache_control"]["type"] == "ephemeral"
+    assert result is expected
+    factory.assert_called_once_with(
+        "evaluation",
+        model_override="configured-override",
+        temperature=0,
+        timeout=None,
+        default_config=None,
+    )

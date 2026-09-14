@@ -23,7 +23,7 @@ Migration Notes:
     
 Environment Variables Required:
     - ALERT_ADMIN_EMAILS: Comma-separated list of admin email addresses
-    - PAGERDUTY_SERVICE_KEY: PagerDuty integration key for critical alerts
+    - PAGERDUTY_INTEGRATION_KEY: PagerDuty integration key for critical alerts
     - ALERT_WEBHOOK_URL: Webhook URL for alert notifications
     - SLACK_WEBHOOK_URL: (Optional) Slack webhook for Slack notifications
 """
@@ -281,7 +281,7 @@ def generate_contact_points() -> Dict[str, Any]:
                         "uid": "pagerduty-critical-uid",
                         "type": "pagerduty",
                         "settings": {
-                            "integrationKey": "${PAGERDUTY_SERVICE_KEY}",
+                            "integrationKey": "${PAGERDUTY_INTEGRATION_KEY}",
                             "severity": "critical",
                             "class": "{{ .CommonLabels.severity }}",
                             "component": "{{ .CommonLabels.service }}",
@@ -641,7 +641,7 @@ def main():
             print("  1. Review generated files in grafana/provisioning/alerting/")
             print("  2. Configure environment variables in .env:")
             print("     - ALERT_ADMIN_EMAILS")
-            print("     - PAGERDUTY_SERVICE_KEY")
+            print("     - PAGERDUTY_INTEGRATION_KEY")
             print("     - ALERT_WEBHOOK_URL")
             print("     - SLACK_WEBHOOK_URL (optional)")
             print("  3. Restart Grafana to load provisioning files")

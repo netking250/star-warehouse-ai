@@ -4,13 +4,20 @@ from collections.abc import Sequence
 from sqlmodel import desc, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.core.logging import get_correlation_id
+from app.core.tenancy import get_current_tenant_id
 from app.core.utils import utc_now
 from app.models.audit import AuditAction, AuditLog, AuditTriggerType
 from app.models.message import MessageCard, MessageStatus, MessageType
 from app.models.refund import RefundApplication, RefundStatus
 from app.models.user import User
+from app.outbox import enqueue_task
 from app.schemas.admin import AdminDecisionResponse, AuditTask, TaskStatsResponse
-from app.tasks.refund_tasks import process_refund_payment, send_refund_sms
+from app.task_runtime.context import build_task_context
+from app.task_runtime.refund_payloads import (
+    RefundPaymentPayload,
+    RefundSmsPayload,
+)
 from app.websocket.manager import ConnectionManager
 
 logger = logging.getLogger(__name__)
@@ -114,8 +121,8 @@ class AdminService:
         user = user_result.one_or_none()
         phone = user.phone if user else None
 
-        payment_task_kwargs: dict[str, object] | None = None
-        sms_task_kwargs: dict[str, object] | None = None
+        payment_task_payload: RefundPaymentPayload | None = None
+        sms_task_payload: RefundSmsPayload | None = None
 
         if audit_log.refund_application_id:
             refund_result = await session.exec(
@@ -126,24 +133,22 @@ class AdminService:
             refund = refund_result.one_or_none()
 
             if refund:
+                if refund.id is None:
+                    raise RuntimeError("Refund ID is missing after persistence")
                 if action_enum == AuditAction.APPROVE:
                     refund.status = RefundStatus.APPROVED
                     refund.admin_note = admin_comment
                     refund.reviewed_by = current_admin_id
                     refund.reviewed_at = utc_now()
 
-                    payment_task_kwargs = {
-                        "refund_id": refund.id,
-                        "amount": float(refund.refund_amount),
-                        "payment_method": "原支付方式",
-                    }
+                    payment_task_payload = RefundPaymentPayload(
+                        refund_id=refund.id,
+                        amount=float(refund.refund_amount),
+                        payment_method="原支付方式",
+                    )
 
                     if phone:
-                        sms_task_kwargs = {
-                            "refund_id": refund.id,
-                            "phone": phone,
-                            "message": f"您的退款申请已通过，退款金额¥{refund.refund_amount}将在3-5个工作日退回。",
-                        }
+                        sms_task_payload = RefundSmsPayload(refund_id=refund.id)
 
                 else:
                     refund.status = RefundStatus.REJECTED
@@ -176,12 +181,45 @@ class AdminService:
         )
         session.add(message_card)
 
-        await session.commit()
+        correlation = get_correlation_id()
+        if correlation == "-":
+            correlation = f"admin-decision:{audit_log_id}:{current_admin_id}"
+        if payment_task_payload is not None:
+            await enqueue_task(
+                session=session,
+                task_name="refund.process_payment",
+                task_context=build_task_context(
+                    task_name="refund.process_payment",
+                    tenant_id=get_current_tenant_id(),
+                    user_id=current_admin_id,
+                    correlation_id=correlation,
+                    thread_id=audit_log.thread_id,
+                    operation_id=f"audit:{audit_log_id}:payment",
+                ),
+                payload=payment_task_payload,
+                event_type="refund.payment_requested",
+                aggregate_type="refund_application",
+                aggregate_id=str(payment_task_payload.refund_id),
+            )
+        if sms_task_payload is not None:
+            await enqueue_task(
+                session=session,
+                task_name="refund.send_sms",
+                task_context=build_task_context(
+                    task_name="refund.send_sms",
+                    tenant_id=get_current_tenant_id(),
+                    user_id=current_admin_id,
+                    correlation_id=correlation,
+                    thread_id=audit_log.thread_id,
+                    operation_id=f"audit:{audit_log_id}:sms",
+                ),
+                payload=sms_task_payload,
+                event_type="refund.sms_requested",
+                aggregate_type="refund_application",
+                aggregate_id=str(sms_task_payload.refund_id),
+            )
 
-        if payment_task_kwargs is not None:
-            process_refund_payment.delay(**payment_task_kwargs)
-        if sms_task_kwargs is not None:
-            send_refund_sms.delay(**sms_task_kwargs)
+        await session.commit()
 
         if self.manager is not None:
             try:

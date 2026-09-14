@@ -1,14 +1,24 @@
-import csv
-import io
 import logging
-from datetime import UTC, datetime
+from datetime import datetime
+from typing import Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.authorization.policy import AuthorizationContext
 from app.core.database import get_session
-from app.core.security import get_admin_user_id
+from app.core.security import get_admin_user_id, get_authorized_auth_context
+from app.core.utils import utc_now
+from app.observability.metrics import SENSITIVE_EXPORTS_TOTAL
+from app.schemas.compliance import ApprovalResponse, FeedbackExportFilters, SensitiveExportResponse
+from app.services.compliance_service import (
+    ApprovalDeniedError,
+    ApprovalExpiredError,
+    ApprovalNotFoundError,
+    ComplianceService,
+    ExportGenerationError,
+)
 from app.services.online_eval import OnlineEvalService
 
 router = APIRouter()
@@ -66,63 +76,84 @@ async def list_feedback(
     }
 
 
-@router.get("/export")
+@router.post("/export-requests", response_model=ApprovalResponse)
+async def request_feedback_export(
+    filters: FeedbackExportFilters,
+    actor: AuthorizationContext = Depends(get_authorized_auth_context),
+    session: AsyncSession = Depends(get_session),
+    compliance: ComplianceService = Depends(ComplianceService),
+) -> ApprovalResponse:
+    """Request approval for one exact confidential feedback export."""
+    approval = await compliance.request_feedback_export(
+        session,
+        actor=actor,
+        parameters=filters.operation_parameters(),
+        now=utc_now(),
+    )
+    await session.commit()
+    return ApprovalResponse.model_validate(approval)
+
+
+@router.get("/export", response_model=SensitiveExportResponse)
 async def export_feedback(
-    sentiment: str | None = Query(None),
+    approval_id: str,
+    sentiment: Literal["up", "neutral", "down"] | None = Query(None),
     date_from: datetime | None = Query(None),
     date_to: datetime | None = Query(None),
     agent_type: str | None = Query(None),
     category: str | None = Query(None),
-    search: str | None = Query(None),
-    _current_admin_id: int = Depends(get_admin_user_id),
+    search: str | None = Query(None, max_length=128),
+    actor: AuthorizationContext = Depends(get_authorized_auth_context),
     session: AsyncSession = Depends(get_session),
-):
-    items, _ = await service.list_feedback(
-        db=session,
+    compliance: ComplianceService = Depends(ComplianceService),
+) -> SensitiveExportResponse:
+    """Execute or retry the approved exact feedback export."""
+    filters = FeedbackExportFilters(
         sentiment=sentiment,
         date_from=date_from,
         date_to=date_to,
         agent_type=agent_type,
         category=category,
         search=search,
-        offset=0,
-        limit=10000,
     )
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(
-        [
-            "id",
-            "user_id",
-            "thread_id",
-            "message_index",
-            "score",
-            "comment",
-            "category",
-            "agent_type",
-            "confidence_score",
-            "created_at",
-        ]
-    )
-    for f in items:
-        writer.writerow(
-            [
-                f.id,
-                f.user_id,
-                f.thread_id,
-                f.message_index,
-                f.score,
-                f.comment,
-                f.category,
-                f.agent_type,
-                f.confidence_score,
-                f.created_at.isoformat() if f.created_at else "",
-            ]
+    try:
+        artifact = await compliance.execute_feedback_export(
+            session,
+            actor=actor,
+            approval_id=approval_id,
+            parameters=filters.operation_parameters(),
+            now=utc_now(),
         )
-    return {
-        "content": output.getvalue(),
-        "filename": f"feedback_export_{datetime.now(UTC).isoformat()}.csv",
-    }
+        await session.commit()
+        return SensitiveExportResponse(
+            artifact_id=artifact.id,
+            filename=artifact.filename,
+            content=artifact.content,
+            record_count=artifact.record_count,
+            expires_at=artifact.expires_at,
+        )
+    except ApprovalNotFoundError as error:
+        await session.rollback()
+        SENSITIVE_EXPORTS_TOTAL.labels(result="denied").inc()
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except ApprovalExpiredError as error:
+        await session.commit()
+        SENSITIVE_EXPORTS_TOTAL.labels(result="denied").inc()
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    except ApprovalDeniedError as error:
+        await session.rollback()
+        SENSITIVE_EXPORTS_TOTAL.labels(result="denied").inc()
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    except ExportGenerationError as error:
+        try:
+            await session.commit()
+        except Exception:
+            await session.rollback()
+        logger.error(
+            "Sensitive export generation failed",
+            extra={"operation": "feedback_export", "tenant_id": actor.tenant_id},
+        )
+        raise HTTPException(status_code=500, detail="Sensitive export generation failed") from error
 
 
 @router.get("/csat")

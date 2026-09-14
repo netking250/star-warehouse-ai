@@ -6,8 +6,8 @@ from typing import Any
 from langchain_core.exceptions import LangChainException
 from langchain_core.language_models.chat_models import BaseChatModel
 
-from app.core.llm_factory import create_llm
 from app.core.tracing import build_llm_config
+from app.model_gateway.factory import create_model_client
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ class FactExtractor:
     """Extract user facts from a conversation turn using an LLM."""
 
     def __init__(self, llm: BaseChatModel | None = None):
-        self.llm = llm or create_llm(model="qwen-turbo")
+        self.llm = llm or create_model_client("structured")
 
     async def extract_facts(
         self,

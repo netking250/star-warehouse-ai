@@ -1,6 +1,12 @@
+import asyncio
+from contextlib import asynccontextmanager
+from typing import cast
+
 import pytest
 from langgraph.types import Command
+from sqlmodel.ext.asyncio.session import AsyncSession
 
+import app.graph.nodes as nodes_module
 from app.core.config import settings
 from app.graph.nodes import build_memory_node
 from app.memory.structured_manager import StructuredMemoryManager
@@ -20,6 +26,67 @@ class _FakeEmbedder:
         return [0.1] * dim
 
 
+class _UnavailableVectorManager:
+    async def search_similar(
+        self,
+        user_id: int,
+        query_text: str,
+        top_k: int = 5,
+        message_role: str | None = None,
+    ) -> list[dict]:
+        raise ConnectionError("Qdrant unavailable")
+
+
+class _ConcurrentSessionTrackingManager:
+    """Record session ownership while requiring all four reads to overlap."""
+
+    def __init__(self) -> None:
+        self.session_ids: list[int] = []
+        self._started = 0
+        self._all_started = asyncio.Event()
+
+    async def _read(self, session: AsyncSession) -> None:
+        self.session_ids.append(id(session))
+        self._started += 1
+        if self._started == 4:
+            self._all_started.set()
+        await asyncio.wait_for(self._all_started.wait(), timeout=1)
+
+    async def get_user_profile(self, session: AsyncSession, user_id: int) -> None:
+        await self._read(session)
+
+    async def get_user_preferences(self, session: AsyncSession, user_id: int) -> list[object]:
+        await self._read(session)
+        return []
+
+    async def get_user_facts(
+        self,
+        session: AsyncSession,
+        user_id: int,
+        fact_types: list[str] | None = None,
+        limit: int = 3,
+    ) -> list[object]:
+        await self._read(session)
+        return []
+
+    async def get_recent_summaries(
+        self,
+        session: AsyncSession,
+        user_id: int,
+        limit: int = 2,
+    ) -> list[object]:
+        await self._read(session)
+        return []
+
+
+class _FakeMemorySession:
+    """Minimal async session context used by the ownership regression."""
+
+    @asynccontextmanager
+    async def begin(self):
+        yield
+
+
 def _make_user(username: str) -> User:
     return User(
         username=username,
@@ -27,6 +94,40 @@ def _make_user(username: str) -> User:
         full_name=f"User {username}",
         password_hash=User.hash_password("secret"),
     )
+
+
+@pytest.mark.asyncio
+async def test_memory_node_concurrent_reads_own_independent_sessions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Concurrent structured reads must never share one AsyncSession."""
+    created_sessions: list[AsyncSession] = []
+
+    @asynccontextmanager
+    async def session_factory():
+        session = cast(AsyncSession, _FakeMemorySession())
+        created_sessions.append(session)
+        yield session
+
+    monkeypatch.setattr(nodes_module, "async_session_maker", session_factory)
+    manager = _ConcurrentSessionTrackingManager()
+    node = build_memory_node(
+        structured_manager=cast(StructuredMemoryManager, manager),
+        vector_manager=None,
+    )
+
+    result = await node(
+        make_agent_state(
+            question="load memory",
+            user_id=1,
+            thread_id="concurrent-session-ownership",
+            history=[{"role": "user", "content": "load memory"}],
+        )
+    )
+
+    assert result.update is not None
+    assert len(created_sessions) == 4
+    assert len(set(manager.session_ids)) == 4
 
 
 @pytest.mark.asyncio
@@ -130,7 +231,7 @@ async def test_memory_node_handles_vector_exception(db_session):
 
     node = build_memory_node(
         structured_manager=StructuredMemoryManager(),
-        vector_manager=None,
+        vector_manager=cast(VectorMemoryManager, _UnavailableVectorManager()),
         use_supervisor=True,
         session=db_session,
     )
@@ -147,6 +248,45 @@ async def test_memory_node_handles_vector_exception(db_session):
     assert result.update is not None
     assert "memory_context" in result.update
     assert "relevant_past_messages" not in result.update["memory_context"]
+    assert result.update["memory_context"]["vector_recall_degraded"] is True
+
+
+@pytest.mark.asyncio
+async def test_memory_node_keeps_structured_memory_when_vector_index_is_unavailable(db_session):
+    user = _make_user("mem_degraded_structured")
+    db_session.add(user)
+    await db_session.flush()
+    assert user.id is not None
+    db_session.add(
+        UserProfile(
+            user_id=user.id,
+            membership_level="gold",
+            preferred_language="zh",
+            timezone="Asia/Shanghai",
+            total_orders=2,
+            lifetime_value=300.0,
+        )
+    )
+    await db_session.commit()
+
+    node = build_memory_node(
+        structured_manager=StructuredMemoryManager(),
+        vector_manager=None,
+        use_supervisor=True,
+        session=db_session,
+    )
+    state = make_agent_state(
+        question="hello",
+        user_id=user.id,
+        thread_id="t-degraded",
+        history=[{"role": "user", "content": "hello"}],
+    )
+    result = await node(state)
+
+    assert result.update is not None
+    context = result.update["memory_context"]
+    assert context["user_profile"]["membership_level"] == "gold"
+    assert context["vector_recall_degraded"] is True
 
 
 @pytest.mark.asyncio

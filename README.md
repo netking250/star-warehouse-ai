@@ -1,117 +1,144 @@
-# 星仓 AI 智能客服
+# Star Warehouse AI
 
-> Star Warehouse AI · 面向真实电商服务链路的原生 AI 客服平台
+> 星仓 AI 智能客服 — an enterprise-oriented AI customer-service and agent platform for commerce workflows.
 
 [![CI](https://github.com/netking250/star-warehouse-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/netking250/star-warehouse-ai/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB)
 ![React](https://img.shields.io/badge/React-19-61DAFB)
-![LangGraph](https://img.shields.io/badge/LangGraph-Agent%20Workflow-6B5BFF)
 ![Version](https://img.shields.io/badge/version-5.0.0-06B6D4)
 
-星仓 AI 智能客服是一套可运行、可评估、可观测的全栈 AI 客服系统。它不是一个只会回答问题的聊天窗口：系统会识别多意图、编排领域 Agent、调用业务工具、检索企业知识、保存多层记忆，并对高风险结果执行安全审查或转人工。
+## Project Overview
 
-项目同时提供客户服务台和运营管理中心，覆盖从会话接入到质量治理的完整闭环，适合作为原生 AI 应用架构、Agent 工程化与全栈交付能力的作品集项目。
+Star Warehouse AI is a full-stack, multi-tenant AI customer-service system. It combines
+domain agents, business tools, hybrid retrieval, durable conversation state, human review,
+safety controls, evaluation, and observability in one modular-monolith repository. The project
+is designed to demonstrate enterprise engineering controls truthfully; it does not claim a
+compliance certification or production service-level guarantee.
 
-## English summary
+The customer application supports conversational commerce workflows, while the administration
+application exposes operational, agent, knowledge, feedback, and analytics capabilities.
 
-Star Warehouse AI is a production-oriented, full-stack AI customer service platform for commerce workflows. It combines LangGraph orchestration, specialist agents, hybrid RAG, durable memory, human review, safety controls, evaluation, and end-to-end observability in one runnable system.
+## Core Architecture
 
-## 产品界面
-
-| 客户服务台 | 运营管理中心 |
+| Component | Implemented responsibility |
 | --- | --- |
-| ![星仓 AI 客户服务台](assets/screenshots/customer-chat.png) | ![星仓 AI 运营管理中心](assets/screenshots/admin-dashboard.png) |
+| FastAPI | HTTP, SSE, WebSocket, authentication, administration, and runtime APIs |
+| PostgreSQL | Authoritative relational state, durable conversations, transactional outbox, and forced tenant RLS |
+| Redis | Cache, browser-session revocation, rate limits, locks, and short-lived/checkpoint state |
+| RabbitMQ + Celery | Brokered asynchronous work with separate tenant and maintenance worker roles |
+| Qdrant | Tenant-filtered knowledge and derived memory vector indexes |
+| LangGraph | Agent workflow implementation behind the Conversation Runtime boundary |
+| React 19 | Customer and administration frontends |
+| OpenTelemetry stack | Correlated tracing, metrics, logs, dashboards, and local alerting support |
 
-## 为什么是“原生 AI”
+The application remains a modular monolith. The API, tenant worker, maintenance worker,
+scheduler, and outbox relay are independently operable runtime roles, not separate business
+microservices.
 
-- **Agent 是业务执行层**：订单、商品、购物车、支付、物流、账户、政策和投诉由专职 Agent 与工具协同处理。
-- **工作流可控**：LangGraph 负责路由、并行多意图、结果合成、置信度评估与失败收敛，不把关键流程藏在单次 Prompt 中。
-- **知识与记忆分层**：PostgreSQL 保存结构化业务数据与用户事实，Qdrant 承载 Dense + Sparse 混合检索，Redis 管理缓存、会话态与检查点。
-- **安全默认开启**：租户隔离、PII 过滤、内容审核、风险分级、确认机制和人工审核共同约束模型行为。
-- **质量可以度量**：离线评估、对抗测试、影子测试、用户反馈、Token 成本和 OpenTelemetry 链路形成持续改进闭环。
+## Architecture Layers
 
-## 核心能力
+- **Conversation Runtime** owns PostgreSQL-authoritative conversations, turns, runs, ordered
+  events, idempotency, cancellation, recovery, and the executor boundary. LangGraph remains an
+  internal implementation detail.
+- **Model Gateway** exposes provider-neutral requests, responses, streaming, capabilities, and
+  configured use-case routes. T13 performs one bounded selected-provider attempt; automatic
+  retry, fallback, circuit breaking, and degraded-answer policy remain T14 work.
+- **Provider adapters** isolate OpenAI, DashScope, and deterministic Mock behavior from agents and
+  application services. Ordinary tests use mocks or fake transports.
+- **Async infrastructure** persists critical task intent through PostgreSQL and the transactional
+  outbox before RabbitMQ/Celery delivery. Task envelopes carry trusted tenant, user,
+  correlation, trace, and idempotency context.
+- **Tenant and security boundaries** combine explicit tenant resolution, ORM filtering,
+  PostgreSQL RLS, least-privilege database roles, current-state authorization, HttpOnly browser
+  sessions, CSRF/origin checks, and lifecycle-oriented compliance controls.
 
-| 能力域 | 实现 |
-| --- | --- |
-| Agent 编排 | LangGraph Supervisor、意图路由、串并行多 Agent、结果评估与合成 |
-| 企业知识 | Qdrant 混合检索、BM25 稀疏向量、Dense Embedding、重排、引用元数据 |
-| 业务工具 | 订单、商品、购物车、支付、物流、账户、投诉等异步工具与适配器 |
-| 会话与记忆 | PostgreSQL 持久化、Redis Checkpoint、结构化记忆、向量记忆、摘要与压缩 |
-| 风险治理 | 置信度、PII 过滤、四层内容安全、人工审核、SLA 与告警 |
-| 运营后台 | 知识库、Agent 配置、反馈、分析、评估、告警与审核工作台 |
-| 可观测性 | OpenTelemetry、Prometheus、Grafana、Loki、Tempo、结构化日志 |
-| 工程质量 | Ruff、ty、pytest、Vitest、Playwright、Docker Smoke、分层 GitHub Actions |
+See the [architecture decisions](docs/engineering/DECISIONS.md) and
+[architecture guardrails](docs/architecture/ARCHITECTURE_GUARDRAILS.md) for the accepted baseline.
 
-## 系统架构
+## Quick Start with Docker
 
-```mermaid
-flowchart LR
-    U[客户服务台] --> API[FastAPI / SSE / WebSocket]
-    O[运营管理中心] --> API
-    API --> I[意图识别与上下文解析]
-    I --> G[LangGraph Supervisor]
-    G --> A[领域 Agent 集群]
-    A --> T[业务工具与适配器]
-    A --> R[Hybrid RAG]
-    G --> E[评估、安全与转人工]
-    T --> P[(PostgreSQL)]
-    R --> Q[(Qdrant)]
-    G --> C[(Redis Checkpoint)]
-    API --> M[OTel / Prometheus / Loki]
-```
-
-更完整的节点职责、数据流和部署边界见[架构文档](docs/explanation/architecture/README.md)。
-
-## 快速开始
-
-### 环境要求
-
-- Docker Engine 与 Docker Compose
-- 至少一个可用的模型 API Key（OpenAI 兼容接口或 DashScope）
-- 本地开发时使用 Python 3.12+、uv、Node.js 22+
-
-### Docker 一键启动
+Requirements: Docker Engine, Docker Compose, and credentials for the configured model route.
 
 ```bash
 git clone https://github.com/netking250/star-warehouse-ai.git
 cd star-warehouse-ai
 cp .env.example .env
-# 编辑 .env，至少设置模型 API Key、数据库密码和 SECRET_KEY
+# Replace local placeholders and configure the selected model provider.
 ./start_docker.sh
 ```
 
-启动后访问：
+`start_docker.sh` is the canonical full-stack startup path. It starts PostgreSQL, Redis,
+RabbitMQ, and Qdrant; applies Alembic migrations; provisions database roles; initializes bundled
+vector data when required; and recreates the application runtime containers.
 
-- 客户服务台：<http://localhost:8000/app>
-- 运营管理中心：<http://localhost:8000/admin>
-- 健康检查：<http://localhost:8000/health>
-- OpenAPI：<http://localhost:8000/docs>（需启用 `ENABLE_OPENAPI_DOCS`）
+Local endpoints:
 
-### 本地开发
+- Customer UI: <http://localhost:8000/app>
+- Admin UI: <http://localhost:8000/admin>
+- Health: <http://localhost:8000/health>
+- OpenAPI: <http://localhost:8000/docs> when `ENABLE_OPENAPI_DOCS=True`
+- RabbitMQ management: <http://localhost:15672>
+
+Infrastructure host ports are loopback-only. Docker Compose is the local deployment profile, not
+the production reference topology.
+
+## Local Development
+
+Install dependencies:
 
 ```bash
-# 后端
 uv sync --frozen
-uv run alembic upgrade head
-uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-
-# 前端
-cd frontend
-npm ci
-npm run dev
+cd frontend && npm ci && cd ..
+cp .env.example .env
 ```
 
-完整环境说明见[快速开始](docs/tutorials/quickstart.md)与[本地开发](docs/tutorials/local-development.md)。
+Start dependencies and initialize PostgreSQL:
 
-## 验证与质量门禁
+```bash
+docker compose up -d --wait db redis rabbitmq qdrant
+uv run alembic upgrade head
+uv run python -m app.core.database_roles
+```
+
+Run roles in separate terminals as needed:
+
+```bash
+# API
+uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+# Tenant worker
+./start_worker.sh
+
+# Maintenance worker, with POSTGRES_MAINTENANCE_* credentials
+DB_CAPABILITY=maintenance uv run celery -A app.celery_app worker --loglevel=info --queues=maintenance
+
+# Scheduler
+uv run celery -A app.celery_app beat --loglevel=info
+
+# Transactional outbox relay
+uv run python -m app.outbox
+
+# Frontend development server
+cd frontend && npm run dev
+```
+
+The frontend development server runs at <http://localhost:5173>. The
+[local development guide](docs/tutorials/local-development.md) covers the complete workflow.
+
+## Tests
+
+Canonical backend checks:
 
 ```bash
 uv run ruff check app tests
 uv run ruff format --check app tests
 uv run ty check --error-on-warning app tests
 uv run pytest --cov=app --cov-fail-under=75
+```
 
+Canonical frontend checks:
+
+```bash
 cd frontend
 npm run format:check
 npm run lint
@@ -120,35 +147,64 @@ npm run build
 npm run test:e2e
 ```
 
-主 CI 对品牌与文档、后端静态质量、后端测试、前端测试/E2E、Docker 启动进行分层验证。评估、性能和监控配置验证使用独立工作流。
+Ordinary backend tests are hermetic with respect to public model providers: they use the Mock
+adapter or fake transports and do not require real OpenAI or DashScope calls. Real-provider tests
+are marked `requires_llm` and run only when valid credentials are present **and**
+`RUN_REAL_LLM_TESTS=1` is explicitly set.
 
-## 项目结构
+The backend suite also enforces a `test_` PostgreSQL database, Redis DB 15, process-scoped Qdrant
+collections, and in-memory Celery transports by default. Real RabbitMQ integration tests require
+a dedicated vhost whose name starts with `test_`.
+
+## Environment
+
+Copy [.env.example](.env.example) to `.env` and replace its local placeholders. Never commit
+`.env` or real credentials. Application settings are loaded only through `app/core/config.py`.
+
+Migration/role provisioning uses `POSTGRES_*`; tenant runtimes use `POSTGRES_RUNTIME_*`; the
+outbox and scheduled maintenance roles use separate `POSTGRES_MAINTENANCE_*` credentials.
+RabbitMQ is the Celery broker; Redis may remain the result backend but is not the broker.
+
+The [environment reference](docs/reference/environment-variables.md) identifies application,
+Compose, test, monitoring, and frontend ownership.
+
+## Repository Structure
 
 ```text
-app/                    FastAPI、LangGraph、Agent、工具、检索、记忆与治理
-frontend/               React 客户服务台与运营管理中心
-tests/                  后端单元、集成、评估、安全与性能测试
-docs/                   Diátaxis 文档中心
-migrations/             Alembic 数据库迁移
-prometheus/ grafana/    指标、告警与可视化配置
-scripts/                数据初始化、ETL 与运维工具
+app/                    FastAPI backend, agents, runtime, gateway, services, and workers
+frontend/               React customer and administration applications
+tests/                  Backend unit, integration, evaluation, safety, and runtime tests
+migrations/             Immutable Alembic revision history
+deploy/                 Deployment reference assets and local identity-provider profile
+scripts/                Seed, evaluation, monitoring, smoke, and maintenance utilities
+docs/                   Architecture, engineering state, guides, references, and runbooks
+data/                    Bundled policy, product, and evaluation seed data
+docker-compose.yaml     Canonical local application stack
 ```
 
-## 文档导航
+Optional monitoring uses `docker-compose.monitoring.yml` and the Prometheus, Grafana,
+Alertmanager, Loki, Promtail, Tempo, OpenTelemetry Collector, and Mimir configuration directories.
 
-- [文档中心](docs/README.md)
-- [系统架构](docs/explanation/architecture/README.md)
-- [环境变量](docs/reference/environment-variables.md)
-- [API 参考](docs/reference/api.md)
-- [部署指南](docs/how-to-guides/deploy.md)
-- [故障排查](docs/how-to-guides/troubleshoot.md)
-- [v5 品牌迁移指南](docs/how-to-guides/migrate-to-v5.md)
-- [版本记录](CHANGELOG.md)
+## Project Status
 
-## v5 兼容策略
+- Current release: `5.0.0`.
+- Enterprise-hardening milestones T-INIT through T13 are externally accepted `PASS`.
+- T13 delivers the Dynamic Model Gateway with OpenAI, DashScope, and Mock adapters.
+- T14 (AI Failure Policy) is `NOT_STARTED`; automatic provider fallback is not claimed.
 
-v5 不更改现有 REST 路径或数据库表结构。已知旧版 `PROJECT_NAME` 会在加载时规范化为“星仓 AI 智能客服”；Grafana 在整个 v5 生命周期内同时读取新旧服务标签，确保历史监控连续。新产生的运行时标识、日志、追踪和告警统一使用 `star-warehouse-ai`。
+Detailed milestone evidence remains in the engineering state documents rather than this project
+introduction.
 
-## 参与贡献
+## Documentation
 
-提交前请阅读 [AGENTS.md](AGENTS.md) 中的工程约束，并使用 Conventional Commits。架构、工作流或依赖边界发生变化时，需要同步更新对应的 `AGENTS.md` 与文档。
+- [Documentation center](docs/README.md)
+- [Current project state](docs/engineering/PROJECT_STATE.md)
+- [Enterprise-hardening roadmap](docs/engineering/ROADMAP.md)
+- [Accepted architecture decisions](docs/engineering/DECISIONS.md)
+- [Architecture explanations](docs/explanation/architecture/README.md)
+- [Local development guide](docs/tutorials/local-development.md)
+- [Deployment guide](docs/how-to-guides/deploy.md)
+- [Environment reference](docs/reference/environment-variables.md)
+- [Operations runbooks](docs/runbooks/README.md)
+
+Contributors and coding agents should read [AGENTS.md](AGENTS.md) before changing the repository.

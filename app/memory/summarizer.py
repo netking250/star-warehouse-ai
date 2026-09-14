@@ -3,13 +3,14 @@ import logging
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
-from sqlmodel import select
+from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
-from app.core.llm_factory import create_llm
 from app.core.tracing import build_llm_config
+from app.memory.consistency import build_memory_vector_task_context
 from app.memory.structured_manager import StructuredMemoryManager
+from app.model_gateway.factory import create_model_client
 from app.models.memory import InteractionSummary
 from app.models.state import AgentState
 
@@ -20,7 +21,7 @@ class SessionSummarizer:
     """Summarizes conversation threads and persists interaction summaries."""
 
     def __init__(self, llm: BaseChatModel | None = None):
-        self.llm = llm or create_llm()
+        self.llm = llm or create_model_client("summarization")
         self.memory_manager = StructuredMemoryManager()
 
     def should_summarize(
@@ -79,7 +80,6 @@ class SessionSummarizer:
         self,
         state: AgentState,
         session: AsyncSession,
-        vector_manager=None,
         utilization: float | None = None,
         threshold: float | None = None,
     ) -> InteractionSummary | None:
@@ -94,14 +94,19 @@ class SessionSummarizer:
 
         user_id = state.get("user_id")
         thread_id = state.get("thread_id")
+        tenant_id = state.get("tenant_id")
+        correlation_id = state.get("correlation_id")
         resolved_intent = state.get("current_intent")
 
-        if user_id is None or thread_id is None:
-            logger.warning("Missing user_id or thread_id in state; cannot persist summary.")
+        if user_id is None or thread_id is None or tenant_id is None or correlation_id is None:
+            logger.warning("Missing explicit memory command context; cannot persist summary.")
             return None
 
         existing = await session.exec(
-            select(InteractionSummary).where(InteractionSummary.thread_id == thread_id)
+            select(InteractionSummary).where(
+                InteractionSummary.thread_id == thread_id,
+                col(InteractionSummary.is_deleted).is_(False),
+            )
         )
         if existing.one_or_none():
             logger.info("Summary already exists for thread_id=%s; skipping.", thread_id)
@@ -109,37 +114,31 @@ class SessionSummarizer:
 
         summary_text = await self.summarize_thread(history)
 
-        record = await self.memory_manager.save_interaction_summary(
-            session=session,
+        task_context = build_memory_vector_task_context(
+            tenant_id=tenant_id,
             user_id=user_id,
             thread_id=thread_id,
-            summary=summary_text,
-            resolved_intent=resolved_intent,
+            correlation_id=correlation_id,
+            trace_id=state.get("trace_id"),
+            operation_id=f"summary:{thread_id}:v1:upsert",
         )
+        try:
+            record = await self.memory_manager.save_interaction_summary(
+                session=session,
+                task_context=task_context,
+                user_id=user_id,
+                thread_id=thread_id,
+                summary=summary_text,
+                resolved_intent=resolved_intent,
+            )
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
         logger.info(
-            "Saved interaction summary for user_id=%s thread_id=%s",
-            user_id,
+            "Committed interaction summary and vector intent for memory_id=%s thread_id=%s",
+            record.id,
             thread_id,
         )
-
-        if vector_manager is not None:
-            try:
-                from app.core.utils import utc_now
-
-                await vector_manager.upsert_message(
-                    user_id=user_id,
-                    thread_id=thread_id,
-                    message_role="summary",
-                    content=summary_text,
-                    timestamp=utc_now().isoformat(),
-                    intent=resolved_intent,
-                )
-                logger.info(
-                    "Upserted summary vector for user_id=%s thread_id=%s",
-                    user_id,
-                    thread_id,
-                )
-            except (RuntimeError, OSError, ConnectionError):
-                logger.exception("Failed to upsert summary vector")
 
         return record

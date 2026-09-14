@@ -60,6 +60,8 @@ General Python rules are defined in the root `AGENTS.md`. Intent-specific conven
 - **Parallel dispatch**: `are_independent()` returning `True` causes `@app/graph/parallel.py` to construct `Send` nodes for parallel execution.
 - **State model writes**: Intent and slot results are explicitly written to `AgentState.intent_result` / `AgentState.slots`.
 - **Safety first**: `safety.py` executes before any LLM call to intercept violations.
+- **Model route**: Intent construction uses the configured `intent` route and provider-neutral tool
+  choice. Do not branch on provider URL or concrete model name in classifier code.
 
 ## Anti-Patterns
 

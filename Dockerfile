@@ -24,13 +24,10 @@ RUN uv sync --frozen --no-dev
 
 # Copy application code
 COPY app/ ./app/
-COPY celery_worker.py ./
 COPY alembic.ini ./
 COPY migrations/ ./migrations/
 COPY data/ ./data/
 COPY scripts/ ./scripts/
-COPY start.sh ./
-COPY start_worker.sh ./
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
 RUN chown -R appuser:appgroup /app
@@ -40,5 +37,5 @@ USER appuser
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH=/app
 
-# Default command (overridden by docker-compose)
+# Default command (overridden by Docker Compose services)
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

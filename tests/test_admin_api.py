@@ -13,16 +13,26 @@ from app.models.observability import GraphExecutionLog
 from app.models.order import Order, OrderStatus
 from app.models.refund import RefundApplication, RefundStatus
 from app.models.user import User
+from app.task_runtime.context import build_task_context
+from app.task_runtime.envelope import TaskEnvelope
 from app.tasks.refund_tasks import process_refund_payment
 
 
-@pytest.fixture(autouse=True)
-def _mock_dispatched_admin_tasks(monkeypatch):
-    """Keep API assertions deterministic while testing task bodies separately."""
-    monkeypatch.setattr(
-        "app.services.admin_service.process_refund_payment.delay", lambda **kwargs: None
+def _refund_envelope(refund_id: int, amount: float) -> dict[str, object]:
+    context = build_task_context(
+        task_name="tests.admin.refund",
+        tenant_id="default",
+        user_id=1,
+        correlation_id=f"admin-refund:{refund_id}",
     )
-    monkeypatch.setattr("app.services.admin_service.send_refund_sms.delay", lambda **kwargs: None)
+    return TaskEnvelope(
+        task_context=context,
+        payload={
+            "refund_id": refund_id,
+            "amount": amount,
+            "payment_method": "原支付方式",
+        },
+    ).to_message()
 
 
 async def create_admin_user() -> tuple[User, str]:
@@ -170,7 +180,7 @@ async def test_get_admin_tasks_rejects_non_admin_token(client):
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 403
-    assert "Admin privileges required" in response.json()["detail"]
+    assert response.json()["detail"] == "Access is not permitted"
 
 
 @pytest.mark.asyncio
@@ -247,10 +257,9 @@ async def test_admin_decision_approve_updates_all_records(client):
         assert message.content["action"] == "APPROVE"
 
     with sync_session_maker() as session:
+        assert refund.id is not None
         process_refund_payment.run(
-            refund_id=refund.id,
-            amount=float(refund.refund_amount),
-            payment_method="原支付方式",
+            envelope=_refund_envelope(refund.id, float(refund.refund_amount)),
             session=session,
         )
 
@@ -341,7 +350,7 @@ async def test_admin_decision_rejects_non_admin_token(client):
         json={"action": "APPROVE"},
     )
     assert response.status_code == 403
-    assert "Admin privileges required" in response.json()["detail"]
+    assert response.json()["detail"] == "Access is not permitted"
 
 
 @pytest.mark.asyncio

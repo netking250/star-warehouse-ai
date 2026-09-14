@@ -10,8 +10,10 @@
 | **SQLModel** | 基于 Pydantic 和 SQLAlchemy 的 ORM |
 | **PostgreSQL** | 结构化数据存储（订单、用户、退款、记忆等） |
 | **Qdrant** | 向量数据库，混合 RAG 检索（Dense + BM25 Sparse + Rerank） |
-| **Redis** | 缓存、Celery Broker、LangGraph Checkpointer |
+| **Redis** | 缓存、会话/撤销、限流、锁、LangGraph Checkpointer、可选 Celery result backend |
+| **RabbitMQ** | Celery 任务 broker 与 dead-letter queue |
 | **Celery** | 异步任务队列（退款、短信、ETL、记忆抽取、告警） |
+| **Transactional Outbox** | PostgreSQL 事务后的可靠任务发布边界 |
 | **uv** | 现代化 Python 包管理器 |
 | **JWT (PyJWT)** | 用户认证与授权 |
 | **bcrypt** | 密码哈希 |

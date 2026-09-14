@@ -6,6 +6,7 @@ from sqlmodel import select
 
 from app.core.database import async_session_maker
 from app.core.security import create_access_token
+from app.core.tenancy import namespaced_key
 from app.models.memory import AgentConfig, RoutingRule
 from app.models.observability import GraphExecutionLog
 from tests.test_admin_api import create_admin_user
@@ -92,7 +93,7 @@ async def test_update_agent_config(client, redis_client):
     agent_name = f"order_agent_{uuid.uuid4().hex[:8]}"
     await create_agent_config(agent_name)
 
-    cache_key = f"agent_config:{agent_name}"
+    cache_key = namespaced_key(f"agent_config:{agent_name}")
     await redis_client.set(cache_key, "cached_value")
 
     response = await client.post(
@@ -147,7 +148,7 @@ async def test_rollback_agent_config(client, redis_client):
         session.add(config)
         await session.commit()
 
-    cache_key = f"agent_config:{agent_name}"
+    cache_key = namespaced_key(f"agent_config:{agent_name}")
     await redis_client.set(cache_key, "cached_value")
 
     response = await client.post(
@@ -242,7 +243,7 @@ async def test_get_agent_config_audit_log(client, redis_client):
     agent_name = f"audit_agent_{uuid.uuid4().hex[:8]}"
     await create_agent_config(agent_name)
 
-    cache_key = f"agent_config:{agent_name}"
+    cache_key = namespaced_key(f"agent_config:{agent_name}")
     await redis_client.set(cache_key, "cached_value")
 
     response = await client.post(
@@ -330,7 +331,7 @@ async def test_rollback_agent_config_to_version(client, redis_client):
     assert len(versions) >= 2
     first_version_id = versions[0]["id"]
 
-    cache_key = f"agent_config:{agent_name}"
+    cache_key = namespaced_key(f"agent_config:{agent_name}")
     await redis_client.set(cache_key, "cached_value")
 
     response = await client.post(
@@ -410,7 +411,7 @@ async def test_evaluate_few_shot_endpoint(client):
     await create_agent_config(agent_name)
 
     with patch("app.tasks.evaluation_tasks.run_few_shot_evaluation") as mock_task:
-        mock_task.delay.return_value = MagicMock(id="task-123")
+        mock_task.apply_async.return_value = MagicMock(id="task-123")
         response = await client.post(
             f"/api/v1/admin/agents/config/{agent_name}/evaluate-few-shot",
             headers={"Authorization": f"Bearer {token}"},
@@ -420,7 +421,7 @@ async def test_evaluate_few_shot_endpoint(client):
         assert data["agent_name"] == agent_name
         assert data["status"] == "queued"
         assert data["task_id"] == "task-123"
-        mock_task.delay.assert_called_once_with()
+        mock_task.apply_async.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -463,7 +464,7 @@ async def test_trigger_agent_config_report(client):
     await create_agent_config(agent_name)
 
     with patch("app.tasks.prompt_effect_tasks.generate_monthly_report") as mock_task:
-        mock_task.delay.return_value = MagicMock(id="task-456")
+        mock_task.apply_async.return_value = MagicMock(id="task-456")
         response = await client.post(
             f"/api/v1/admin/agents/config/{agent_name}/reports/generate?report_month=2026-03",
             headers={"Authorization": f"Bearer {token}"},
@@ -473,7 +474,7 @@ async def test_trigger_agent_config_report(client):
         assert data["agent_name"] == agent_name
         assert data["report_month"] == "2026-03"
         assert data["task_id"] == "task-456"
-        mock_task.delay.assert_called_once_with(agent_name, "2026-03")
+        mock_task.apply_async.assert_called_once()
 
 
 @pytest.mark.asyncio

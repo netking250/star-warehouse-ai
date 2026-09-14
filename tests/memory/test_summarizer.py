@@ -1,14 +1,25 @@
 import uuid
 
 import pytest
+from sqlmodel import select
 
+from app.core.tenancy import tenant_scope
 from app.memory.summarizer import SessionSummarizer
+from app.models.outbox import OutboxEvent
 from app.models.state import make_agent_state
+
+_TEST_TENANT = "tenant-memory-summarizer"
 
 
 @pytest.fixture
 def summarizer(deterministic_llm):
     return SessionSummarizer(llm=deterministic_llm)
+
+
+@pytest.fixture(autouse=True)
+def _explicit_memory_tenant():
+    with tenant_scope(_TEST_TENANT):
+        yield
 
 
 async def _create_test_user(session):
@@ -71,6 +82,8 @@ async def test_run_persists_summary(summarizer, deterministic_llm, db_session):
             question="how long is shipping",
             user_id=user.id,
             thread_id=thread_id,
+            tenant_id=_TEST_TENANT,
+            correlation_id=f"corr-{uuid.uuid4().hex}",
             history=[{"role": "user", "content": "how long"}] * 21,
         )
     )
@@ -83,6 +96,10 @@ async def test_run_persists_summary(summarizer, deterministic_llm, db_session):
     assert record.thread_id == thread_id
     assert record.summary_text == "Shipping takes 3 days."
     assert record.resolved_intent == "LOGISTICS"
+    event = (
+        await db_session.exec(select(OutboxEvent).where(OutboxEvent.aggregate_id == str(record.id)))
+    ).one()
+    assert event.task_name == "memory.sync_vector"
 
 
 @pytest.mark.asyncio
@@ -95,6 +112,8 @@ async def test_run_summarizes_short_thread_on_natural_end(
         question="q",
         user_id=user.id,
         thread_id=thread_id,
+        tenant_id=_TEST_TENANT,
+        correlation_id=f"corr-{uuid.uuid4().hex}",
         history=[
             {"role": "user", "content": "hi"},
             {"role": "assistant", "content": "hello"},
@@ -167,6 +186,8 @@ async def test_run_skips_when_summary_already_exists(summarizer, deterministic_l
         question="q",
         user_id=user.id,
         thread_id=thread_id,
+        tenant_id=_TEST_TENANT,
+        correlation_id=f"corr-{uuid.uuid4().hex}",
         history=[{"role": "user", "content": "hi"}] * 21,
     )
     deterministic_llm.responses = [("Conversation messages:", "Summary.")]
@@ -187,6 +208,8 @@ async def test_run_persists_summary_via_utilization(summarizer, deterministic_ll
         question="q",
         user_id=user.id,
         thread_id=thread_id,
+        tenant_id=_TEST_TENANT,
+        correlation_id=f"corr-{uuid.uuid4().hex}",
         history=[{"role": "user", "content": "hi"}],
     )
     deterministic_llm.responses = [("Conversation messages:", "Utilization summary.")]

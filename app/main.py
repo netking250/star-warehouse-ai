@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from opentelemetry import trace
 from prometheus_client import make_asgi_app
@@ -18,15 +18,22 @@ from slowapi.middleware import SlowAPIMiddleware
 from app.api.v1.admin import router as admin_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.chat import router as chat_router
+from app.api.v1.conversation import router as conversation_router
 from app.api.v1.status import router as status_router
 from app.api.v1.web_vitals import router as web_vitals_router
 from app.api.v1.websocket import router as websocket_router
+from app.authorization.route_inventory import assert_routes_classified
 from app.core.branding import APP_VERSION, HEALTH_VERSION, PRODUCT_NAME_EN
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.logging import generate_correlation_id, set_correlation_id
 from app.core.structured_logging import configure_logging
-from app.core.tenancy import reset_current_tenant_id, set_current_tenant_id
+from app.core.tenancy import (
+    TenantAccessError,
+    TenantContextMissingError,
+    clear_current_tenant,
+    reset_current_tenant,
+)
 from app.core.tracing import is_langsmith_tracing_enabled
 from app.observability.otel_setup import instrument_fastapi, setup_otel_tracing
 from app.websocket.manager import get_manager
@@ -37,6 +44,7 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    assert_routes_classified(app)
     _setup_logging()
     _setup_langsmith_tracing()
     logger.info("Starting %s v%s", PRODUCT_NAME_EN, APP_VERSION)
@@ -64,13 +72,13 @@ async def lifespan(app: FastAPI):
     from app.agents.supervisor import SupervisorAgent
     from app.core.cache import CacheManager
     from app.core.database import async_engine
-    from app.core.llm_factory import create_openai_llm
     from app.core.redis import create_redis_client
     from app.graph.checkpointer import OptimizedRedisCheckpoint
     from app.graph.workflow import compile_app_graph
     from app.intent.service import IntentRecognitionService
     from app.memory.structured_manager import StructuredMemoryManager
     from app.memory.vector_manager import VectorMemoryManager
+    from app.model_gateway.factory import create_model_client, get_model_gateway
     from app.retrieval import create_retriever
     from app.services.order_service import OrderService
     from app.tools import (
@@ -89,11 +97,13 @@ async def lifespan(app: FastAPI):
         await checkpointer.setup()
         app.state.checkpointer = checkpointer
 
-        llm = create_openai_llm()
-        eval_llm = create_openai_llm(model=settings.CONFIDENCE.EVALUATION_MODEL)
+        model_gateway = get_model_gateway()
+        llm = create_model_client("default_chat", gateway=model_gateway)
+        intent_llm = create_model_client("intent", gateway=model_gateway)
+        eval_llm = create_model_client("evaluation", gateway=model_gateway)
         cache_manager = CacheManager(redis_client)
         intent_service = IntentRecognitionService(
-            llm=llm, redis_client=redis_client, cache_manager=cache_manager
+            llm=intent_llm, redis_client=redis_client, cache_manager=cache_manager
         )
         structured_manager = StructuredMemoryManager(cache_manager=cache_manager)
         router_agent = IntentRouterAgent(
@@ -165,6 +175,7 @@ async def lifespan(app: FastAPI):
 
         app.state.intent_service = intent_service
         app.state.llm = llm
+        app.state.model_gateway = model_gateway
         app.state.vector_manager = vector_manager
         app.state.redis_client = redis_client
         app.state.cache_manager = cache_manager
@@ -194,13 +205,6 @@ async def lifespan(app: FastAPI):
         )
         logger.info(" Infrastructure is ready.")
 
-        try:
-            logger.info("Warming up LLM...")
-            await llm.ainvoke([{"role": "user", "content": "Hello"}])
-            logger.info("LLM warm-up complete.")
-        except (TimeoutError, OSError):
-            logger.warning("LLM warm-up failed, will warm up on first request")
-
         yield
     finally:
         logger.info("Shutting down...")
@@ -221,6 +225,9 @@ async def lifespan(app: FastAPI):
         with contextlib.suppress(NameError):
             if vector_manager is not None:
                 await vector_manager.aclose()
+        with contextlib.suppress(NameError):
+            if model_gateway is not None:
+                await model_gateway.aclose()
         with contextlib.suppress(NameError):
             if adapters is not None:
                 await adapters.aclose()
@@ -279,14 +286,25 @@ def _rate_limit_handler(request: Request, exc: Exception) -> Response:
 app.add_exception_handler(RateLimitExceeded, _rate_limit_handler)
 
 
+def _tenant_access_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Map fail-closed tenant resolution errors without exposing tenant data."""
+    if not isinstance(exc, TenantAccessError):
+        raise TypeError(f"Unexpected exception type: {type(exc).__name__}")
+    status_code = 400 if isinstance(exc, TenantContextMissingError) else 403
+    return JSONResponse(status_code=status_code, content={"detail": exc.code})
+
+
+app.add_exception_handler(TenantAccessError, _tenant_access_handler)
+
+
 @app.middleware("http")
 async def tenant_context_middleware(request: Request, call_next):
-    """Start every request in the default tenant and prevent context leakage."""
-    token = set_current_tenant_id("default")
+    """Start every request unbound and prevent tenant-context leakage."""
+    token = clear_current_tenant()
     try:
         return await call_next(request)
     finally:
-        reset_current_tenant_id(token)
+        reset_current_tenant(token)
 
 
 @app.middleware("http")
@@ -303,8 +321,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Accept", "Authorization", "Content-Type", "X-Correlation-ID", "X-CSRF-Token"],
 )
 
 
@@ -326,6 +344,7 @@ app.add_middleware(SlowAPIMiddleware)
 # 3. 注册路由
 app.include_router(auth_router, prefix=settings.API_V1_STR, tags=["Auth"])  # v4.0 新增
 app.include_router(chat_router, prefix=settings.API_V1_STR, tags=["Chat"])
+app.include_router(conversation_router, prefix=settings.API_V1_STR, tags=["Conversation Runtime"])
 app.include_router(status_router, prefix=settings.API_V1_STR, tags=["Status"])
 app.include_router(web_vitals_router, prefix=settings.API_V1_STR, tags=["Metrics"])
 app.include_router(admin_router, prefix=settings.API_V1_STR, tags=["Admin"])
@@ -445,3 +464,6 @@ async def health_check():
         health_status["status"] = "degraded"
 
     return health_status
+
+
+assert_routes_classified(app)

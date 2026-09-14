@@ -11,7 +11,8 @@
 | FastAPI | 8000 | 主后端 API |
 | Vite (dev) | 5173 | 前端开发服务器 |
 | PostgreSQL | 5432 | 主数据库 |
-| Redis | 6379 | 缓存、Celery Broker、LangGraph Checkpoint |
+| Redis | 6379 | 缓存、会话/限流/锁、LangGraph Checkpoint、可选结果后端 |
+| RabbitMQ | 5672 / 15672 | Celery Broker / 本地管理界面 |
 | Qdrant | 6333 | 向量数据库 |
 | Celery Worker | - | 异步任务执行 |
 
@@ -46,7 +47,7 @@ uv run celery -A app.celery_app inspect ping
 
 ## 日志排查
 
-- 后端日志级别由 `LOG_LEVEL` 控制（默认 `INFO`）
+- 日志输出格式由 `LOG_FORMAT` 控制（本地默认 `text`）
 - OpenTelemetry trace 可通过 `OTEL_EXPORTER_OTLP_ENDPOINT` 导出到 Jaeger / Tempo
 - Celery 任务失败日志包含任务名与重试次数，定位到 `app/tasks/` 对应模块
 
@@ -58,7 +59,7 @@ uv run celery -A app.celery_app inspect ping
 - 查看管理员/用户连接日志中的 `RuntimeError` 提示
 
 ### 数据库连接池耗尽
-- 增加 `SQLALCHEMY_POOL_SIZE`（默认 10）
+- 调整 `DB_POOL_SIZE` 和 `DB_MAX_OVERFLOW`
 - 检查是否存在长时间未提交的事务
 
 ### 检索结果为空
@@ -68,6 +69,7 @@ uv run celery -A app.celery_app inspect ping
 
 ### Celery 任务堆积
 - 增加 worker 并发数：`--concurrency=8`
+- 检查 RabbitMQ queue depth 和 consumer 状态
 - 检查是否有阻塞任务（如 LLM 调用超时）
 - 查看 Flower（如部署）监控队列深度
 
