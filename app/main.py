@@ -355,6 +355,24 @@ app.mount("/metrics", make_asgi_app())
 # 3. 静态文件托管
 frontend_dist_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
 
+
+def _frontend_unavailable() -> JSONResponse:
+    """Return an explicit response when the optional frontend build is absent."""
+    return JSONResponse(
+        status_code=503,
+        content={
+            "detail": ("Frontend assets are unavailable; build the frontend before serving the UI.")
+        },
+    )
+
+
+def _frontend_file(path: str) -> Response:
+    """Serve a frontend file or fail explicitly when the build is unavailable."""
+    if os.path.isfile(path):
+        return FileResponse(path)
+    return _frontend_unavailable()
+
+
 if os.path.exists(frontend_dist_path):
     app.mount(
         "/customer",
@@ -372,43 +390,59 @@ if os.path.exists(frontend_dist_path):
         name="root_assets",
     )
 
-    @app.get("/app")
-    @app.get("/app/{full_path:path}")
-    async def serve_customer_spa(full_path: str = ""):
-        base_dir = os.path.realpath(os.path.join(frontend_dist_path, "customer"))
-        file_path = os.path.realpath(os.path.join(base_dir, full_path))
-        if file_path.startswith(base_dir) and os.path.isfile(file_path):
-            return FileResponse(file_path)
-        return FileResponse(os.path.join(frontend_dist_path, "index.html"))
 
-    @app.get("/admin")
-    @app.get("/admin/{full_path:path}")
-    async def serve_admin_spa(full_path: str = ""):
-        base_dir = os.path.realpath(os.path.join(frontend_dist_path, "admin"))
-        file_path = os.path.realpath(os.path.join(base_dir, full_path))
-        if file_path.startswith(base_dir) and os.path.isfile(file_path):
-            return FileResponse(file_path)
-        return FileResponse(os.path.join(frontend_dist_path, "admin.html"))
+@app.get("/app")
+@app.get("/app/{full_path:path}")
+async def serve_customer_spa(full_path: str = "") -> Response:
+    """Serve the customer SPA, or report that frontend assets are unavailable."""
+    base_dir = os.path.realpath(os.path.join(frontend_dist_path, "customer"))
+    file_path = os.path.realpath(os.path.join(base_dir, full_path))
+    if file_path.startswith(base_dir) and os.path.isfile(file_path):
+        return FileResponse(file_path)
+    return _frontend_file(os.path.join(frontend_dist_path, "index.html"))
 
-    @app.get("/favicon.svg")
-    async def serve_favicon():
-        return FileResponse(os.path.join(frontend_dist_path, "favicon.svg"))
 
-    @app.get("/icons.svg")
-    async def serve_icons():
-        return FileResponse(os.path.join(frontend_dist_path, "icons.svg"))
+@app.get("/admin")
+@app.get("/admin/{full_path:path}")
+async def serve_admin_spa(full_path: str = "") -> Response:
+    """Serve the administration SPA, or report that frontend assets are unavailable."""
+    base_dir = os.path.realpath(os.path.join(frontend_dist_path, "admin"))
+    file_path = os.path.realpath(os.path.join(base_dir, full_path))
+    if file_path.startswith(base_dir) and os.path.isfile(file_path):
+        return FileResponse(file_path)
+    return _frontend_file(os.path.join(frontend_dist_path, "admin.html"))
 
-    @app.get("/index.html")
-    async def serve_index_html():
-        return FileResponse(os.path.join(frontend_dist_path, "index.html"))
 
-    @app.get("/admin.html")
-    async def serve_admin_html():
-        return FileResponse(os.path.join(frontend_dist_path, "admin.html"))
+@app.get("/favicon.svg")
+async def serve_favicon() -> Response:
+    """Serve the shared favicon, or report that frontend assets are unavailable."""
+    return _frontend_file(os.path.join(frontend_dist_path, "favicon.svg"))
 
-    @app.get("/")
-    async def root():
+
+@app.get("/icons.svg")
+async def serve_icons() -> Response:
+    """Serve the shared icon sprite, or report that frontend assets are unavailable."""
+    return _frontend_file(os.path.join(frontend_dist_path, "icons.svg"))
+
+
+@app.get("/index.html")
+async def serve_index_html() -> Response:
+    """Serve the customer entry document, or report that frontend assets are unavailable."""
+    return _frontend_file(os.path.join(frontend_dist_path, "index.html"))
+
+
+@app.get("/admin.html")
+async def serve_admin_html() -> Response:
+    """Serve the administration entry document, or report that frontend assets are unavailable."""
+    return _frontend_file(os.path.join(frontend_dist_path, "admin.html"))
+
+
+@app.get("/")
+async def root() -> Response:
+    """Redirect to the customer SPA when built, otherwise fail explicitly."""
+    if os.path.isdir(frontend_dist_path):
         return RedirectResponse(url="/app")
+    return _frontend_unavailable()
 
 
 @app.get("/health")
