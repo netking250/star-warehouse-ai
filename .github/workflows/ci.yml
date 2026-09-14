@@ -117,6 +117,8 @@ jobs:
           version: "0.6.5"
           enable-cache: true
       - run: uv sync --frozen
+      - name: Bootstrap PostgreSQL schema and capability roles
+        run: uv run alembic upgrade head
       - name: Run test suite with coverage gate
         run: uv run pytest --cov=app --cov-fail-under=75
 
