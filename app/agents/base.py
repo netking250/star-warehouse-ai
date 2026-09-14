@@ -8,6 +8,7 @@ from langchain_core.exceptions import LangChainException
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
+from app.context.token_budget import estimate_tokens as estimate_token_count
 from app.core.config import settings
 from app.core.tracing import build_llm_config
 from app.models.state import AgentProcessResult, AgentState
@@ -19,13 +20,7 @@ _VARIABLE_PATTERN = re.compile(r"\{\{\s*(\w+)\s*\}\}")
 
 def _estimate_tokens(text: str) -> int:
     """Estimate token count using a simple heuristic."""
-    try:
-        import tiktoken
-
-        encoder = tiktoken.get_encoding("cl100k_base")
-        return len(encoder.encode(text))
-    except (ImportError, OSError):
-        return len(text) // 4
+    return estimate_token_count(text)
 
 
 def _truncate_parts_by_budget(parts: list[str], budget: int) -> list[str]:

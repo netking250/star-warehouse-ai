@@ -3,7 +3,8 @@
 import json
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from typing import Any, Protocol
+from importlib import import_module
+from typing import Any, Protocol, cast
 
 from app.core.config import settings
 
@@ -17,14 +18,28 @@ class TokenEncoder(Protocol):
         ...
 
 
+class _TiktokenModule(Protocol):
+    """Describe the small optional ``tiktoken`` surface used by the application."""
+
+    def get_encoding(self, name: str) -> TokenEncoder:
+        """Return a tokenizer for the requested encoding name."""
+
+
 def create_token_encoder() -> TokenEncoder | None:
     """Create the production tokenizer when the optional package is available."""
     try:
-        import tiktoken
-
-        return tiktoken.get_encoding("cl100k_base")
-    except ImportError:
+        module = cast(_TiktokenModule, import_module("tiktoken"))
+        return module.get_encoding("cl100k_base")
+    except (ImportError, OSError):
         return None
+
+
+def estimate_tokens(text: str) -> int:
+    """Estimate token count with the optional tokenizer and a deterministic fallback."""
+    encoder = create_token_encoder()
+    if encoder is not None:
+        return len(encoder.encode(text))
+    return len(text) // 4
 
 
 class TokenBudget(ABC):

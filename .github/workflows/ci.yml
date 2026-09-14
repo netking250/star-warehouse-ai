@@ -156,7 +156,7 @@ jobs:
         run: |
           cp .env.example .env
           sed -i 's/your_secure_password_here/postgres/' .env
-          sed -i 's/your_qdrant_api_key_here//' .env
+          sed -i 's/your_qdrant_api_key_here/ci-qdrant-smoke-key/' .env
           sed -i 's#https://api.openai.com/v1#http://localhost:9/v1#' .env
       - name: Build application image
         run: docker compose build app
