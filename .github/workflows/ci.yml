@@ -120,7 +120,20 @@ jobs:
       - name: Bootstrap PostgreSQL schema and capability roles
         run: uv run alembic upgrade head
       - name: Run test suite with coverage gate
-        run: uv run pytest --cov=app --cov-fail-under=75
+        run: |
+          set -o pipefail
+          uv run pytest --cov=app --cov-fail-under=75 2>&1 | tee backend-tests.log
+      - name: Summarize backend test failure
+        if: failure()
+        run: |
+          summary="$(grep -E '^(FAILED|ERROR) ' backend-tests.log | head -n 1 || true)"
+          if [[ -z "${summary}" ]]; then
+            summary="$(grep -E '^E[[:space:]]' backend-tests.log | head -n 1 || true)"
+          fi
+          if [[ -z "${summary}" ]]; then
+            summary="$(tail -n 20 backend-tests.log | head -n 1 || true)"
+          fi
+          echo "::error title=Backend tests failure::${summary}"
 
   frontend:
     name: Frontend
