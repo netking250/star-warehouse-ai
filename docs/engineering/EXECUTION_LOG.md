@@ -2210,6 +2210,27 @@ State transition:
 - T14 remains `NOT_STARTED`; no retry, automatic fallback, circuit breaker, or degraded-answer
   policy was implemented.
 
+## M02-FIX-CI - Repair required checks for protected-main consolidation
+
+Started: 2026-09-14
+
+Status: `IN_PROGRESS`
+
+Execution Stage: `PR_FIX_CI`
+
+- Recovery confirmed PR #6's linear head `727af4bd498e`, unchanged `origin/main` `bf0d5b9`, clean
+  worktree, and preserved local backup tag/external bundle. No branch cleanup or protection change
+  is authorized before a successful merge.
+- The first PR run passed `Brand & docs` and `Frontend`; `Backend quality` failed at `ty` on
+  optional `tiktoken` imports in `app/agents/base.py`, `app/context/token_budget.py`, and
+  `app/graph/subgraphs.py`. `Docker smoke` failed during API startup with Qdrant `401` because
+  the workflow removed the example Qdrant key even though Compose enabled server auth. `Backend
+  tests` was inspected and remained in progress; no unrelated failure was treated as in scope.
+- The focused fix keeps `tiktoken` optional, centralizes its importlib boundary and fallback, and
+  adds provider-available/package-missing regression coverage. The smoke workflow now supplies a
+  deterministic non-production Qdrant key consistently to server and API. No production
+  architecture, migration, dependency upgrade, or T14 implementation changed.
+
 ## M02 - Git main consolidation and protected-branch stop
 
 Completed: 2026-09-14

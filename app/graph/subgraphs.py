@@ -6,6 +6,7 @@ from langgraph.graph import END, START, StateGraph
 
 from app.agents.base import BaseAgent
 from app.context.masking import mask_observation
+from app.context.token_budget import estimate_tokens as estimate_token_count
 from app.models.state import AgentState
 from app.observability.metrics import (
     record_agent_context_reduction,
@@ -22,15 +23,8 @@ def _filter_state(state: AgentState, allowed_keys: list[str]) -> AgentState:
 
 def _estimate_state_tokens(state: AgentState) -> int:
     """Estimate token count for a serialized state dictionary."""
-    try:
-        import tiktoken
-
-        encoder = tiktoken.get_encoding("cl100k_base")
-        serialized = json.dumps(state, ensure_ascii=False, default=str)
-        return len(encoder.encode(serialized))
-    except (ImportError, OSError):
-        serialized = json.dumps(state, ensure_ascii=False, default=str)
-        return len(serialized) // 4
+    serialized = json.dumps(state, ensure_ascii=False, default=str)
+    return estimate_token_count(serialized)
 
 
 def get_agent_tools(agent_name: str) -> list[dict[str, str]]:

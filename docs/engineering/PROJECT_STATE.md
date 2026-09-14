@@ -4,7 +4,7 @@ project: Star Warehouse AI
 phase: ENTERPRISE_HARDENING
 current_task: T14
 current_status: NOT_STARTED
-execution_stage: PR_FIX
+execution_stage: PR_FIX_CI
 last_accepted_task: T13
 next_task: T14
 acceptance_owner: external
@@ -15,9 +15,10 @@ maintenance_status: IN_PROGRESS
 # Current Objective
 
 T13 Model Gateway is externally accepted `PASS`. M02 resumed through a verified linear PR branch
-whose initial tree exactly matches the canonical local consolidation. GitHub checks, permitted
-linear merge, remote-main verification, and branch cleanup remain in progress. T14 AI Failure
-Policy remains `NOT_STARTED`.
+whose initial tree exactly matches the canonical local consolidation. The first PR run identified
+two focused CI defects (optional tokenizer analysis and mismatched Qdrant smoke credentials); their
+narrow fixes are being verified before the protected linear merge. T14 AI Failure Policy remains
+`NOT_STARTED`.
 
 The frozen product target is an **Enterprise Multi-tenant AI Customer Service Platform**: a runnable, testable, deployable portfolio and public demo that demonstrates enterprise controls truthfully. The primary Golden Path is tenant login → tenant context and authorization → PII filtering → intent and multi-agent routing → order adapter and hybrid RAG → model gateway → refund recommendation → human approval → refund transaction → transactional outbox → RabbitMQ/Celery → audit, memory, evaluation, notification, and observability.
 
@@ -25,7 +26,7 @@ The frozen product target is an **Enterprise Multi-tenant AI Customer Service Pl
 
 - **Task:** T14 – AI Failure Policy.
 - **Status:** `NOT_STARTED`.
-- **Execution stage:** `PR_FIX`; M02 is active and T14 implementation has not begun.
+- **Execution stage:** `PR_FIX_CI`; M02 is active and T14 implementation has not begun.
 - **Scope:** No T14 feature work is authorized by M02.
 
 # Independent Maintenance Task

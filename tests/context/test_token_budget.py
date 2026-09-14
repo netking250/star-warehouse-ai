@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.context.token_budget import MemoryTokenBudget, TokenBudget
+from app.context.token_budget import MemoryTokenBudget, TokenBudget, create_token_encoder
 
 
 @pytest.fixture
@@ -10,13 +10,38 @@ def budget():
     return MemoryTokenBudget()
 
 
-def test_default_test_tokenizer_does_not_load_external_asset(monkeypatch):
-    def fail_if_loaded(*args, **kwargs):
-        del args, kwargs
-        raise AssertionError("external tiktoken asset loading was attempted")
+def test_missing_optional_tokenizer_uses_fallback(monkeypatch):
+    monkeypatch.setattr("app.context.token_budget.create_token_encoder", lambda: None)
+    text = "deterministic tokenizer"
+    assert MemoryTokenBudget().estimate_tokens(text) == len(text) // 4
 
-    monkeypatch.setattr("tiktoken.get_encoding", fail_if_loaded)
-    assert MemoryTokenBudget().estimate_tokens("deterministic tokenizer") > 0
+
+def test_create_token_encoder_returns_none_when_package_missing(monkeypatch):
+    def missing_package(name):
+        raise ModuleNotFoundError(name)
+
+    monkeypatch.setattr("app.context.token_budget.import_module", missing_package)
+    assert create_token_encoder() is None
+
+
+def test_available_optional_tokenizer_uses_provider(monkeypatch):
+    class FakeEncoder:
+        def encode(self, text):
+            return list(range(len(text)))
+
+    fake_encoder = FakeEncoder()
+
+    class FakeTiktoken:
+        @staticmethod
+        def get_encoding(name):
+            assert name == "cl100k_base"
+            return fake_encoder
+
+    monkeypatch.setattr(
+        "app.context.token_budget.import_module",
+        lambda name: FakeTiktoken,
+    )
+    assert create_token_encoder() is fake_encoder
 
 
 class TestTokenBudget:
