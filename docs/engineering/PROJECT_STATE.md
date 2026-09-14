@@ -4,19 +4,19 @@ project: Star Warehouse AI
 phase: ENTERPRISE_HARDENING
 current_task: T14
 current_status: NOT_STARTED
-execution_stage: PR_REQUIRED
+execution_stage: PR_FIX
 last_accepted_task: T13
 next_task: T14
 acceptance_owner: external
 maintenance_task: M02
-maintenance_status: BLOCKED
+maintenance_status: IN_PROGRESS
 ---
 
 # Current Objective
 
-T13 Model Gateway is externally accepted `PASS`. M02 consolidated the accepted working tree and
-the legitimate Alertmanager fix locally, but GitHub requires a pull request, five status checks,
-and linear history before `origin/main` can change. Remote cleanup has not begun. T14 AI Failure
+T13 Model Gateway is externally accepted `PASS`. M02 resumed through a verified linear PR branch
+whose initial tree exactly matches the canonical local consolidation. GitHub checks, permitted
+linear merge, remote-main verification, and branch cleanup remain in progress. T14 AI Failure
 Policy remains `NOT_STARTED`.
 
 The frozen product target is an **Enterprise Multi-tenant AI Customer Service Platform**: a runnable, testable, deployable portfolio and public demo that demonstrates enterprise controls truthfully. The primary Golden Path is tenant login → tenant context and authorization → PII filtering → intent and multi-agent routing → order adapter and hybrid RAG → model gateway → refund recommendation → human approval → refund transaction → transactional outbox → RabbitMQ/Celery → audit, memory, evaluation, notification, and observability.
@@ -25,7 +25,7 @@ The frozen product target is an **Enterprise Multi-tenant AI Customer Service Pl
 
 - **Task:** T14 – AI Failure Policy.
 - **Status:** `NOT_STARTED`.
-- **Execution stage:** `PR_REQUIRED`; M02 is blocked and T14 implementation has not begun.
+- **Execution stage:** `PR_FIX`; M02 is active and T14 implementation has not begun.
 - **Scope:** No T14 feature work is authorized by M02.
 
 # Independent Maintenance Task
@@ -348,8 +348,8 @@ The complete concise mapping is in [`ARCHITECTURE_GUARDRAILS.md`](../architectur
 
 # Current Blockers
 
-- M02 is blocked by GitHub main-branch protection: changes require a pull request, five required
-  checks, and a linear source branch with no merge commits.
+- M02 has no current repository-history ambiguity. The protected-main PR, required checks, linear
+  merge, remote verification, and post-merge cleanup remain outstanding.
 - The extensive pre-existing dirty worktree is
   preserved and overlaps configuration, graph, agents, services, tests, and documentation.
 - T13 is externally accepted `PASS`; T14 is `NOT_STARTED`.
@@ -398,7 +398,7 @@ The complete concise mapping is in [`ARCHITECTURE_GUARDRAILS.md`](../architectur
 # Handoff Notes
 
 1. T13 is externally accepted `PASS`; its plan is archived under `completed/`.
-2. M02 is `BLOCKED / PR_REQUIRED`; T14 remains `NOT_STARTED`.
+2. M02 is `IN_PROGRESS / PR_FIX`; T14 remains `NOT_STARTED`.
 3. Preserve the accepted T00-T13/M01 baseline and all pre-existing uncommitted worktree changes.
 4. T13 keeps failure-policy ownership in T14: adapters perform one bounded attempt, normalize
    errors, and never retry or automatically invoke an alternate candidate.
