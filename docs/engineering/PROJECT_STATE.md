@@ -3,10 +3,10 @@ schema_version: 1
 project: Star Warehouse AI
 phase: ENTERPRISE_HARDENING
 current_task: T14
-current_status: AWAITING_ACCEPTANCE
-execution_stage: EXTERNAL_ACCEPTANCE_PENDING
-last_accepted_task: T13
-next_task: T14
+current_status: PASS_WITH_NOTES
+execution_stage: EXTERNAL_ACCEPTANCE_COMPLETE
+last_accepted_task: T14
+next_task: T15
 acceptance_owner: external
 maintenance_task: M02
 maintenance_status: PASS
@@ -14,9 +14,9 @@ maintenance_status: PASS
 
 # Current Objective
 
-T13 Model Gateway is externally accepted `PASS`. T14 AI Failure Policy implementation is underway
-on a new feature branch from synchronized protected `main`. M02's protected-main consolidation is
-complete; the accepted baseline remains intact.
+T13 Model Gateway is externally accepted `PASS`. T14 AI Failure Policy is externally accepted
+`PASS_WITH_NOTES` on the long-lived T14-T21 integration branch. M02's protected-main
+consolidation is complete; the accepted baseline remains intact.
 
 The T14 implementation adds a bounded, provider-neutral policy seam for retries, ordered fallback,
 Redis-coordinated provider circuits, cancellation-safe streaming, and explicit safe degradation.
@@ -25,16 +25,16 @@ semantics remain unchanged. M02's protected-main consolidation used a verified l
 whose initial tree exactly matched the canonical local consolidation. The first PR run identified
 two focused CI defects (optional tokenizer analysis and mismatched Qdrant smoke credentials); their
 narrow fixes were merged and verified before protected-main consolidation. T14 is now
-`AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING`; T15 remains `NOT_STARTED`.
+`PASS_WITH_NOTES`; T15 remains `NOT_STARTED` and is ready for its own IMPLEMENT stage.
 
 The frozen product target is an **Enterprise Multi-tenant AI Customer Service Platform**: a runnable, testable, deployable portfolio and public demo that demonstrates enterprise controls truthfully. The primary Golden Path is tenant login → tenant context and authorization → PII filtering → intent and multi-agent routing → order adapter and hybrid RAG → model gateway → refund recommendation → human approval → refund transaction → transactional outbox → RabbitMQ/Celery → audit, memory, evaluation, notification, and observability.
 
 # Current Task
 
 - **Task:** T14 – AI Failure Policy.
-- **Status:** `AWAITING_ACCEPTANCE`.
-- **Execution stage:** `EXTERNAL_ACCEPTANCE_PENDING`; implementation is on
-  `feat/t14-ai-failure-policy`.
+- **Status:** `PASS_WITH_NOTES` (externally accepted).
+- **Execution stage:** `EXTERNAL_ACCEPTANCE_COMPLETE`; the long-lived integration branch is
+  `feat/t14-t21-enterprise-hardening`.
 - **Scope:** Retry/fallback/circuit/degradation policy only; T15 is not started.
 
 # Independent Maintenance Task
@@ -47,35 +47,65 @@ The frozen product target is an **Enterprise Multi-tenant AI Customer Service Pl
 
 # Last Accepted Task
 
-`T13` – Model Gateway, externally accepted `PASS` on 2026-09-14.
+`T14` – AI Failure Policy, externally accepted `PASS_WITH_NOTES` on 2026-09-15.
 
 # Next Task
 
-`T14 – AI Failure Policy` (external acceptance pending).
+`T15 – Frontend Transport` (not started; ready for implementation on the integration branch).
 
 T14 started only after T13 was fully verified and externally accepted. T14 remains
-`AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` until an explicit external acceptance
-instruction.
+`PASS_WITH_NOTES` after explicit external acceptance. T15 remains `NOT_STARTED` and follows
+the recorded IMPLEMENT → VERIFY → external acceptance sequence.
 
 # T14 Verification Closeout
 
 Completed: 2026-09-15
 
-Status: `AWAITING_ACCEPTANCE`
+Status: `PASS_WITH_NOTES` (externally accepted)
 
-Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
+Execution Stage: `EXTERNAL_ACCEPTANCE_COMPLETE`
 
 - The final clean-checkout backend regression completed without fail-fast: `1819 collected`,
   `1780 passed`, `2 failed`, `0 errors`, `37 skipped`, and `81.62%` coverage. Both failures
   reproduce on protected `main` and the T14 branch; no feature-only T14 failure was observed.
-- Deferred baseline test debt: OpenAI adapter cold SDK/platform initialization can exceed its
-  existing two-second test deadline; fresh-process Celery task import can exceed its existing
-  30-second test deadline. Neither is attributed to T14; deadlines were not changed.
+- T14-specific verification is complete; feature-only regressions = `0`.
+- `DEFERRED_BASELINE_TEST_DEBT`: OpenAI SDK cold-start deadline sensitivity
+  and Celery fresh-process import deadline sensitivity. Both debts reproduce on protected
+  `main`, are not attributed to T14, remain unresolved, and do not block T15.
 - All nine T14/T12/T13 critical guards pass. RedisVL, generic Redis, and circuit cleanup pass;
   Qdrant has no test collections remaining; RabbitMQ remains under the documented memory-broker
   policy; and no unexpected provider network or credential use occurred.
 - No implementation, test, migration, or T14 policy changes were made during closeout. The
   feature branch remains clean and unmerged; T15 remains `NOT_STARTED`.
+
+# T14-T21 Integration Workflow
+
+T14 through T21 use one long-lived integration branch:
+`feat/t14-t21-enterprise-hardening`.
+
+Each stage follows `IMPLEMENT → VERIFY → external acceptance → next stage`.
+There is no PR or branch per T-stage, no mandatory human reviewer, and no direct work on
+`main`. Each stage keeps logically separated commits. Use normal pushes only; do not force push
+to `main`. One final PR is planned after T21, with automated CI gates retained.
+
+## Test strategy and failure triage
+
+- Normal `IMPLEMENT` uses targeted tests.
+- Normal `VERIFY` uses targeted/regression tests appropriate to the changed subsystem.
+- Full backend verification is not mandatory after every T-stage. Run it for a cross-cutting or
+  high-risk stage, when a blocker needs proof, at T21/final integration, and in final CI/PR.
+- A feature-only reproducible failure is a current-stage blocker.
+- The same failure on protected `main` receives baseline-debt classification first.
+- A non-reproducible transient failure is recorded without inventing a fix.
+- An environment failure is fixed in the environment, not in business code.
+- Historical debt is not infinitely cleaned during unrelated feature work.
+
+## Deferred baseline test debt
+
+`DEFERRED_BASELINE_TEST_DEBT` remains recorded for OpenAI SDK cold-start deadline sensitivity and
+Celery fresh-process import deadline sensitivity. Repair these only if final integration CI is
+blocked, they become materially worse, or explicit test-hardening work is scheduled. They remain
+unresolved and do not block T15.
 
 # Current Architecture Baseline
 
@@ -383,7 +413,8 @@ The complete concise mapping is in [`ARCHITECTURE_GUARDRAILS.md`](../architectur
   merge, remote verification, and post-merge cleanup are complete and externally accepted.
 - The extensive pre-existing dirty worktree is
   preserved and overlaps configuration, graph, agents, services, tests, and documentation.
-- T13 is externally accepted `PASS`; T14 is `IN_PROGRESS / VERIFY_PENDING`.
+- T13 remains externally accepted `PASS`; T14 is externally accepted `PASS_WITH_NOTES`.
+  T15 remains `NOT_STARTED`; the two deferred baseline debts do not block it.
 
 # T13 Implementation Evidence
 
@@ -416,11 +447,14 @@ The complete concise mapping is in [`ARCHITECTURE_GUARDRAILS.md`](../architectur
   retry or trip circuits, and streaming never switches providers after visible output.
 - Focused T14 tests pass (`23 passed`), the provider-neutral Model Gateway regression passes
   (`66 passed`), Ruff/format/ty pass on touched code, project identity passes, `uv lock --check`
-  passes, and Alembic remains a single head at `e9f0a1b2c3d4`. Full backend regression, shared
-  Redis integration, and CI/PR verification remain pending for VERIFY; no migration or T15 work
-  was added.
+  passes, and Alembic remains a single head at `e9f0a1b2c3d4`.
+  T14-specific verification is complete; feature-only regressions = `0`; the full backend
+  regression recorded two protected-main baseline debts. No migration or T15 work was added.
 
-# Uncommitted / Outstanding Work
+# Historical Implementation Notes
+
+The entries below preserve historical execution context; current outstanding work is governed by
+the canonical state at the top of this document and the latest execution entry.
 
 - T-INIT/T-INIT-FIX documentation, accepted T00–T02 work, migration compatibility repair, test-fixture updates, and the tracked .dockerignore/.gitignore correction are uncommitted. These pre-existing changes were preserved through T03 implementation.
 - T00 fixed reproducibility defects in SlowAPI configuration decoding, Docker build context, Alembic ordering/duplicate DDL, tenant-namespaced test fixtures, portable path assertions, and external-task isolation. The full backend suite now passes.
@@ -441,16 +475,18 @@ The complete concise mapping is in [`ARCHITECTURE_GUARDRAILS.md`](../architectur
 - The accepted T11 plan is archived at [`docs/exec-plans/completed/T11.md`](../exec-plans/completed/T11.md).
 - The accepted T12 plan is archived at [`docs/exec-plans/completed/T12.md`](../exec-plans/completed/T12.md).
 - The accepted T13 plan is archived at [`docs/exec-plans/completed/T13.md`](../exec-plans/completed/T13.md).
-- The active implementation plan is [`docs/exec-plans/active/T14.md`](../exec-plans/active/T14.md).
+- The accepted T14 plan is archived at [`docs/exec-plans/completed/T14.md`](../exec-plans/completed/T14.md).
 
 # Handoff Notes
 
-1. T13 is externally accepted `PASS`; its plan is archived under `completed/`.
-2. M02 is externally accepted `PASS`; T14 is `IN_PROGRESS / VERIFY_PENDING`.
-3. Preserve the accepted T00-T13/M01 baseline and all pre-existing uncommitted worktree changes.
-4. T13 keeps failure-policy ownership in T14: adapters perform one bounded attempt, normalize
-   errors, and never retry or automatically invoke an alternate candidate. The active T14 plan is
-   [`docs/exec-plans/active/T14.md`](../exec-plans/active/T14.md).
+1. T14 is externally accepted `PASS_WITH_NOTES`; its plan is archived under `completed/`.
+2. The long-lived integration branch is `feat/t14-t21-enterprise-hardening`; T15 is next and
+   remains `NOT_STARTED`.
+3. T14-specific verification is complete with zero feature-only regressions. The OpenAI SDK
+   cold-start and Celery fresh-process import sensitivities remain unresolved baseline debt and
+   do not block T15.
+4. Preserve the provider-neutral T14 seam and the accepted T00-T13/M01 baseline. T14 through
+   T21 follow the recorded IMPLEMENT → VERIFY → external acceptance workflow.
 
 # T09 Final Verification Regression Result
 

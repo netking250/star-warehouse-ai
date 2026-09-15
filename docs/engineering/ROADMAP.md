@@ -29,7 +29,7 @@ Codex may set a completed implementation to `AWAITING_ACCEPTANCE` only. `PASS` a
 | T11 | Compliance Lifecycle | PASS |
 | T12 | Conversation Runtime | PASS |
 | T13 | Model Gateway | PASS |
-| T14 | AI Failure Policy | AWAITING_ACCEPTANCE |
+| T14 | AI Failure Policy | PASS_WITH_NOTES |
 | T15 | Frontend Transport | NOT_STARTED |
 | T16 | Enterprise Console | NOT_STARTED |
 | T17 | Observability | NOT_STARTED |
@@ -55,10 +55,54 @@ T00–T21 gate sequence.
 - **Scope:** Demo automated backups and Restore Test; Production Reference HA and PITR; explicit RPO/RTO; Restore Runbook; recovery verification evidence; profile-specific topology and cost tiers.
 - **At fix completion:** T00 was `IN_PROGRESS`; consult the task tree for its current status.
 
+## T14-T21 Solo Development Workflow
+
+T14 through T21 use one long-lived integration branch:
+`feat/t14-t21-enterprise-hardening`.
+
+Each stage follows:
+
+`IMPLEMENT → VERIFY → external acceptance → next stage`
+
+- No PR is required per T-stage.
+- No branch is created per T-stage.
+- A mandatory human reviewer is not required.
+- Each stage keeps logically separated commits.
+- Work does not happen directly on `main`.
+- No force push is used on `main`.
+- One final PR is planned after T21.
+- Automated CI gates remain mandatory for the final PR.
+
+### Test strategy
+
+- Normal `IMPLEMENT`: run targeted tests.
+- Normal `VERIFY`: run targeted/regression tests appropriate to the changed subsystem.
+- The full backend suite is not mandatory after every T-stage.
+- Run the full backend suite when the current stage is cross-cutting/high risk, a blocker needs
+  proof, at T21/final integration, or as part of final CI/PR.
+
+### Failure triage
+
+- A feature-only reproducible failure is a current-stage blocker.
+- The same failure on protected `main` receives baseline-debt classification first.
+- A non-reproducible transient failure is recorded; no fix is invented.
+- An environment failure is fixed in the environment, not in business code.
+- Historical debt is not infinitely cleaned during unrelated feature work.
+
+### Deferred baseline test debt
+
+`DEFERRED_BASELINE_TEST_DEBT` remains recorded for:
+
+- OpenAI SDK cold-start deadline sensitivity.
+- Celery fresh-process import deadline sensitivity.
+
+Repair these only if final integration CI is blocked, they become materially worse, or explicit
+test-hardening work is scheduled. They are not resolved by T14 and do not block T15.
+
 ## Gate rules
 
-- T-INIT through T13 and M01-M02 are accepted `PASS`. T14 is `AWAITING_ACCEPTANCE` on its
-  dedicated feature branch and remains pending external acceptance.
+- T-INIT through T13 and M01-M02 are accepted `PASS`. T14 is externally accepted `PASS_WITH_NOTES`.
+  The two deferred protected-main baseline test debts are recorded and do not block T15.
 - A task in `AWAITING_ACCEPTANCE`, `FAIL`, `NEEDS_EVIDENCE`, or `BLOCKED` is not accepted as a prerequisite for the next task.
 - Do not skip a task because an older roadmap claims similar work is complete. Use current code and current verification evidence.
 - A task plan starts in `docs/exec-plans/active/Txx.md` and moves to `completed/` only after external acceptance.

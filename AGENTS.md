@@ -204,6 +204,20 @@ pre-commit install
 pre-commit run --all-files
 ```
 
+## T14-T21 Solo Integration Workflow
+
+T14 through T21 use one long-lived integration branch:
+`feat/t14-t21-enterprise-hardening`.
+
+Each stage follows `IMPLEMENT → VERIFY → external acceptance → next stage`. Do not work directly
+on `main`, create per-stage branches, or open intermediate PRs. Keep logically separated commits
+per stage, use normal non-force pushes, and retain automated CI gates for the one final PR after T21.
+A mandatory human reviewer is not required for each stage.
+
+The canonical engineering ledgers record the targeted-test strategy, failure triage rules, and
+the two deferred protected-main baseline test debts. Those debts are not resolved by unrelated
+feature work and do not block T15.
+
 ## Repo-Wide Invariants
 
 ### 1. Canonical Product Identity

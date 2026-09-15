@@ -20,5 +20,6 @@ Plans should cover:
 - Verification commands and real results.
 - Current findings, blockers, and handoff notes.
 
-The current main-task plan is [`completed/T07.md`](completed/T07.md). T06 and the independent M01
-maintenance plan are externally accepted and archived under [`completed/`](completed/).
+The most recently accepted main-task plan is [`completed/T14.md`](completed/T14.md). T15 remains
+`NOT_STARTED` and will receive an active plan when its IMPLEMENT stage begins. The independent
+M01 and M02 maintenance plans are externally accepted and archived under [`completed/`](completed/).

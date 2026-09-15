@@ -188,10 +188,13 @@ Alertmanager, Loki, Promtail, Tempo, OpenTelemetry Collector, and Mimir configur
 ## Project Status
 
 - Current release: `5.0.0`.
-- Enterprise-hardening milestones T-INIT through T13 are externally accepted `PASS`.
+- Enterprise-hardening milestones T-INIT through T13 are externally accepted `PASS`; T14 is
+  externally accepted `PASS_WITH_NOTES` with two deferred protected-main baseline test debts.
 - T13 delivers the Dynamic Model Gateway with OpenAI, DashScope, and Mock adapters.
-- T14 (AI Failure Policy) is `IN_PROGRESS / VERIFY_PENDING` on its dedicated feature branch and
-  is not externally accepted; T15 remains `NOT_STARTED`.
+- T14 (AI Failure Policy) is complete on the long-lived
+  `feat/t14-t21-enterprise-hardening` branch; T15 remains `NOT_STARTED`.
+- T14-T21 use one integration branch with targeted stage verification and one final PR after T21;
+  see the [current project state](docs/engineering/PROJECT_STATE.md) for the workflow and debt policy.
 
 Detailed milestone evidence remains in the engineering state documents rather than this project
 introduction.
