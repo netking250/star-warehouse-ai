@@ -3,8 +3,8 @@ schema_version: 1
 project: Star Warehouse AI
 phase: ENTERPRISE_HARDENING
 current_task: T14
-current_status: IN_PROGRESS
-execution_stage: VERIFY_PENDING
+current_status: AWAITING_ACCEPTANCE
+execution_stage: EXTERNAL_ACCEPTANCE_PENDING
 last_accepted_task: T13
 next_task: T14
 acceptance_owner: external
@@ -25,15 +25,16 @@ semantics remain unchanged. M02's protected-main consolidation used a verified l
 whose initial tree exactly matched the canonical local consolidation. The first PR run identified
 two focused CI defects (optional tokenizer analysis and mismatched Qdrant smoke credentials); their
 narrow fixes were merged and verified before protected-main consolidation. T14 is now
-`IN_PROGRESS / VERIFY_PENDING`; T15 remains `NOT_STARTED`.
+`AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING`; T15 remains `NOT_STARTED`.
 
 The frozen product target is an **Enterprise Multi-tenant AI Customer Service Platform**: a runnable, testable, deployable portfolio and public demo that demonstrates enterprise controls truthfully. The primary Golden Path is tenant login → tenant context and authorization → PII filtering → intent and multi-agent routing → order adapter and hybrid RAG → model gateway → refund recommendation → human approval → refund transaction → transactional outbox → RabbitMQ/Celery → audit, memory, evaluation, notification, and observability.
 
 # Current Task
 
 - **Task:** T14 – AI Failure Policy.
-- **Status:** `IN_PROGRESS`.
-- **Execution stage:** `VERIFY_PENDING`; implementation is on `feat/t14-ai-failure-policy`.
+- **Status:** `AWAITING_ACCEPTANCE`.
+- **Execution stage:** `EXTERNAL_ACCEPTANCE_PENDING`; implementation is on
+  `feat/t14-ai-failure-policy`.
 - **Scope:** Retry/fallback/circuit/degradation policy only; T15 is not started.
 
 # Independent Maintenance Task
@@ -50,10 +51,31 @@ The frozen product target is an **Enterprise Multi-tenant AI Customer Service Pl
 
 # Next Task
 
-`T14 – AI Failure Policy` (verification and external acceptance pending).
+`T14 – AI Failure Policy` (external acceptance pending).
 
-T14 started only after T13 was fully verified and externally accepted. T14 must remain
-`IN_PROGRESS / VERIFY_PENDING` until an explicit external acceptance instruction.
+T14 started only after T13 was fully verified and externally accepted. T14 remains
+`AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` until an explicit external acceptance
+instruction.
+
+# T14 Verification Closeout
+
+Completed: 2026-09-15
+
+Status: `AWAITING_ACCEPTANCE`
+
+Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
+
+- The final clean-checkout backend regression completed without fail-fast: `1819 collected`,
+  `1780 passed`, `2 failed`, `0 errors`, `37 skipped`, and `81.62%` coverage. Both failures
+  reproduce on protected `main` and the T14 branch; no feature-only T14 failure was observed.
+- Deferred baseline test debt: OpenAI adapter cold SDK/platform initialization can exceed its
+  existing two-second test deadline; fresh-process Celery task import can exceed its existing
+  30-second test deadline. Neither is attributed to T14; deadlines were not changed.
+- All nine T14/T12/T13 critical guards pass. RedisVL, generic Redis, and circuit cleanup pass;
+  Qdrant has no test collections remaining; RabbitMQ remains under the documented memory-broker
+  policy; and no unexpected provider network or credential use occurred.
+- No implementation, test, migration, or T14 policy changes were made during closeout. The
+  feature branch remains clean and unmerged; T15 remains `NOT_STARTED`.
 
 # Current Architecture Baseline
 

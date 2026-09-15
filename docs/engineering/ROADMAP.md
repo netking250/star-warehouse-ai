@@ -29,7 +29,7 @@ Codex may set a completed implementation to `AWAITING_ACCEPTANCE` only. `PASS` a
 | T11 | Compliance Lifecycle | PASS |
 | T12 | Conversation Runtime | PASS |
 | T13 | Model Gateway | PASS |
-| T14 | AI Failure Policy | IN_PROGRESS |
+| T14 | AI Failure Policy | AWAITING_ACCEPTANCE |
 | T15 | Frontend Transport | NOT_STARTED |
 | T16 | Enterprise Console | NOT_STARTED |
 | T17 | Observability | NOT_STARTED |
@@ -57,8 +57,8 @@ T00–T21 gate sequence.
 
 ## Gate rules
 
-- T-INIT through T13 and M01-M02 are accepted `PASS`. T14 is `IN_PROGRESS` on its dedicated
-  feature branch and remains pending targeted verification and external acceptance.
+- T-INIT through T13 and M01-M02 are accepted `PASS`. T14 is `AWAITING_ACCEPTANCE` on its
+  dedicated feature branch and remains pending external acceptance.
 - A task in `AWAITING_ACCEPTANCE`, `FAIL`, `NEEDS_EVIDENCE`, or `BLOCKED` is not accepted as a prerequisite for the next task.
 - Do not skip a task because an older roadmap claims similar work is complete. Use current code and current verification evidence.
 - A task plan starts in `docs/exec-plans/active/Txx.md` and moves to `completed/` only after external acceptance.
