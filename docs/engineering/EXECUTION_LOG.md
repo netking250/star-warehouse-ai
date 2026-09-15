@@ -2574,3 +2574,39 @@ State transition:
 - T15 remains externally accepted `PASS` by explicit user instruction.
 - T16 remains `IN_PROGRESS / VERIFY_PENDING`; external verification/acceptance is pending.
 - T17 remains `NOT_STARTED`.
+
+## T16-IMPLEMENT-EVIDENCE-CLOSEOUT - Push and focused backend evidence
+
+Completed: 2026-09-15
+
+Status: `IN_PROGRESS`
+
+Execution Stage: `VERIFY_PENDING`
+
+- Pushed the implementation commit normally to `origin/feat/t14-t21-enterprise-hardening`; local
+  and remote HEADs were synchronized at `696396fa80dc3ecf01a6d36d9d6e30cf56b83a6b` before this
+  docs-only evidence update.
+- Recovered the canonical repository Compose test path without touching the unrelated containers
+  that occupied host ports 5432 and 6379. The evidence used the same Compose PostgreSQL and Redis
+  services on loopback-only ports, the disposable `test_t16_evidence_20260915` database, current
+  migrations through `e9f0a1b2c3d4`, existing non-login runtime/maintenance capability roles, and
+  Redis DB 15. No production database was used.
+- Focused authorization evidence passed: `8` tests covering unauthenticated 401, unauthorized
+  capability 403, authorized access, cross-tenant/direct backend denial, role and membership
+  revocation with the same JWT, stale/forged role claims, and read-versus-mutation scope.
+- Focused compliance evidence passed: `5` tests covering approval API decisions, unauthorized and
+  self approval, requester access loss, expiry, rejection, cross-tenant denial, exact operation
+  binding, separation of duties, and single-use/idempotent sensitive export execution.
+- Implemented endpoint smoke passed: `4` tests covering admin task visibility, conversation metadata,
+  dashboard summary, and AI configuration reads. Async-job/outbox controls and provider/circuit
+  administration remained unexecuted backend gaps as documented by T16 scope.
+- Reconfirmed `136` classified route entries with `0` unclassified HTTP/WS routes, one Alembic head
+  `e9f0a1b2c3d4`, no migration, and a clean working tree before the docs-only update. No application
+  code or test file changed; no new T16 debt was added.
+
+State transition:
+
+- T14 remains externally accepted `PASS_WITH_NOTES`.
+- T15 remains externally accepted `PASS` by explicit user instruction.
+- T16 remains `IN_PROGRESS / VERIFY_PENDING`; external verification/acceptance is pending.
+- T17 remains `NOT_STARTED`.

@@ -178,8 +178,12 @@ The sequence is the default gate order. A user may issue a documented change req
   Security, and Compliance surfaces while preserving the stable existing workspaces.
 - Frontend verification passed: format check, lint, TypeScript/build, Vitest `51 passed`, focused
   T15 transport guards `31 passed`, and Chromium E2E `6 passed`.
-- Focused backend pytest was attempted but blocked during shared fixture setup by unavailable
-  PostgreSQL host `db`; a direct application route inventory check reported `0` unclassified
-  HTTP/WS routes. Alembic remains at the single expected head `e9f0a1b2c3d4`.
+- Focused backend evidence passed against the disposable `test_t16_evidence_20260915` database on
+  the repository's Compose PostgreSQL/Redis services: authorization `8` tests, compliance `5`
+  tests, and implemented operations/runtime/AI reads `4` tests. The default host ports were
+  occupied by unrelated containers, so loopback-only evidence ports were used without changing
+  repository configuration.
+- The direct application route inventory reported `0` unclassified HTTP/WS routes. Alembic remains
+  at the single expected head `e9f0a1b2c3d4`; no migration or application code was added.
 - No backend route, schema, migration, provider-secret management, T17 observability work, PR, or
   merge was added.
