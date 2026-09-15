@@ -30,7 +30,7 @@ Codex may set a completed implementation to `AWAITING_ACCEPTANCE` only. `PASS` a
 | T12 | Conversation Runtime | PASS |
 | T13 | Model Gateway | PASS |
 | T14 | AI Failure Policy | PASS_WITH_NOTES |
-| T15 | Frontend Transport | IN_PROGRESS |
+| T15 | Frontend Transport | AWAITING_ACCEPTANCE |
 | T16 | Enterprise Console | NOT_STARTED |
 | T17 | Observability | NOT_STARTED |
 | T18 | CI/CD + Supply Chain | NOT_STARTED |
@@ -123,6 +123,26 @@ test-hardening work is scheduled. They are not resolved by T14 and do not block 
   backend application change was made. The full backend suite was intentionally not run.
 - T14 remains `PASS_WITH_NOTES`; T16 remains `NOT_STARTED`; the two protected-main baseline
   deadline debts remain deferred and do not block T15.
+
+## T15 Verification Closeout
+
+- Status: `AWAITING_ACCEPTANCE`.
+- Execution stage: `EXTERNAL_ACCEPTANCE_PENDING`.
+- Final verification passed on `feat/t14-t21-enterprise-hardening` from implementation head
+  `93fde48077a998619ddce3c6c67b26abcde71f72`; the synchronized remote and clean working tree
+  were confirmed.
+- Frontend format check, lint, TypeScript/build, Vitest (`10` files, `47` passed, `0` failed,
+  `0` skipped), and focused Chromium E2E (`2` passed) are green.
+- Focused T10 compatibility passed `26` tests; focused T12/T14 logical cancellation, terminal,
+  and provider-fallback compatibility passed `7` tests. The route guard reports zero unclassified
+  HTTP/WS routes, and `uv run alembic heads` reports the single head `e9f0a1b2c3d4`.
+- No full backend regression was run. No application code, backend route, migration, schema, or
+  T16 work changed during verification; no feature-hiding skip/xfail/todo was added.
+- The OpenAI SDK cold-start and Celery fresh-process import deadline sensitivities remain
+  `DEFERRED_BASELINE_TEST_DEBT` and do not block T15.
+
+T14 remains `PASS_WITH_NOTES`; T16 remains `NOT_STARTED`. External acceptance is required before
+T15 may move to `PASS` or T16 may begin.
 
 ## Gate rules
 
