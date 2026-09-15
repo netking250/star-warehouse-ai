@@ -247,6 +247,33 @@ async def test_provider_normalizes_http_errors(
 
 @pytest.mark.parametrize("provider", ["openai", "dashscope"])
 @pytest.mark.asyncio
+async def test_provider_preserves_numeric_retry_after_hint(provider: str) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            429,
+            headers={"Retry-After": "12", "x-request-id": "safe-error-id"},
+            json={"error": {"message": "rate limited"}},
+        )
+
+    adapter, candidate, client = _adapter(provider, handler)
+    try:
+        with pytest.raises(ModelGatewayError) as exc_info:
+            await adapter.invoke(
+                candidate,
+                ModelRequest(
+                    route="default_chat",
+                    messages=(ModelMessage(role="user", content="hi"),),
+                ),
+            )
+    finally:
+        await client.close()
+
+    assert exc_info.value.category is ModelErrorCategory.RATE_LIMIT
+    assert exc_info.value.retry_after_seconds == 12.0
+
+
+@pytest.mark.parametrize("provider", ["openai", "dashscope"])
+@pytest.mark.asyncio
 async def test_provider_timeout_is_normalized(provider: str) -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
         await asyncio.sleep(0.05)

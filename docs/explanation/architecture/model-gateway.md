@@ -5,6 +5,9 @@ T13 introduces one model interface between application code and remote chat prov
 ```text
 ConversationRuntime / LangGraph / agents / AI services
                          |
+                 ModelFailurePolicy (T14)
+                 retry/fallback/circuit
+                         |
                     ModelGateway
                          |
                   explicit ModelCandidate
@@ -59,7 +62,17 @@ injection through the same provider interface.
 
 T13 never retries a model call and never invokes the next route candidate after a failure. Route
 order makes fallback possible, but T14 exclusively owns retry count/backoff, automatic fallback,
-circuit breaking, provider health, failure budgets, and degraded-answer strategy.
+circuit breaking, provider health, failure budgets, and degraded-answer strategy. The
+`ModelFailurePolicy` is wired into `GatewayChatModel` and uses the trusted `MODEL_FAILURE_*`
+settings; factory-created clients coordinate provider circuits through Redis system keys. Its
+default terminal behavior is `FAIL`. An explicitly configured static response is marked degraded
+and is never used for tool or structured-output requests.
+
+The policy retries only normalized transient categories by default (`TIMEOUT`, `CONNECTION`,
+`RATE_LIMIT`, and `PROVIDER_UNAVAILABLE`). It preserves `asyncio.CancelledError`, keeps total
+attempt/deadline budgets finite, and may advance to the next capable candidate only before a
+streaming text or tool delta becomes visible. After visible output, the current stream terminates
+with its normalized error rather than restarting on another provider.
 
 ## Test hermeticity and secrets
 

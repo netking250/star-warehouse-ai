@@ -18,6 +18,8 @@ validation, provider request/response/stream translation, and the LangChain comp
   output, or streaming requirements.
 - Every real call is async, explicitly time-bounded, and uses SDK `max_retries=0`. Preserve
   `asyncio.CancelledError` and normalize other provider failures through `ModelGatewayError`.
+- T14 policy is the only model retry/fallback/circuit owner. It must remain provider-neutral,
+  enforce finite attempt/deadline budgets, and never switch providers after a visible stream delta.
 - Do not log prompts, responses, tool arguments, API keys, headers, or raw provider bodies.
 - Mock behavior is deterministic and uses the same `ProviderAdapter` seam as real providers.
 

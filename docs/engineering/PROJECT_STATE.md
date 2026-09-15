@@ -3,31 +3,38 @@ schema_version: 1
 project: Star Warehouse AI
 phase: ENTERPRISE_HARDENING
 current_task: T14
-current_status: NOT_STARTED
-execution_stage: PR_FIX_CI
+current_status: IN_PROGRESS
+execution_stage: VERIFY_PENDING
 last_accepted_task: T13
 next_task: T14
 acceptance_owner: external
 maintenance_task: M02
-maintenance_status: IN_PROGRESS
+maintenance_status: PASS
 ---
 
 # Current Objective
 
-T13 Model Gateway is externally accepted `PASS`. M02 resumed through a verified linear PR branch
-whose initial tree exactly matches the canonical local consolidation. The first PR run identified
+T13 Model Gateway is externally accepted `PASS`. T14 AI Failure Policy implementation is underway
+on a new feature branch from synchronized protected `main`. M02's protected-main consolidation is
+complete; the accepted baseline remains intact.
+
+The T14 implementation adds a bounded, provider-neutral policy seam for retries, ordered fallback,
+Redis-coordinated provider circuits, cancellation-safe streaming, and explicit safe degradation.
+T13 adapters/gateway remain single-attempt/single-candidate components and T12 durable runtime
+semantics remain unchanged. M02's protected-main consolidation used a verified linear PR branch
+whose initial tree exactly matched the canonical local consolidation. The first PR run identified
 two focused CI defects (optional tokenizer analysis and mismatched Qdrant smoke credentials); their
-narrow fixes are being verified before the protected linear merge. T14 AI Failure Policy remains
-`NOT_STARTED`.
+narrow fixes were merged and verified before protected-main consolidation. T14 is now
+`IN_PROGRESS / VERIFY_PENDING`; T15 remains `NOT_STARTED`.
 
 The frozen product target is an **Enterprise Multi-tenant AI Customer Service Platform**: a runnable, testable, deployable portfolio and public demo that demonstrates enterprise controls truthfully. The primary Golden Path is tenant login → tenant context and authorization → PII filtering → intent and multi-agent routing → order adapter and hybrid RAG → model gateway → refund recommendation → human approval → refund transaction → transactional outbox → RabbitMQ/Celery → audit, memory, evaluation, notification, and observability.
 
 # Current Task
 
 - **Task:** T14 – AI Failure Policy.
-- **Status:** `NOT_STARTED`.
-- **Execution stage:** `PR_FIX_CI`; M02 is active and T14 implementation has not begun.
-- **Scope:** No T14 feature work is authorized by M02.
+- **Status:** `IN_PROGRESS`.
+- **Execution stage:** `VERIFY_PENDING`; implementation is on `feat/t14-ai-failure-policy`.
+- **Scope:** Retry/fallback/circuit/degradation policy only; T15 is not started.
 
 # Independent Maintenance Task
 
@@ -43,9 +50,10 @@ The frozen product target is an **Enterprise Multi-tenant AI Customer Service Pl
 
 # Next Task
 
-`T14 – AI Failure Policy`.
+`T14 – AI Failure Policy` (verification and external acceptance pending).
 
-T14 must not start until T13 is fully verified and externally accepted.
+T14 started only after T13 was fully verified and externally accepted. T14 must remain
+`IN_PROGRESS / VERIFY_PENDING` until an explicit external acceptance instruction.
 
 # Current Architecture Baseline
 
@@ -350,10 +358,10 @@ The complete concise mapping is in [`ARCHITECTURE_GUARDRAILS.md`](../architectur
 # Current Blockers
 
 - M02 has no current repository-history ambiguity. The protected-main PR, required checks, linear
-  merge, remote verification, and post-merge cleanup remain outstanding.
+  merge, remote verification, and post-merge cleanup are complete and externally accepted.
 - The extensive pre-existing dirty worktree is
   preserved and overlaps configuration, graph, agents, services, tests, and documentation.
-- T13 is externally accepted `PASS`; T14 is `NOT_STARTED`.
+- T13 is externally accepted `PASS`; T14 is `IN_PROGRESS / VERIFY_PENDING`.
 
 # T13 Implementation Evidence
 
@@ -372,6 +380,23 @@ The complete concise mapping is in [`ARCHITECTURE_GUARDRAILS.md`](../architectur
 - Ruff, Ruff format check, ty, project identity, lock consistency, `git diff --check`, route
   classification, and the single Alembic head `e9f0a1b2c3d4` pass. T13 adds no route, table, or
   migration.
+
+# T14 Implementation Evidence
+
+- The feature branch `feat/t14-ai-failure-policy` starts from synchronized `main` at
+  `1b76ab2e2e3fa2afc81155fd529b38251c36ef50`; `main` was not modified or merged.
+- `ModelFailurePolicy` is the provider-neutral owner of finite retries, bounded exponential
+  backoff/jitter, ordered fallback, Redis-coordinated provider circuits, cancellation handling,
+  and explicitly marked safe-static degradation. `ModelGateway` and every provider adapter remain
+  single-candidate/single-attempt boundaries; no provider SDK import was added to the policy.
+- Factory-created clients use trusted `MODEL_FAILURE_*` settings and the shared Redis system
+  namespace. The default degradation mode is fail-only, security/non-operational errors do not
+  retry or trip circuits, and streaming never switches providers after visible output.
+- Focused T14 tests pass (`23 passed`), the provider-neutral Model Gateway regression passes
+  (`66 passed`), Ruff/format/ty pass on touched code, project identity passes, `uv lock --check`
+  passes, and Alembic remains a single head at `e9f0a1b2c3d4`. Full backend regression, shared
+  Redis integration, and CI/PR verification remain pending for VERIFY; no migration or T15 work
+  was added.
 
 # Uncommitted / Outstanding Work
 
@@ -394,15 +419,16 @@ The complete concise mapping is in [`ARCHITECTURE_GUARDRAILS.md`](../architectur
 - The accepted T11 plan is archived at [`docs/exec-plans/completed/T11.md`](../exec-plans/completed/T11.md).
 - The accepted T12 plan is archived at [`docs/exec-plans/completed/T12.md`](../exec-plans/completed/T12.md).
 - The accepted T13 plan is archived at [`docs/exec-plans/completed/T13.md`](../exec-plans/completed/T13.md).
-- The active maintenance plan is [`docs/exec-plans/active/M02.md`](../exec-plans/active/M02.md).
+- The active implementation plan is [`docs/exec-plans/active/T14.md`](../exec-plans/active/T14.md).
 
 # Handoff Notes
 
 1. T13 is externally accepted `PASS`; its plan is archived under `completed/`.
-2. M02 is `IN_PROGRESS / PR_FIX`; T14 remains `NOT_STARTED`.
+2. M02 is externally accepted `PASS`; T14 is `IN_PROGRESS / VERIFY_PENDING`.
 3. Preserve the accepted T00-T13/M01 baseline and all pre-existing uncommitted worktree changes.
 4. T13 keeps failure-policy ownership in T14: adapters perform one bounded attempt, normalize
-   errors, and never retry or automatically invoke an alternate candidate.
+   errors, and never retry or automatically invoke an alternate candidate. The active T14 plan is
+   [`docs/exec-plans/active/T14.md`](../exec-plans/active/T14.md).
 
 # T09 Final Verification Regression Result
 

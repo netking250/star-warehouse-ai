@@ -34,6 +34,7 @@ from app.model_gateway.contracts import (
     ModelToolChoice,
 )
 from app.model_gateway.errors import ModelGatewayError
+from app.model_gateway.failure_policy import ModelFailurePolicy
 from app.model_gateway.gateway import ModelGateway
 
 
@@ -56,6 +57,7 @@ class GatewayChatModel(BaseChatModel):
     temperature: float | None = 0.0
     timeout_seconds: float | None = None
     max_output_tokens: int | None = None
+    failure_policy: ModelFailurePolicy = Field(default_factory=ModelFailurePolicy, exclude=True)
 
     @property
     def _llm_type(self) -> str:
@@ -110,10 +112,11 @@ class GatewayChatModel(BaseChatModel):
     ) -> ChatResult:
         request = self._request(messages, stream=False, kwargs=kwargs)
         try:
-            if self.candidate is None:
-                response = await self.gateway.invoke_primary(request)
-            else:
-                response = await self.gateway.invoke(self.candidate, request)
+            response = await self.failure_policy.invoke(
+                self.gateway,
+                request,
+                candidates=(self.candidate,) if self.candidate is not None else None,
+            )
         except ModelGatewayError as exc:
             raise GatewayChatModelError(exc) from exc
         message = self._message(response)
@@ -127,11 +130,12 @@ class GatewayChatModel(BaseChatModel):
         **kwargs: object,
     ) -> AsyncIterator[ChatGenerationChunk]:
         request = self._request(messages, stream=True, kwargs=kwargs)
-        candidate = self.candidate
-        if candidate is None:
-            candidate = self.gateway.resolve(self.route, request.required_capabilities)[0]
         try:
-            async for event in self.gateway.stream(candidate, request):
+            async for event in self.failure_policy.stream(
+                self.gateway,
+                request,
+                candidates=(self.candidate,) if self.candidate is not None else None,
+            ):
                 if event.event_type is ModelStreamEventType.TEXT_DELTA:
                     yield ChatGenerationChunk(
                         message=AIMessageChunk(
@@ -139,6 +143,7 @@ class GatewayChatModel(BaseChatModel):
                             response_metadata={
                                 "provider": event.provider,
                                 "model": event.model,
+                                "degraded": event.degraded,
                             },
                         )
                     )
@@ -171,6 +176,7 @@ class GatewayChatModel(BaseChatModel):
                                 "finish_reason": event.finish_reason,
                                 "provider_request_id": event.provider_request_id,
                                 "latency_ms": event.latency_ms,
+                                "degraded": event.degraded,
                             },
                             usage_metadata=self._usage_metadata(event.usage),
                         )
@@ -309,6 +315,7 @@ class GatewayChatModel(BaseChatModel):
                 "finish_reason": response.finish_reason,
                 "provider_request_id": response.provider_request_id,
                 "latency_ms": response.latency_ms,
+                "degraded": response.degraded,
             },
             usage_metadata=GatewayChatModel._usage_metadata(response.usage),
         )

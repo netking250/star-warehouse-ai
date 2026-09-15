@@ -2286,3 +2286,46 @@ Execution Stage: `PR_FIX`
   `c5a4a1a` tree (`b3a03fd2e7cd3e0a250ea9f7ff6e054e2a6808f8`).
 - Pre-documentation equivalence passed with zero diff, zero merge commits, and a successful
   `origin/main` ancestor check. T13 remains `PASS`; T14 remains `NOT_STARTED`.
+
+## T14-IMPLEMENT - AI Failure Policy implementation
+
+Started: 2026-09-15
+
+Status: `IN_PROGRESS`
+
+Execution Stage: `VERIFY_PENDING`
+
+- Recovery confirmed externally accepted T13, synchronized clean `main`, and the current
+  `origin/main`/local base `1b76ab2e2e3fa2afc81155fd529b38251c36ef50`. Work is isolated on the new
+  `feat/t14-ai-failure-policy` branch; no main merge, T15 work, or destructive Git operation was
+  performed.
+- Added the provider-neutral `ModelFailurePolicy` seam. It owns finite per-candidate and total
+  attempt budgets, a total deadline, injectable bounded exponential backoff/jitter and clamped
+  `Retry-After`, ordered fallback, cancellation-safe streaming, safe-static degradation, and
+  provider/model-scoped circuit state. Factory-created clients use Redis system keys with bounded
+  half-open probes; tests inject the in-memory store. Redis outages fail open only for the breaker,
+  never for local retry/deadline limits.
+- Kept T13 boundaries intact: adapters still perform one provider attempt with SDK retries off,
+  `ModelGateway` still invokes one explicit candidate with no automatic fallback, and T14 imports
+  no provider SDK exception types. A numeric `Retry-After` hint is preserved in normalized errors
+  for the policy to clamp.
+- Streaming switches candidates only before a visible text/tool delta; after visible output the
+  normalized failure terminates the current stream. Tool/structured-output requests cannot receive
+  an arbitrary static degraded answer. Non-operational/security/capability errors do not retry,
+  fallback, or trip the circuit by default.
+- Added focused regression coverage for retry/fallback/deadline/cancellation, jitter and
+  `Retry-After`, capability filtering, streaming no-duplication, circuit closed/open/half-open
+  transitions and probe concurrency, safe degradation, configuration-error propagation, and the
+  LangChain factory seam. Focused T14 tests pass (`23 passed`); the existing provider-neutral
+  Model Gateway selection passes (`66 passed`) with external LangSmith tracing disabled.
+- Ruff, format, ty, project identity, `uv lock --check`, and Alembic single-head checks pass;
+  `e9f0a1b2c3d4` remains the sole head. Full backend regression and CI/PR verification are
+  intentionally pending for VERIFY. No schema migration, dependency upgrade, public-provider
+  call, or real secret was added.
+
+State transition:
+
+- T13 remains externally accepted `PASS`.
+- T14 moves from `NOT_STARTED` to `IN_PROGRESS / VERIFY_PENDING`; external acceptance is required
+  before `PASS`.
+- T15 remains `NOT_STARTED`.

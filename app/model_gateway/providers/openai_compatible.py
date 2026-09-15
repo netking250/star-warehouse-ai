@@ -406,7 +406,13 @@ class OpenAICompatibleProviderAdapter:
         else:
             category = ModelErrorCategory.UNKNOWN
         request_id = getattr(error, "request_id", None)
-        return self._error(category, candidate, "Provider request failed", request_id=request_id)
+        return self._error(
+            category,
+            candidate,
+            "Provider request failed",
+            request_id=request_id,
+            retry_after_seconds=self._retry_after_seconds(error),
+        )
 
     def _error(
         self,
@@ -415,6 +421,7 @@ class OpenAICompatibleProviderAdapter:
         message: str,
         *,
         request_id: str | None = None,
+        retry_after_seconds: float | None = None,
     ) -> ModelGatewayError:
         return ModelGatewayError(
             category,
@@ -422,7 +429,24 @@ class OpenAICompatibleProviderAdapter:
             provider=self.name,
             model=candidate.model,
             provider_request_id=request_id,
+            retry_after_seconds=retry_after_seconds,
         )
+
+    @staticmethod
+    def _retry_after_seconds(error: OpenAIError) -> float | None:
+        """Extract a numeric Retry-After hint without retaining provider response bodies."""
+        response = getattr(error, "response", None)
+        headers = getattr(response, "headers", None)
+        if not isinstance(headers, Mapping):
+            return None
+        value = headers.get("retry-after") or headers.get("Retry-After")
+        if value is None:
+            return None
+        try:
+            seconds = float(value)
+        except (TypeError, ValueError):
+            return None
+        return max(0.0, seconds)
 
     @staticmethod
     def _timeout(candidate: ModelCandidate, request: ModelRequest) -> float:
