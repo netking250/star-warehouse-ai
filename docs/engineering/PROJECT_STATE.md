@@ -995,3 +995,24 @@ State transition:
 - T13 moves from `IN_PROGRESS / VERIFY_PENDING` to `AWAITING_ACCEPTANCE /
   EXTERNAL_ACCEPTANCE_PENDING`; it is not marked `PASS`.
 - T14 remains `NOT_STARTED`.
+
+# T14-T21 Workflow Transition Result
+
+Completed: 2026-09-15
+
+Status: `PASS_WITH_NOTES`
+
+Execution Stage: `EXTERNAL_ACCEPTANCE_COMPLETE`
+
+- T14-specific verification is complete; feature-only regressions = `0`.
+- `DEFERRED_BASELINE_TEST_DEBT` remains recorded for OpenAI SDK cold-start deadline sensitivity
+  and Celery fresh-process import deadline sensitivity. Both remain unresolved and do not block T15.
+- Preflight confirmed clean `feat/t14-ai-failure-policy` at accepted HEAD
+  `3c9c10bc25d7e77e5b53fccd36912a5150f2357b`; `git fetch origin --prune` completed.
+- Documentation-only commit `8b0a48bab54d7423a51833a37f8f6ca1cee45e4d` established the
+  T14-T21 workflow. The local branch is now `feat/t14-t21-enterprise-hardening`.
+- Normal push configured `origin/feat/t14-t21-enterprise-hardening`; remote verification matched
+  the exact commit above. The old remote `feat/t14-ai-failure-policy` was then removed normally.
+- No force push was used, `main` was not modified, and no application code or tests changed.
+- No backend tests were run for this documentation/workflow transition; testing was not required.
+- T15 remains `NOT_STARTED` and is ready for its own IMPLEMENT stage on the integration branch.

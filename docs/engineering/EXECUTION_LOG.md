@@ -2330,6 +2330,7 @@ State transition:
   before `PASS`.
 - T15 remains `NOT_STARTED`.
 
+
 ## T14-VERIFY-CLOSEOUT - Final regression evidence and baseline debt record
 
 Completed: 2026-09-15
@@ -2363,3 +2364,35 @@ State transition:
 - T14 moves from `IN_PROGRESS / VERIFY_PENDING` to `AWAITING_ACCEPTANCE /
   EXTERNAL_ACCEPTANCE_PENDING`; external acceptance is required before `PASS`.
 - T15 remains `NOT_STARTED`.
+
+## T14-T21-INTEGRATION - Solo workflow and branch transition
+
+Completed: 2026-09-15
+
+Status: `PASS_WITH_NOTES`
+
+Execution Stage: `EXTERNAL_ACCEPTANCE_COMPLETE`
+
+- Recovery preflight confirmed the required clean branch `feat/t14-ai-failure-policy` at accepted
+  HEAD `3c9c10bc25d7e77e5b53fccd36912a5150f2357b`; `git fetch origin --prune` completed.
+- T14-specific verification was externally accepted as `PASS_WITH_NOTES`; feature-only regressions
+  are `0`. The OpenAI SDK cold-start and Celery fresh-process import deadline sensitivities remain
+  `DEFERRED_BASELINE_TEST_DEBT`, are not resolved, and do not block T15.
+- The state, roadmap, root agent guidance, README status, execution-plan lifecycle reference, and
+  archived T14 plan record the T14-T21 solo-development workflow. T15 was not implemented.
+- Commit `8b0a48bab54d7423a51833a37f8f6ca1cee45e4d` contains only documentation/workflow/state
+  changes and archives `docs/exec-plans/active/T14.md` as `docs/exec-plans/completed/T14.md`.
+- The local branch was renamed to `feat/t14-t21-enterprise-hardening`.
+- A normal push with upstream configuration created
+  `origin/feat/t14-t21-enterprise-hardening`; `git ls-remote` verified it at the exact commit
+  above. No force push was used.
+- The old remote `feat/t14-ai-failure-policy` was deleted normally only after that verification.
+- No application code or tests changed. No backend tests were run because the transition scope did
+  not require them; `main` was not modified.
+
+State transition:
+
+- T13 remains externally accepted `PASS`.
+- T14 moves from `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` to externally accepted
+  `PASS_WITH_NOTES`.
+- T15 remains `NOT_STARTED` and is ready for the next IMPLEMENT stage on the integration branch.
