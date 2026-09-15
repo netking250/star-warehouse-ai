@@ -57,10 +57,13 @@ The frozen product target is an **Enterprise Multi-tenant AI Customer Service Pl
   backend gaps or out of scope.
 - Frontend verification passed: format check, lint, TypeScript/build, Vitest `51 passed`, and
   Chromium E2E `6 passed`. Focused T15 transport guards passed `31 passed`.
-- Focused backend contract pytest was attempted but the environment could not resolve PostgreSQL
-  host `db` during the shared fixture setup; the static route inventory independently reported
-  zero unclassified HTTP/WS routes. No implementation defect was inferred from that infrastructure
-  failure.
+- Focused backend evidence closeout passed authorization (`8` tests), compliance (`5` tests), and
+  implemented operations/runtime/AI read endpoints (`4` tests) against the disposable
+  `test_t16_evidence_20260915` database on the repository's Compose PostgreSQL, with existing
+  capability roles and Redis DB 15 available. The default host ports were occupied by unrelated
+  containers, so loopback-only evidence ports were used without changing repository configuration.
+- The route inventory reported zero unclassified HTTP/WS routes, Alembic remained at the single
+  head `e9f0a1b2c3d4`, and no implementation defect, migration, or new T16 debt was added.
 
 # Historical T15 Task
 
