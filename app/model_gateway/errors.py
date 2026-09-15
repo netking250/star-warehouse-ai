@@ -30,12 +30,14 @@ class ModelGatewayError(Exception):
         provider: str | None = None,
         model: str | None = None,
         provider_request_id: str | None = None,
+        retry_after_seconds: float | None = None,
     ) -> None:
         super().__init__(message)
         self.category = category
         self.provider = provider
         self.model = model
         self.provider_request_id = provider_request_id
+        self.retry_after_seconds = retry_after_seconds
 
 
 class ModelConfigurationError(ValueError):

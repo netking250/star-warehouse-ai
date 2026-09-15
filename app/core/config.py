@@ -203,6 +203,23 @@ class Settings(BaseSettings):
     MODEL_DASHSCOPE_BASE_URL: str = "https://dashscope.aliyuncs.com/compatible-api/v1"
     MODEL_GATEWAY_DEFAULT_TIMEOUT_SECONDS: float = Field(default=30.0, gt=0, le=300)
     MODEL_ROUTES: dict[str, ModelRouteSettings] = Field(default_factory=default_model_routes)
+    # T14 model failure policy. These are trusted server-side bounds; request payloads cannot
+    # override retry, fallback, circuit, or degradation behavior.
+    MODEL_FAILURE_MAX_ATTEMPTS_PER_CANDIDATE: int = Field(default=2, ge=1, le=10)
+    MODEL_FAILURE_MAX_TOTAL_ATTEMPTS: int = Field(default=4, ge=1, le=20)
+    MODEL_FAILURE_TOTAL_DEADLINE_SECONDS: float = Field(default=60.0, gt=0, le=600)
+    MODEL_FAILURE_BASE_BACKOFF_SECONDS: float = Field(default=0.25, ge=0, le=60)
+    MODEL_FAILURE_MAX_BACKOFF_SECONDS: float = Field(default=5.0, ge=0, le=120)
+    MODEL_FAILURE_JITTER_RATIO: float = Field(default=0.2, ge=0, le=1)
+    MODEL_FAILURE_RETRY_AFTER_MAX_SECONDS: float = Field(default=5.0, ge=0, le=120)
+    MODEL_FAILURE_CIRCUIT_FAILURE_THRESHOLD: int = Field(default=5, ge=1, le=100)
+    MODEL_FAILURE_CIRCUIT_OPEN_SECONDS: float = Field(default=30.0, gt=0, le=3600)
+    MODEL_FAILURE_CIRCUIT_HALF_OPEN_PROBE_SECONDS: float = Field(default=5.0, gt=0, le=300)
+    MODEL_FAILURE_DEGRADATION_MODE: Literal["fail", "safe_static_response"] = "fail"
+    MODEL_FAILURE_SAFE_STATIC_RESPONSE: str = (
+        "The AI service is temporarily unavailable. Please try again later."
+    )
+    MODEL_FAILURE_RETRY_INVALID_RESPONSE: bool = False
     RUN_REAL_LLM_TESTS: bool = False
     REAL_LLM_TEST_ROUTE: str = "default_chat"
     EMBEDDING_MODEL: str = "text-embedding-v3"

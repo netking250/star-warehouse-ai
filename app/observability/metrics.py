@@ -59,6 +59,36 @@ CHAT_ERRORS_TOTAL = _get_or_create_counter(
     ["error_type"],
 )
 
+MODEL_ATTEMPTS_TOTAL = _get_or_create_counter(
+    "model_attempts_total",
+    "Model provider attempts by provider and outcome.",
+    ["provider", "outcome"],
+)
+
+MODEL_RETRIES_TOTAL = _get_or_create_counter(
+    "model_retries_total",
+    "Bounded model retries by provider and normalized failure category.",
+    ["provider", "category"],
+)
+
+MODEL_FALLBACKS_TOTAL = _get_or_create_counter(
+    "model_fallbacks_total",
+    "Ordered model fallback transitions by source provider and outcome.",
+    ["provider", "outcome"],
+)
+
+MODEL_CIRCUIT_TRANSITIONS_TOTAL = _get_or_create_counter(
+    "model_circuit_transitions_total",
+    "Model provider circuit state transitions.",
+    ["provider", "from_state", "to_state"],
+)
+
+MODEL_DEGRADED_TOTAL = _get_or_create_counter(
+    "model_degraded_total",
+    "Safe static model degradation outcomes by route.",
+    ["route"],
+)
+
 CHAT_LATENCY_SECONDS = _get_or_create_histogram(
     "chat_latency_seconds",
     "End-to-end chat request latency in seconds.",
@@ -384,6 +414,35 @@ def record_chat_error(error_type: str) -> None:
 def record_chat_latency(latency_seconds: float, final_agent: str | None = None) -> None:
     """Observe chat end-to-end latency."""
     CHAT_LATENCY_SECONDS.labels(final_agent=final_agent or "unknown").observe(latency_seconds)
+
+
+def record_model_attempt(*, provider: str, outcome: str) -> None:
+    """Record one low-cardinality model attempt outcome."""
+    MODEL_ATTEMPTS_TOTAL.labels(provider=provider, outcome=outcome).inc()
+
+
+def record_model_retry(*, provider: str, category: str) -> None:
+    """Record one policy retry decision."""
+    MODEL_RETRIES_TOTAL.labels(provider=provider, category=category).inc()
+
+
+def record_model_fallback(*, provider: str, outcome: str) -> None:
+    """Record advancement from one exhausted candidate to the next."""
+    MODEL_FALLBACKS_TOTAL.labels(provider=provider, outcome=outcome).inc()
+
+
+def record_model_circuit_transition(*, provider: str, from_state: str, to_state: str) -> None:
+    """Record a provider circuit transition without tenant/user labels."""
+    MODEL_CIRCUIT_TRANSITIONS_TOTAL.labels(
+        provider=provider,
+        from_state=from_state,
+        to_state=to_state,
+    ).inc()
+
+
+def record_model_degraded(*, route: str) -> None:
+    """Record one explicitly configured safe static degradation."""
+    MODEL_DEGRADED_TOTAL.labels(route=route).inc()
 
 
 def record_node_latency(node_name: str, latency_seconds: float) -> None:

@@ -10,7 +10,13 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.runnables import RunnableConfig
 
 from app.core.config import Settings, settings
+from app.core.redis import create_redis_client
 from app.model_gateway.contracts import ModelCandidate, ModelRoute
+from app.model_gateway.failure_policy import (
+    ModelFailurePolicy,
+    ModelFailurePolicyConfig,
+    RedisCircuitStore,
+)
 from app.model_gateway.gateway import ModelGateway
 from app.model_gateway.langchain import GatewayChatModel
 from app.model_gateway.providers.dashscope import DashScopeProviderAdapter
@@ -55,6 +61,16 @@ def get_model_gateway() -> ModelGateway:
     return build_model_gateway(settings)
 
 
+@lru_cache(maxsize=1)
+def get_model_failure_policy() -> ModelFailurePolicy:
+    """Return the process policy using Redis for cross-instance circuit coordination."""
+    policy_config = ModelFailurePolicyConfig.from_settings(settings)
+    return ModelFailurePolicy(
+        config=policy_config,
+        circuit_store=RedisCircuitStore(create_redis_client(), policy_config),
+    )
+
+
 def create_model_client(
     route: str = "default_chat",
     *,
@@ -65,6 +81,7 @@ def create_model_client(
     max_output_tokens: int | None = None,
     default_config: RunnableConfig | None = None,
     gateway: ModelGateway | None = None,
+    failure_policy: ModelFailurePolicy | None = None,
 ) -> BaseChatModel:
     """Create a LangChain-compatible client for one trusted server-side route."""
     selected_gateway = gateway or get_model_gateway()
@@ -88,6 +105,7 @@ def create_model_client(
         temperature=temperature,
         timeout_seconds=timeout,
         max_output_tokens=max_output_tokens,
+        failure_policy=failure_policy or get_model_failure_policy(),
     )
     if default_config is not None:
         model = cast(BaseChatModel, model.with_config(default_config))

@@ -124,6 +124,7 @@ class ModelResponse:
     latency_ms: int | None = None
     tool_calls: tuple[ModelToolCall, ...] = ()
     structured_output: Mapping[str, object] | None = None
+    degraded: bool = False
 
 
 class ModelStreamEventType(StrEnum):
@@ -157,6 +158,7 @@ class ModelStreamEvent:
     usage: ModelUsage | None = None
     provider_request_id: str | None = None
     latency_ms: int | None = None
+    degraded: bool = False
 
 
 @dataclass(frozen=True, slots=True)

@@ -41,8 +41,8 @@ microservices.
   events, idempotency, cancellation, recovery, and the executor boundary. LangGraph remains an
   internal implementation detail.
 - **Model Gateway** exposes provider-neutral requests, responses, streaming, capabilities, and
-  configured use-case routes. T13 performs one bounded selected-provider attempt; automatic
-  retry, fallback, circuit breaking, and degraded-answer policy remain T14 work.
+  configured use-case routes. T13 performs one selected-provider attempt; the T14 feature branch
+  adds the bounded retry, ordered fallback, circuit, and explicitly marked degradation policy.
 - **Provider adapters** isolate OpenAI, DashScope, and deterministic Mock behavior from agents and
   application services. Ordinary tests use mocks or fake transports.
 - **Async infrastructure** persists critical task intent through PostgreSQL and the transactional
@@ -190,7 +190,8 @@ Alertmanager, Loki, Promtail, Tempo, OpenTelemetry Collector, and Mimir configur
 - Current release: `5.0.0`.
 - Enterprise-hardening milestones T-INIT through T13 are externally accepted `PASS`.
 - T13 delivers the Dynamic Model Gateway with OpenAI, DashScope, and Mock adapters.
-- T14 (AI Failure Policy) is `NOT_STARTED`; automatic provider fallback is not claimed.
+- T14 (AI Failure Policy) is `IN_PROGRESS / VERIFY_PENDING` on its dedicated feature branch and
+  is not externally accepted; T15 remains `NOT_STARTED`.
 
 Detailed milestone evidence remains in the engineering state documents rather than this project
 introduction.
