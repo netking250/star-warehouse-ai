@@ -1,7 +1,14 @@
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/stores/auth'
-import { apiFetch, clearBrowserSessionState, isTransportError, TransportError } from '@/lib/api'
+import {
+  ACCESS_DENIED_EVENT,
+  apiFetch,
+  clearBrowserSessionState,
+  isTransportError,
+  SESSION_INVALIDATED_EVENT,
+  TransportError,
+} from '@/lib/api'
 import type { LoginCredentials, User } from '@/types'
 
 interface SessionResponse {
@@ -45,6 +52,49 @@ export function useAuth(): UseAuthResult {
   const { user, isAuthenticated, isInitialized, setAuth, clearAuth, setInitialized } =
     useAuthStore()
   const queryClient = useQueryClient()
+
+  useEffect(() => {
+    const clearPrivilegedCache = (): void => {
+      queryClient.removeQueries({
+        predicate: (query) => query.queryKey[0] === 'admin' || query.queryKey[0] === 'console',
+      })
+    }
+    const clearInactivePrivilegedCache = (): void => {
+      queryClient.removeQueries({
+        predicate: (query) =>
+          (query.queryKey[0] === 'admin' || query.queryKey[0] === 'console') &&
+          query.getObserversCount() === 0,
+      })
+    }
+    const reconcileAccess = (): void => {
+      // Keep the active denied query in its explicit error state. Removing an active query here
+      // would immediately recreate it while the observer is still enabled and hide the 403.
+      clearInactivePrivilegedCache()
+      void queryClient.invalidateQueries({ queryKey: ['auth', 'session'] })
+    }
+    window.addEventListener(SESSION_INVALIDATED_EVENT, clearPrivilegedCache)
+    window.addEventListener(ACCESS_DENIED_EVENT, reconcileAccess)
+    return () => {
+      window.removeEventListener(SESSION_INVALIDATED_EVENT, clearPrivilegedCache)
+      window.removeEventListener(ACCESS_DENIED_EVENT, reconcileAccess)
+    }
+  }, [queryClient])
+  const previousAccessSignature = useRef<string | null>(null)
+  useEffect(() => {
+    if (!isInitialized) return
+    const accessSignature = user
+      ? `${user.user_id}:${user.tenant_id ?? ''}:${[...(user.scopes ?? [])].sort().join('|')}`
+      : null
+    if (
+      previousAccessSignature.current !== null &&
+      previousAccessSignature.current !== accessSignature
+    ) {
+      queryClient.removeQueries({
+        predicate: (query) => query.queryKey[0] === 'admin' || query.queryKey[0] === 'console',
+      })
+    }
+    previousAccessSignature.current = accessSignature
+  }, [isInitialized, queryClient, user])
   const sessionQuery = useQuery({
     queryKey: ['auth', 'session'],
     queryFn: async (): Promise<SessionResponse | null> => {
@@ -83,6 +133,9 @@ export function useAuth(): UseAuthResult {
     } finally {
       clearBrowserSessionState()
       clearAuth()
+      queryClient.removeQueries({
+        predicate: (query) => query.queryKey[0] === 'admin' || query.queryKey[0] === 'console',
+      })
       queryClient.setQueryData(['auth', 'session'], null)
     }
   }, [clearAuth, queryClient])

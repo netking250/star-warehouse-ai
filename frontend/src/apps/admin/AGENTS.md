@@ -124,3 +124,13 @@ The Customer frontend uses a simpler pattern suited to its single-page chat inte
 
 - Do not call `fetch` directly in components — use `@frontend/src/lib/api.ts` or TanStack Query hooks.
 - Do not introduce Redux or other complex client-side state managers. Zustand + TanStack Query is sufficient.
+
+## T16 Enterprise Console Conventions
+
+- The single console hierarchy is `/`, `/operations`, `/ai`, `/security`, and `/compliance`, alongside the stable existing knowledge, feedback, and metrics workspaces. Do not add a duplicate admin tree or invent provider, outbox, job-control, tenant-switching, or general-audit APIs.
+- `Overview.tsx`, `Operations.tsx`, `Security.tsx`, and `Compliance.tsx` use existing backend contracts through `useEnterpriseConsole.ts`. `AdminLayout.tsx` owns grouped capability-aware navigation and `RouteGuards.tsx` owns session/direct-route guards.
+- Use `user.scopes` from the server-derived `/me` response for menu and control visibility. Never use `user.role`, a username, or an OIDC/JWT role claim as permission authority. Hidden navigation is only a UX optimization; backend authorization remains authoritative.
+- Console tables are metadata-first. Do not render passwords, tokens, API keys, TOTP secrets, raw export content, raw prompt/RAG content, or unredacted audit payloads.
+- Use `ConfirmDialog` for mutations with meaningful impact, pass through `apiFetchJson`, show pending state, and surface normalized `TransportError` guidance. Do not use browser-native `confirm()`.
+- Remove console/admin query keys on logout, session invalidation, and access-denied reconciliation so stale privileged data is not rendered after downgrade.
+- Do not add arbitrary polling, fake production records, or client-side tenant switching to make the console appear richer.

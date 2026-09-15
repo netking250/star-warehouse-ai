@@ -40,6 +40,16 @@ test('admin login uses the browser session endpoint', async ({ page }) => {
       body: JSON.stringify({ notifications: [] }),
     })
   })
+  await page.route('**/api/v1/browser/csrf', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ csrf_token: 'admin-e2e-csrf' }),
+    })
+  })
+  await page.route('**/api/v1/logout', async (route) => {
+    await route.fulfill({ status: 204, body: '' })
+  })
 
   await page.goto('/admin.html#/login')
   await page.locator('#admin-username').fill('adminuser')
@@ -48,4 +58,7 @@ test('admin login uses the browser session endpoint', async ({ page }) => {
   await page.waitForURL('/admin.html#/')
   await expect(page.getByTestId('logout-button')).toBeVisible()
   expect((await page.context().cookies()).some((cookie) => cookie.httpOnly)).toBe(true)
+
+  await page.getByTestId('logout-button').click()
+  await expect(page).toHaveURL(/\/admin\.html#\/login$/)
 })

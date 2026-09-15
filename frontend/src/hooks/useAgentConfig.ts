@@ -9,16 +9,13 @@ import type {
   PromptEffectReport,
   RoutingRule,
 } from '@/types'
-import { apiFetch } from '@/lib/api'
+import { apiFetchJson } from '@/lib/api'
 
 export function useAgentAuditLog(agentName: string | undefined) {
   return useQuery<AgentConfigAuditLog[]>({
     queryKey: ['admin', 'agents', 'config', agentName, 'audit-log'],
-    queryFn: async () => {
-      const res = await apiFetch(`/admin/agents/config/${agentName}/audit-log`)
-      if (!res.ok) throw new Error('获取审计日志失败')
-      return res.json() as Promise<AgentConfigAuditLog[]>
-    },
+    queryFn: () =>
+      apiFetchJson<AgentConfigAuditLog[]>(`/admin/agents/config/${agentName}/audit-log`),
     enabled: !!agentName,
   })
 }
@@ -26,11 +23,7 @@ export function useAgentAuditLog(agentName: string | undefined) {
 export function useAgentVersions(agentName: string | undefined) {
   return useQuery<AgentConfigVersion[]>({
     queryKey: ['admin', 'agents', 'config', agentName, 'versions'],
-    queryFn: async () => {
-      const res = await apiFetch(`/admin/agents/config/${agentName}/versions`)
-      if (!res.ok) throw new Error('获取版本历史失败')
-      return res.json() as Promise<AgentConfigVersion[]>
-    },
+    queryFn: () => apiFetchJson<AgentConfigVersion[]>(`/admin/agents/config/${agentName}/versions`),
     enabled: !!agentName,
   })
 }
@@ -41,11 +34,10 @@ export function useAgentVersionMetrics(
 ) {
   return useQuery<AgentConfigVersionMetrics>({
     queryKey: ['admin', 'agents', 'config', agentName, 'versions', versionId, 'metrics'],
-    queryFn: async () => {
-      const res = await apiFetch(`/admin/agents/config/${agentName}/versions/${versionId}/metrics`)
-      if (!res.ok) throw new Error('获取版本指标失败')
-      return res.json() as Promise<AgentConfigVersionMetrics>
-    },
+    queryFn: () =>
+      apiFetchJson<AgentConfigVersionMetrics>(
+        `/admin/agents/config/${agentName}/versions/${versionId}/metrics`
+      ),
     enabled: !!agentName && !!versionId,
   })
 }
@@ -53,11 +45,7 @@ export function useAgentVersionMetrics(
 export function useAgentReports(agentName: string | undefined) {
   return useQuery<PromptEffectReport[]>({
     queryKey: ['admin', 'agents', 'config', agentName, 'reports'],
-    queryFn: async () => {
-      const res = await apiFetch(`/admin/agents/config/${agentName}/reports`)
-      if (!res.ok) throw new Error('获取月度报告失败')
-      return res.json() as Promise<PromptEffectReport[]>
-    },
+    queryFn: () => apiFetchJson<PromptEffectReport[]>(`/admin/agents/config/${agentName}/reports`),
     enabled: !!agentName,
   })
 }
@@ -65,13 +53,9 @@ export function useAgentReports(agentName: string | undefined) {
 export function useAgentConfig() {
   const queryClient = useQueryClient()
 
-  const { data, isLoading } = useQuery<AgentsConfigResponse>({
+  const { data, isLoading, error, refetch } = useQuery<AgentsConfigResponse>({
     queryKey: ['admin', 'agents', 'config'],
-    queryFn: async () => {
-      const res = await apiFetch('/admin/agents/config')
-      if (!res.ok) throw new Error('获取 Agent 配置失败')
-      return res.json() as Promise<AgentsConfigResponse>
-    },
+    queryFn: () => apiFetchJson<AgentsConfigResponse>('/admin/agents/config'),
   })
 
   const updateRoutingRuleMutation = useMutation<
@@ -86,20 +70,14 @@ export function useAgentConfig() {
     },
     { previousData: AgentsConfigResponse | undefined }
   >({
-    mutationFn: async (payload) => {
-      const res = await apiFetch(
+    mutationFn: (payload) =>
+      apiFetchJson<RoutingRule>(
         payload.id ? `/admin/agents/routing-rules/${payload.id}` : '/admin/agents/routing-rules',
         {
           method: payload.id ? 'PUT' : 'POST',
           body: JSON.stringify(payload),
         }
-      )
-      if (!res.ok) {
-        const err = (await res.json().catch(() => ({}))) as { detail?: string }
-        throw new Error(err.detail || '保存失败')
-      }
-      return (await res.json()) as RoutingRule
-    },
+      ),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['admin', 'agents', 'config'] })
     },
@@ -110,16 +88,10 @@ export function useAgentConfig() {
     Error,
     number
   >({
-    mutationFn: async (id) => {
-      const res = await apiFetch(`/admin/agents/routing-rules/${id}`, {
+    mutationFn: (id) =>
+      apiFetchJson<{ success: boolean; message: string }>(`/admin/agents/routing-rules/${id}`, {
         method: 'DELETE',
-      })
-      if (!res.ok) {
-        const err = (await res.json().catch(() => ({}))) as { detail?: string }
-        throw new Error(err.detail || '删除失败')
-      }
-      return res.json() as Promise<{ success: boolean; message: string }>
-    },
+      }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['admin', 'agents', 'config'] })
     },
@@ -131,17 +103,11 @@ export function useAgentConfig() {
     { agentName: string; payload: AgentConfigPayload },
     { previousData: AgentsConfigResponse | undefined }
   >({
-    mutationFn: async ({ agentName, payload }) => {
-      const res = await apiFetch(`/admin/agents/config/${agentName}`, {
+    mutationFn: ({ agentName, payload }) =>
+      apiFetchJson<AgentConfig>(`/admin/agents/config/${agentName}`, {
         method: 'POST',
         body: JSON.stringify(payload),
-      })
-      if (!res.ok) {
-        const err = (await res.json().catch(() => ({}))) as { detail?: string }
-        throw new Error(err.detail || '更新失败')
-      }
-      return res.json() as Promise<AgentConfig>
-    },
+      }),
     onMutate: async ({ agentName, payload }) => {
       await queryClient.cancelQueries({ queryKey: ['admin', 'agents', 'config'] })
       const previousData = queryClient.getQueryData<AgentsConfigResponse>([
@@ -171,16 +137,10 @@ export function useAgentConfig() {
   })
 
   const rollbackMutation = useMutation<AgentConfig, Error, string>({
-    mutationFn: async (agentName) => {
-      const res = await apiFetch(`/admin/agents/config/${agentName}/rollback`, {
+    mutationFn: (agentName) =>
+      apiFetchJson<AgentConfig>(`/admin/agents/config/${agentName}/rollback`, {
         method: 'POST',
-      })
-      if (!res.ok) {
-        const err = (await res.json().catch(() => ({}))) as { detail?: string }
-        throw new Error(err.detail || '回滚失败')
-      }
-      return res.json() as Promise<AgentConfig>
-    },
+      }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['admin', 'agents', 'config'] })
     },
@@ -191,19 +151,13 @@ export function useAgentConfig() {
     Error,
     { agentName: string; versionId: number }
   >({
-    mutationFn: async ({ agentName, versionId }) => {
-      const res = await apiFetch(
+    mutationFn: ({ agentName, versionId }) =>
+      apiFetchJson<AgentConfig>(
         `/admin/agents/config/${agentName}/versions/${versionId}/rollback`,
         {
           method: 'POST',
         }
-      )
-      if (!res.ok) {
-        const err = (await res.json().catch(() => ({}))) as { detail?: string }
-        throw new Error(err.detail || '回滚失败')
-      }
-      return res.json() as Promise<AgentConfig>
-    },
+      ),
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({ queryKey: ['admin', 'agents', 'config'] })
       void queryClient.invalidateQueries({
@@ -217,17 +171,14 @@ export function useAgentConfig() {
     Error,
     { agentName: string; reportMonth: string }
   >({
-    mutationFn: async ({ agentName, reportMonth }) => {
-      const res = await apiFetch(`/admin/agents/config/${agentName}/reports/generate`, {
-        method: 'POST',
-        body: JSON.stringify({ report_month: reportMonth }),
-      })
-      if (!res.ok) {
-        const err = (await res.json().catch(() => ({}))) as { detail?: string }
-        throw new Error(err.detail || '生成报告失败')
-      }
-      return res.json() as Promise<{ task_id: string; agent_name: string; report_month: string }>
-    },
+    mutationFn: ({ agentName, reportMonth }) =>
+      apiFetchJson<{ task_id: string; agent_name: string; report_month: string }>(
+        `/admin/agents/config/${agentName}/reports/generate`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ report_month: reportMonth }),
+        }
+      ),
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({
         queryKey: ['admin', 'agents', 'config', variables.agentName, 'reports'],
@@ -239,6 +190,15 @@ export function useAgentConfig() {
     agents: data?.configs ?? [],
     routingRules: data?.routing_rules ?? [],
     isLoading,
+    error,
+    refetch,
+    mutationError:
+      updateMutation.error ??
+      rollbackMutation.error ??
+      rollbackToVersionMutation.error ??
+      updateRoutingRuleMutation.error ??
+      deleteRoutingRuleMutation.error ??
+      generateReportMutation.error,
     updateAgent: updateMutation.mutateAsync,
     isUpdating: updateMutation.isPending,
     rollbackAgent: rollbackMutation.mutateAsync,

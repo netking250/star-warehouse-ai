@@ -1,5 +1,8 @@
 import { useAuthStore } from '@/stores/auth'
 
+export const SESSION_INVALIDATED_EVENT = 'star-warehouse:session-invalidated'
+export const ACCESS_DENIED_EVENT = 'star-warehouse:access-denied'
+
 export const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1'
 export const CSRF_HEADER_NAME = 'X-CSRF-Token'
 
@@ -417,6 +420,9 @@ function detailFromPayload(payload: unknown): { code?: string; details?: SafeErr
 function clearAuthAfterUnauthorized(): void {
   clearBrowserSessionState()
   useAuthStore.getState().clearAuth()
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(SESSION_INVALIDATED_EVENT))
+  }
 }
 
 async function createHttpError(response: Response, route: string): Promise<TransportError> {
@@ -430,6 +436,9 @@ async function createHttpError(response: Response, route: string): Promise<Trans
   const parsed = detailFromPayload(payload)
   const kind = errorKindForStatus(response.status)
   if (kind === 'UNAUTHENTICATED') clearAuthAfterUnauthorized()
+  if (kind === 'FORBIDDEN' && typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(ACCESS_DENIED_EVENT))
+  }
 
   const requestId = headerValue(response, 'X-Request-ID', 'X-Request-Id')
   const correlationId = headerValue(response, 'X-Correlation-ID', 'X-Correlation-Id')

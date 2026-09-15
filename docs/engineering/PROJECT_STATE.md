@@ -2,11 +2,11 @@
 schema_version: 1
 project: Star Warehouse AI
 phase: ENTERPRISE_HARDENING
-current_task: T15
-current_status: AWAITING_ACCEPTANCE
-execution_stage: EXTERNAL_ACCEPTANCE_PENDING
-last_accepted_task: T14
-next_task: T16
+current_task: T16
+current_status: IN_PROGRESS
+execution_stage: VERIFY_PENDING
+last_accepted_task: T15
+next_task: T17
 acceptance_owner: external
 maintenance_task: M02
 maintenance_status: PASS
@@ -15,9 +15,10 @@ maintenance_status: PASS
 # Current Objective
 
 T13 Model Gateway is externally accepted `PASS`. T14 AI Failure Policy is externally accepted
-`PASS_WITH_NOTES` on the long-lived T14-T21 integration branch. T15 Frontend Transport is now
-`AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` on that same branch. M02's protected-main
-consolidation is complete; the accepted baseline remains intact.
+`PASS_WITH_NOTES` on the long-lived T14-T21 integration branch. T15 Frontend Transport is
+externally accepted `PASS` by the explicit T16 implementation instruction. T16 Enterprise Console
+is now `IN_PROGRESS / VERIFY_PENDING` on that same branch. M02's protected-main consolidation is
+complete; the accepted baseline remains intact.
 
 The T14 implementation adds a bounded, provider-neutral policy seam for retries, ordered fallback,
 Redis-coordinated provider circuits, cancellation-safe streaming, and explicit safe degradation.
@@ -27,11 +28,41 @@ whose initial tree exactly matched the canonical local consolidation. The first 
 two focused CI defects (optional tokenizer analysis and mismatched Qdrant smoke credentials); their
 narrow fixes were merged and verified before protected-main consolidation. T14 is now
 `PASS_WITH_NOTES`; T15 has implemented the canonical browser transport layer without changing
-backend security or product APIs.
+backend security or product APIs. T16 is extending the existing admin frontend with capability-
+aware Overview, AI, Operations, Security, and Compliance surfaces over already accepted contracts.
 
 The frozen product target is an **Enterprise Multi-tenant AI Customer Service Platform**: a runnable, testable, deployable portfolio and public demo that demonstrates enterprise controls truthfully. The primary Golden Path is tenant login → tenant context and authorization → PII filtering → intent and multi-agent routing → order adapter and hybrid RAG → model gateway → refund recommendation → human approval → refund transaction → transactional outbox → RabbitMQ/Celery → audit, memory, evaluation, notification, and observability.
 
 # Current Task
+
+- **Task:** T16 - Enterprise Console.
+- **Status:** `IN_PROGRESS`.
+- **Execution stage:** `VERIFY_PENDING`; the long-lived integration branch is
+  `feat/t14-t21-enterprise-hardening`.
+- **Scope:** Capability-aware Overview, AI, Operations, Security, and Compliance console surfaces
+  over existing backend contracts, preserving T15 transport, secure session, tenant boundaries,
+  and immutable/sensitive-operation semantics. No backend API invention, migration, T17 work, or
+  protected-main baseline-debt repair.
+
+## T16 Implementation Closeout
+
+- T16 remains `IN_PROGRESS`; implementation is complete and the execution stage is
+  `VERIFY_PENDING`.
+- The shared admin shell now owns capability-aware navigation and session/direct-route guards for
+  Overview, Operations, AI, Security, Compliance, and the stable existing workspaces. New console
+  reads and mutations use the T15 transport boundary and existing backend contracts only.
+- Sensitive export content, provider credentials, passwords, session secrets, TOTP material, raw
+  prompt/RAG content, and unredacted audit payloads are not rendered. General audit list/detail,
+  async-job/outbox controls, provider/circuit administration, and tenant switching remain explicit
+  backend gaps or out of scope.
+- Frontend verification passed: format check, lint, TypeScript/build, Vitest `51 passed`, and
+  Chromium E2E `6 passed`. Focused T15 transport guards passed `31 passed`.
+- Focused backend contract pytest was attempted but the environment could not resolve PostgreSQL
+  host `db` during the shared fixture setup; the static route inventory independently reported
+  zero unclassified HTTP/WS routes. No implementation defect was inferred from that infrastructure
+  failure.
+
+# Historical T15 Task
 
 - **Task:** T15 – Frontend Transport.
 - **Status:** `AWAITING_ACCEPTANCE`.
@@ -52,9 +83,18 @@ The frozen product target is an **Enterprise Multi-tenant AI Customer Service Pl
 
 # Last Accepted Task
 
+`T15` - Frontend Transport, externally accepted `PASS` by explicit user acceptance instruction
+on 2026-09-15.
+
+# Historical T14 Last Accepted Task
+
 `T14` – AI Failure Policy, externally accepted `PASS_WITH_NOTES` on 2026-09-15.
 
 # Next Task
+
+`T16` - Enterprise Console is `IN_PROGRESS / IMPLEMENT` on the long-lived integration branch.
+
+# Historical T15 Next Task
 
 `T16 – Enterprise Console` remains `NOT_STARTED` and cannot begin until T15 is externally accepted.
 
