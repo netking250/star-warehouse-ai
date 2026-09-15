@@ -31,7 +31,7 @@ Codex may set a completed implementation to `AWAITING_ACCEPTANCE` only. `PASS` a
 | T13 | Model Gateway | PASS |
 | T14 | AI Failure Policy | PASS_WITH_NOTES |
 | T15 | Frontend Transport | PASS |
-| T16 | Enterprise Console | IN_PROGRESS |
+| T16 | Enterprise Console | AWAITING_ACCEPTANCE |
 | T17 | Observability | NOT_STARTED |
 | T18 | CI/CD + Supply Chain | NOT_STARTED |
 | T19 | Helm + k3s + AWS Reference | NOT_STARTED |
@@ -187,3 +187,19 @@ The sequence is the default gate order. A user may issue a documented change req
   at the single expected head `e9f0a1b2c3d4`; no migration or application code was added.
 - No backend route, schema, migration, provider-secret management, T17 observability work, PR, or
   merge was added.
+
+## T16 Verification Closeout
+
+- T16 moves from `IN_PROGRESS / VERIFY_PENDING` to `AWAITING_ACCEPTANCE /
+  EXTERNAL_ACCEPTANCE_PENDING`; Codex does not mark the task `PASS`.
+- Focused Chromium acceptance passed `5` tests covering authorized navigation, capability denial,
+  backend 403, compliance approval mutation, CSRF/state refresh, and login/logout.
+- T16-targeted frontend tests passed `23` tests across `5` files. Format, lint, explicit TypeScript
+  check, and production build passed; the complete 51-test frontend suite was not rerun.
+- Compact backend smoke passed `8` tests covering authorization allow/deny, compliance approval and
+  access-loss behavior, conversation metadata, dashboard summary, and AI configuration reads.
+- Structural review confirmed canonical T15 transport, capability-aware navigation, scoped cache
+  clearing/invalidation, safe error states, no secret/token rendering, and no unsupported audit,
+  job/outbox, provider, circuit, tenant-switch, or T17-T20 controls.
+- Route inventory remains at zero unclassified HTTP/WS routes. Alembic remains at the single head
+  `e9f0a1b2c3d4`; no migration or historical migration modification was added.

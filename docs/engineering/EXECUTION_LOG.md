@@ -2610,3 +2610,39 @@ State transition:
 - T15 remains externally accepted `PASS` by explicit user instruction.
 - T16 remains `IN_PROGRESS / VERIFY_PENDING`; external verification/acceptance is pending.
 - T17 remains `NOT_STARTED`.
+
+## T16-VERIFY - Enterprise Console final verification
+
+Completed: 2026-09-15
+
+Status: `AWAITING_ACCEPTANCE`
+
+Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
+
+- Preflight confirmed branch `feat/t14-t21-enterprise-hardening`, clean working tree, and local
+  HEAD equal to `origin/feat/t14-t21-enterprise-hardening` at `7852fc0b5b37d7df84d0f676c1cb1044f3b6a1e0`.
+- Final scope review confirmed Overview, AI, Operations, Security, Compliance, one shared shell,
+  capability-aware navigation, and supported existing workspaces only. General audit, async
+  job/outbox, provider/circuit administration, tenant switching, and T17-T20 work remain deferred.
+- Focused Chromium acceptance passed `5` tests: authorized overview/operations navigation,
+  capability-denied direct route, explicit backend 403, compliance approval confirmation/CSRF/state
+  refresh, and browser-session login/logout.
+- T16-targeted frontend tests passed `23` tests in `5` files. Format check, lint, explicit
+  TypeScript check, and production build passed. The complete 51-test frontend suite was not rerun.
+- Compact backend smoke passed `8` tests: authorization allow/deny (`3`), compliance approval and
+  requester access-loss behavior (`2`), and conversation/dashboard/AI reads (`3`). The full
+  backend suite and deferred baseline timing tests were not run.
+- Structural review confirmed server-derived capabilities, backend authorization authority, scoped
+  privileged-cache clearing/invalidation, canonical T15 cookie/CSRF transport, no browser Bearer,
+  token storage, token URL, secret rendering, fake production records, or unsupported controls.
+- Route inventory reported `136` classified entries and `0` unclassified HTTP/WS routes. Alembic
+  reported the single head `e9f0a1b2c3d4`; no migration or historical migration modification was
+  added. No application code or test file changed during VERIFY.
+
+State transition:
+
+- T14 remains externally accepted `PASS_WITH_NOTES`.
+- T15 remains externally accepted `PASS` by explicit user instruction.
+- T16 moves from `IN_PROGRESS / VERIFY_PENDING` to `AWAITING_ACCEPTANCE /
+  EXTERNAL_ACCEPTANCE_PENDING`; Codex does not mark it `PASS`.
+- T17 remains `NOT_STARTED`.

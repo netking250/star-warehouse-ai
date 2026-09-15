@@ -3,8 +3,8 @@ schema_version: 1
 project: Star Warehouse AI
 phase: ENTERPRISE_HARDENING
 current_task: T16
-current_status: IN_PROGRESS
-execution_stage: VERIFY_PENDING
+current_status: AWAITING_ACCEPTANCE
+execution_stage: EXTERNAL_ACCEPTANCE_PENDING
 last_accepted_task: T15
 next_task: T17
 acceptance_owner: external
@@ -17,7 +17,7 @@ maintenance_status: PASS
 T13 Model Gateway is externally accepted `PASS`. T14 AI Failure Policy is externally accepted
 `PASS_WITH_NOTES` on the long-lived T14-T21 integration branch. T15 Frontend Transport is
 externally accepted `PASS` by the explicit T16 implementation instruction. T16 Enterprise Console
-is now `IN_PROGRESS / VERIFY_PENDING` on that same branch. M02's protected-main consolidation is
+is now `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` on that same branch. M02's protected-main consolidation is
 complete; the accepted baseline remains intact.
 
 The T14 implementation adds a bounded, provider-neutral policy seam for retries, ordered fallback,
@@ -36,8 +36,8 @@ The frozen product target is an **Enterprise Multi-tenant AI Customer Service Pl
 # Current Task
 
 - **Task:** T16 - Enterprise Console.
-- **Status:** `IN_PROGRESS`.
-- **Execution stage:** `VERIFY_PENDING`; the long-lived integration branch is
+- **Status:** `AWAITING_ACCEPTANCE`.
+- **Execution stage:** `EXTERNAL_ACCEPTANCE_PENDING`; the long-lived integration branch is
   `feat/t14-t21-enterprise-hardening`.
 - **Scope:** Capability-aware Overview, AI, Operations, Security, and Compliance console surfaces
   over existing backend contracts, preserving T15 transport, secure session, tenant boundaries,
@@ -46,8 +46,8 @@ The frozen product target is an **Enterprise Multi-tenant AI Customer Service Pl
 
 ## T16 Implementation Closeout
 
-- T16 remains `IN_PROGRESS`; implementation is complete and the execution stage is
-  `VERIFY_PENDING`.
+- T16 implementation and final verification are complete; the task is now
+  `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING`.
 - The shared admin shell now owns capability-aware navigation and session/direct-route guards for
   Overview, Operations, AI, Security, Compliance, and the stable existing workspaces. New console
   reads and mutations use the T15 transport boundary and existing backend contracts only.
@@ -64,6 +64,22 @@ The frozen product target is an **Enterprise Multi-tenant AI Customer Service Pl
   containers, so loopback-only evidence ports were used without changing repository configuration.
 - The route inventory reported zero unclassified HTTP/WS routes, Alembic remained at the single
   head `e9f0a1b2c3d4`, and no implementation defect, migration, or new T16 debt was added.
+
+## T16 Verification Closeout
+
+- Focused Chromium acceptance passed `5` tests: authorized overview/operations navigation,
+  capability-denied direct route, explicit backend 403, compliance approval with confirmation/
+  CSRF/refresh, and browser-session login/logout.
+- T16-targeted frontend tests passed `23` tests across `5` files. Format, lint, explicit TypeScript
+  check, and production build all passed. No full frontend suite was rerun.
+- Compact backend smoke passed `8` tests: authorization allow/deny (`3`), compliance approval and
+  requester access-loss behavior (`2`), and implemented conversation/dashboard/AI reads (`3`).
+- Structural review confirmed one shared shell, server-derived capability visibility, explicit 401/
+  403 handling, scoped cache clearing/invalidation, canonical T15 transport, no browser Bearer or
+  token URL/storage path, no secret rendering, and no unsupported provider/job/outbox/audit controls.
+- Route inventory remains `0` unclassified HTTP/WS routes and Alembic remains at the single head
+  `e9f0a1b2c3d4`. No migration or historical migration modification was added.
+- T16 is not marked `PASS` by Codex; external acceptance is now required before T17.
 
 # Historical T15 Task
 
@@ -95,7 +111,8 @@ on 2026-09-15.
 
 # Next Task
 
-`T16` - Enterprise Console is `IN_PROGRESS / IMPLEMENT` on the long-lived integration branch.
+`T16` - Enterprise Console is `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` on the
+long-lived integration branch; external acceptance is required before T17.
 
 # Historical T15 Next Task
 
