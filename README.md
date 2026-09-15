@@ -192,7 +192,7 @@ Alertmanager, Loki, Promtail, Tempo, OpenTelemetry Collector, and Mimir configur
   externally accepted `PASS_WITH_NOTES` with two deferred protected-main baseline test debts.
 - T13 delivers the Dynamic Model Gateway with OpenAI, DashScope, and Mock adapters.
 - T14 (AI Failure Policy) is complete on the long-lived
-  `feat/t14-t21-enterprise-hardening` branch; T15 remains `NOT_STARTED`.
+  `feat/t14-t21-enterprise-hardening` branch; T15 Frontend Transport is `IN_PROGRESS / VERIFY_PENDING`.
 - T14-T21 use one integration branch with targeted stage verification and one final PR after T21;
   see the [current project state](docs/engineering/PROJECT_STATE.md) for the workflow and debt policy.
 

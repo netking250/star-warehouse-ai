@@ -49,7 +49,8 @@ const App: FC = () => {
     isLoading: isLoginLoading,
     error: loginError,
   } = useAuth()
-  const { messages, isLoading, sendMessage, submitFeedback, resetMessages } = useChat()
+  const { messages, isLoading, sendMessage, cancelGeneration, submitFeedback, resetMessages } =
+    useChat()
   const [input, setInput] = useState('')
   const [loginForm, setLoginForm] = useState({ username: '', password: '' })
   const [toasts, setToasts] = useState<StatusToast[]>([])
@@ -366,6 +367,7 @@ const App: FC = () => {
           value={input}
           onChange={setInput}
           onSend={handleSend}
+          onCancel={() => void cancelGeneration()}
           isLoading={isLoading}
           placeholder="告诉星仓 AI，您需要什么帮助..."
         />

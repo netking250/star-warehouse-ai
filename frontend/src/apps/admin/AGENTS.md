@@ -44,12 +44,12 @@ Admin dashboard SPA. Vite multi-page entry via `admin.html`, served by FastAPI a
 | Shared UI           | `@frontend/src/components/ui/`                                 | shadcn/ui base components (Button, Card, Input, Sheet, etc.)                                                                                                                                                             |
 | Brand UI            | `@frontend/src/components/brand/StarWarehouseLogo.tsx`         | Shared 星仓 AI mark for admin and customer surfaces                                                                                                                                                                      |
 | Error handling      | `@frontend/src/components/ErrorBoundary.tsx`                   | React error boundary                                                                                                                                                                                                     |
-| API layer           | `@frontend/src/lib/api.ts`                                     | Centralized `fetch` wrapper with interceptors                                                                                                                                                                            |
+| API layer           | `@frontend/src/lib/api.ts`                                     | Canonical cookie-session transport, CSRF, bounded safe retries, cancellation, and normalized `TransportError` metadata                                                                                                   |
 | Query client        | `@frontend/src/lib/query-client.ts`                            | TanStack Query client configuration                                                                                                                                                                                      |
 | Risk utilities      | `@frontend/src/lib/risk.ts`                                    | Risk assessment utilities                                                                                                                                                                                                |
 | Utils               | `@frontend/src/lib/utils.ts`                                   | General utility functions                                                                                                                                                                                                |
 | Server state hooks  | `@frontend/src/hooks/`                                         | TanStack Query hooks (useAuth, useAgentConfig, useTasks, useComplaints, useFeedback, useMetricsDashboard, useKnowledgeBase, useEvaluation, useAnalytics, useNotifications, useMetrics, useConversations, useExperiments) |
-| WebSocket           | `@frontend/src/hooks/useWebSocket.ts`                          | WebSocket connection & message listener                                                                                                                                                                                  |
+| WebSocket           | `@frontend/src/hooks/useWebSocket.ts`                          | Cookie/origin WebSocket connection, token-query stripping, bounded reconnect, and message listener                                                                                                                       |
 | Auth state          | `@frontend/src/stores/auth.ts`                                 | Zustand store for auth                                                                                                                                                                                                   |
 | Router              | `@frontend/src/apps/admin/App.tsx`                             | React Router configuration                                                                                                                                                                                               |
 | App mount           | `@frontend/src/apps/admin/main.tsx`                            | Vite multi-page entry point                                                                                                                                                                                              |
@@ -83,6 +83,8 @@ General frontend rules are defined in the root `AGENTS.md`. Admin-specific conve
 - **shadcn/ui**: Prefer base components in `@frontend/src/components/ui/`. Do not re-invent primitives.
 - **Server-state hooks**: TanStack Query hooks should live in `@frontend/src/hooks/` and be reused across admin pages.
 - **Auth boundaries**: Admin pages bootstrap `/me` through `useAuth`, then gate rendering from the in-memory user state in `@frontend/src/stores/auth.ts`.
+- **Transport errors**: Handle `TransportError` kinds/status metadata at the domain boundary; do not expose raw response bodies or retry mutations globally.
+- **WebSocket auth**: Browser sockets use the server session cookie and browser `Origin`; never add a token query parameter or reconnect after authentication failure/logout.
 
 ## Testing Patterns
 
@@ -94,6 +96,7 @@ General frontend rules are defined in the root `AGENTS.md`. Admin-specific conve
 
 - **State**: Server state via TanStack Query; client auth state via `@frontend/src/stores/auth.ts` (Zustand). Do not introduce redundant global state.
 - **API calls**: Never call `fetch` directly in components. Use `@frontend/src/lib/api.ts` or TanStack Query hooks.
+- **Retry ownership**: TanStack Query retries are disabled globally. Safe-read retry is bounded in `apiFetch`; mutation retry requires an explicit domain-owned idempotency key and policy.
 - **Hot-reload config**: Agent config edits are written to the backend and take effect immediately (Redis cache invalidation). No service restart required.
 - **Vite proxy**: In dev mode, `/api` is proxied to `localhost:8000`; no manual CORS handling needed.
 - **Merge requirements**: All merges require `npm run build`, `npm run lint`, `npm run format`, and `npm run test:e2e` to pass.
