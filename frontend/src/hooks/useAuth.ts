@@ -1,7 +1,7 @@
 import { useCallback, useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/stores/auth'
-import { apiFetch, clearBrowserSessionState } from '@/lib/api'
+import { apiFetch, clearBrowserSessionState, isTransportError, TransportError } from '@/lib/api'
 import type { LoginCredentials, User } from '@/types'
 
 interface SessionResponse {
@@ -48,10 +48,13 @@ export function useAuth(): UseAuthResult {
   const sessionQuery = useQuery({
     queryKey: ['auth', 'session'],
     queryFn: async (): Promise<SessionResponse | null> => {
-      const response = await apiFetch('/me', { method: 'GET', skip401Redirect: true })
-      if (response.status === 401) return null
-      if (!response.ok) throw new Error('Unable to restore browser session')
-      return response.json() as Promise<SessionResponse>
+      try {
+        const response = await apiFetch('/me', { method: 'GET', skip401Redirect: true })
+        return response.json() as Promise<SessionResponse>
+      } catch (error) {
+        if (isTransportError(error) && error.kind === 'UNAUTHENTICATED') return null
+        throw error
+      }
     },
     retry: false,
     staleTime: 60_000,
@@ -74,6 +77,9 @@ export function useAuth(): UseAuthResult {
   const logout = useCallback(async (): Promise<void> => {
     try {
       await apiFetch('/logout', { method: 'POST', skip401Redirect: true })
+    } catch (error) {
+      // A revoked or expired session is already logged out from the server's perspective.
+      if (!(isTransportError(error) && error.kind === 'UNAUTHENTICATED')) throw error
     } finally {
       clearBrowserSessionState()
       clearAuth()
@@ -87,19 +93,32 @@ export function useAuth(): UseAuthResult {
     error: mutationError,
   } = useMutation({
     mutationFn: async (credentials: LoginCredentials): Promise<SessionResponse> => {
-      const response = await apiFetch('/browser/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(credentials),
-        skip401Redirect: true,
-        skipCsrf: true,
-      })
-      if (response.status === 401) throw new Error('Invalid username or password')
-      if (!response.ok) {
-        const error = (await response.json().catch(() => ({}))) as { detail?: string }
-        throw new Error(error.detail || 'Login failed')
+      try {
+        const response = await apiFetch('/browser/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(credentials),
+          skip401Redirect: true,
+          skipCsrf: true,
+          retry: false,
+        })
+        return response.json() as Promise<SessionResponse>
+      } catch (error) {
+        if (isTransportError(error) && error.kind === 'UNAUTHENTICATED') {
+          throw new TransportError({
+            kind: error.kind,
+            status: error.status,
+            code: error.code,
+            details: error.details,
+            requestId: error.requestId,
+            correlationId: error.correlationId,
+            route: error.route,
+            message: 'Invalid username or password',
+            cause: error,
+          })
+        }
+        throw error
       }
-      return response.json() as Promise<SessionResponse>
     },
     onSuccess: (data) => {
       clearBrowserSessionState()

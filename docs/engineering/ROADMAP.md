@@ -30,7 +30,7 @@ Codex may set a completed implementation to `AWAITING_ACCEPTANCE` only. `PASS` a
 | T12 | Conversation Runtime | PASS |
 | T13 | Model Gateway | PASS |
 | T14 | AI Failure Policy | PASS_WITH_NOTES |
-| T15 | Frontend Transport | NOT_STARTED |
+| T15 | Frontend Transport | IN_PROGRESS |
 | T16 | Enterprise Console | NOT_STARTED |
 | T17 | Observability | NOT_STARTED |
 | T18 | CI/CD + Supply Chain | NOT_STARTED |
@@ -98,6 +98,31 @@ Each stage follows:
 
 Repair these only if final integration CI is blocked, they become materially worse, or explicit
 test-hardening work is scheduled. They are not resolved by T14 and do not block T15.
+
+## T15 Implementation Start
+
+- Status: `IN_PROGRESS`.
+- Execution stage: `IMPLEMENT`.
+- Branch: `feat/t14-t21-enterprise-hardening`.
+- T14 remains externally accepted `PASS_WITH_NOTES`; T16 remains `NOT_STARTED`.
+- The two deferred protected-main baseline debts remain unresolved and are not in T15 scope.
+- T15 adds no backend route, database migration, or schema change.
+
+## T15 Implementation Closeout
+
+- Status: `IN_PROGRESS`.
+- Execution stage: `VERIFY_PENDING`.
+- The canonical HTTP client, SSE reader/run state machine, cookie/origin WebSocket client, auth
+  state handling, normalized transport errors, CSRF, cancellation, bounded retry policy, and
+  security guards are implemented on `feat/t14-t21-enterprise-hardening`.
+- Frontend format check, lint, typecheck/build, full frontend unit tests (`10` files, `47` tests),
+  and targeted Playwright session/login flows (`2` tests) passed. The focused T10 browser-session
+  and WebSocket compatibility guards passed (`22` tests), focused OIDC token-free browser tests
+  passed (`3`), and the route inventory guard passed.
+- `uv run alembic heads` reports the one accepted head `e9f0a1b2c3d4`. No migration, schema, or
+  backend application change was made. The full backend suite was intentionally not run.
+- T14 remains `PASS_WITH_NOTES`; T16 remains `NOT_STARTED`; the two protected-main baseline
+  deadline debts remain deferred and do not block T15.
 
 ## Gate rules
 

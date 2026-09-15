@@ -1,4 +1,4 @@
-import { ArrowUp, Loader2, Paperclip, ShieldCheck } from 'lucide-react'
+import { ArrowUp, Loader2, Paperclip, ShieldCheck, Square } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 
@@ -6,6 +6,7 @@ interface ChatInputProps {
   value: string
   onChange: (value: string) => void
   onSend: () => void
+  onCancel?: () => void
   isLoading: boolean
   placeholder?: string
 }
@@ -15,6 +16,7 @@ export function ChatInput({
   value,
   onChange,
   onSend,
+  onCancel,
   isLoading,
   placeholder,
 }: ChatInputProps): React.ReactElement {
@@ -50,13 +52,17 @@ export function ChatInput({
             rows={1}
           />
           <Button
-            onClick={onSend}
-            disabled={isLoading || !value.trim()}
+            onClick={isLoading ? onCancel : onSend}
+            disabled={!isLoading && !value.trim()}
             aria-label="发送消息"
             className="mb-0.5 h-10 w-10 shrink-0 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 p-0 shadow-md shadow-indigo-200"
           >
             {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              onCancel ? (
+                <Square className="h-3.5 w-3.5" />
+              ) : (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              )
             ) : (
               <ArrowUp className="h-4 w-4" />
             )}

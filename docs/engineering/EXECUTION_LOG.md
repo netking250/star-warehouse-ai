@@ -2396,3 +2396,74 @@ State transition:
 - T14 moves from `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` to externally accepted
   `PASS_WITH_NOTES`.
 - T15 remains `NOT_STARTED` and is ready for the next IMPLEMENT stage on the integration branch.
+
+## T15-IMPLEMENT-START - Frontend transport hardening
+
+Completed: 2026-09-15
+
+Status: `IN_PROGRESS`
+
+Execution Stage: `IMPLEMENT`
+
+- Recovery confirmed T14 `PASS_WITH_NOTES`, T15 `NOT_STARTED`, T16 `NOT_STARTED`, and the clean
+  `feat/t14-t21-enterprise-hardening` branch at `e0563e13dbe189d7ee4cdc937aad313cf8d5ad96`.
+- Required T10 browser-session, T12 conversation-runtime, T13 model-gateway, and T14 failure-policy
+  contracts were read before editing. The accepted cookie/CSRF/Origin/WebSocket/OIDC boundary is
+  preserved; no backend security weakening is permitted.
+- Frontend inventory found one existing generic HTTP client (`apiFetch`), one SSE path (`useChat`),
+  one WebSocket hook (`useWebSocket`), server-authoritative Zustand auth state, and no Axios,
+  EventSource, browser Bearer header, token storage, or token-bearing WebSocket URL path.
+- The existing raw Web Vitals keepalive request is classified as a legitimate non-authenticated
+  telemetry exception. Existing domain hooks already route through `apiFetch`.
+- `/chat` already accepts `Idempotency-Key`; T12 already exposes durable logical cancellation.
+  T15 will supply/reuse a domain key for one chat submission and will not invent keys for unrelated
+  mutations. Backend correlation IDs remain server-owned, with safe response metadata capture.
+- The two known protected-main baseline debts (OpenAI SDK cold-start and Celery fresh-process
+  import deadlines) remain deferred and are not a T15 blocker.
+
+State transition:
+
+- T14 remains externally accepted `PASS_WITH_NOTES`.
+- T15 moves from `NOT_STARTED` to `IN_PROGRESS / IMPLEMENT`.
+- T16 remains `NOT_STARTED`; no later task was started.
+
+## T15-IMPLEMENT-CLOSEOUT - Frontend transport hardening
+
+Completed: 2026-09-15
+
+Status: `IN_PROGRESS`
+
+Execution Stage: `VERIFY_PENDING`
+
+- Implemented the canonical browser transport boundary on
+  `feat/t14-t21-enterprise-hardening`: cookie-session HTTP with centralized session-bound CSRF,
+  normalized/sanitized transport errors, explicit timeout/abort, bounded safe-read retry,
+  idempotency-aware mutation policy, and safe correlation metadata handling.
+- Replaced the customer manual stream reader with the shared SSE reader and a one-logical-run
+  terminal state machine. `TURN_ACCEPTED`, deltas, metadata, terminal success/failure/cancel,
+  caller abort, and T12 logical cancellation are covered; T14 provider fallback remains a backend
+  concern and does not create a second frontend request.
+- Hardened the reusable browser WebSocket client for cookie/session + Origin authentication,
+  token-query stripping, secure scheme upgrade, bounded reconnect/backoff/jitter, and explicit
+  authentication/logout close handling. No backend replay/dedup contract was invented.
+- TanStack Query retries are disabled to avoid double retry. Domain hooks, multipart uploads, and
+  authenticated exports continue through the canonical client. Web Vitals keepalive remains the
+  only raw fetch exception and is unauthenticated telemetry.
+- Frontend format check, lint, typecheck/build, full frontend unit tests (`10` files, `47` tests),
+  and targeted Playwright flows (`2 passed`) passed. Focused T10 browser-session/WebSocket guards
+  passed (`22 passed`), focused OIDC token-free browser tests passed (`3 passed`), the production
+  route-inventory guard passed, and `uv run alembic heads` reports the single accepted head
+  `e9f0a1b2c3d4`.
+- The initial T10 smoke was blocked by unavailable Compose host resolution; starting only the
+  required local dependencies and using explicit IPv4 loopback for the isolated test database
+  allowed the same focused guards to pass. This was environment triage only. The full backend
+  suite was not run.
+- No backend application code, migration, database schema, or T16 work changed. The two known
+  protected-main baseline debts (OpenAI SDK cold-start and Celery fresh-process import deadlines)
+  remain deferred and do not block T15.
+
+State transition:
+
+- T14 remains externally accepted `PASS_WITH_NOTES`.
+- T15 remains `IN_PROGRESS / VERIFY_PENDING`; external acceptance is required before PASS.
+- T16 remains `NOT_STARTED`.

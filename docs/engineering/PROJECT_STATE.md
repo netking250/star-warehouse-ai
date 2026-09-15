@@ -2,11 +2,11 @@
 schema_version: 1
 project: Star Warehouse AI
 phase: ENTERPRISE_HARDENING
-current_task: T14
-current_status: PASS_WITH_NOTES
-execution_stage: EXTERNAL_ACCEPTANCE_COMPLETE
+current_task: T15
+current_status: IN_PROGRESS
+execution_stage: VERIFY_PENDING
 last_accepted_task: T14
-next_task: T15
+next_task: T16
 acceptance_owner: external
 maintenance_task: M02
 maintenance_status: PASS
@@ -15,7 +15,8 @@ maintenance_status: PASS
 # Current Objective
 
 T13 Model Gateway is externally accepted `PASS`. T14 AI Failure Policy is externally accepted
-`PASS_WITH_NOTES` on the long-lived T14-T21 integration branch. M02's protected-main
+`PASS_WITH_NOTES` on the long-lived T14-T21 integration branch. T15 Frontend Transport is now
+`IN_PROGRESS / VERIFY_PENDING` on that same branch. M02's protected-main
 consolidation is complete; the accepted baseline remains intact.
 
 The T14 implementation adds a bounded, provider-neutral policy seam for retries, ordered fallback,
@@ -25,17 +26,21 @@ semantics remain unchanged. M02's protected-main consolidation used a verified l
 whose initial tree exactly matched the canonical local consolidation. The first PR run identified
 two focused CI defects (optional tokenizer analysis and mismatched Qdrant smoke credentials); their
 narrow fixes were merged and verified before protected-main consolidation. T14 is now
-`PASS_WITH_NOTES`; T15 remains `NOT_STARTED` and is ready for its own IMPLEMENT stage.
+`PASS_WITH_NOTES`; T15 has implemented the canonical browser transport layer without changing
+backend security or product APIs.
 
 The frozen product target is an **Enterprise Multi-tenant AI Customer Service Platform**: a runnable, testable, deployable portfolio and public demo that demonstrates enterprise controls truthfully. The primary Golden Path is tenant login → tenant context and authorization → PII filtering → intent and multi-agent routing → order adapter and hybrid RAG → model gateway → refund recommendation → human approval → refund transaction → transactional outbox → RabbitMQ/Celery → audit, memory, evaluation, notification, and observability.
 
 # Current Task
 
-- **Task:** T14 – AI Failure Policy.
-- **Status:** `PASS_WITH_NOTES` (externally accepted).
-- **Execution stage:** `EXTERNAL_ACCEPTANCE_COMPLETE`; the long-lived integration branch is
+- **Task:** T15 – Frontend Transport.
+- **Status:** `IN_PROGRESS`.
+- **Execution stage:** `VERIFY_PENDING`; the long-lived integration branch is
   `feat/t14-t21-enterprise-hardening`.
-- **Scope:** Retry/fallback/circuit/degradation policy only; T15 is not started.
+- **Scope:** Canonical browser HTTP, SSE, WebSocket, auth-state, CSRF, error, timeout, cancellation,
+  retry, and security-guard behavior. No T16 console work, backend security weakening, migration,
+  or protected-main baseline-debt repair. Targeted frontend and T10 compatibility verification
+  has passed; T15 remains in progress pending external acceptance.
 
 # Independent Maintenance Task
 
@@ -51,7 +56,7 @@ The frozen product target is an **Enterprise Multi-tenant AI Customer Service Pl
 
 # Next Task
 
-`T15 – Frontend Transport` (not started; ready for implementation on the integration branch).
+`T16 – Enterprise Console` remains `NOT_STARTED` and cannot begin until T15 is externally accepted.
 
 T14 started only after T13 was fully verified and externally accepted. T14 remains
 `PASS_WITH_NOTES` after explicit external acceptance. T15 remains `NOT_STARTED` and follows
@@ -1015,4 +1020,69 @@ Execution Stage: `EXTERNAL_ACCEPTANCE_COMPLETE`
   the exact commit above. The old remote `feat/t14-ai-failure-policy` was then removed normally.
 - No force push was used, `main` was not modified, and no application code or tests changed.
 - No backend tests were run for this documentation/workflow transition; testing was not required.
-- T15 remains `NOT_STARTED` and is ready for its own IMPLEMENT stage on the integration branch.
+- T15 moves to `IN_PROGRESS / IMPLEMENT` on the same integration branch; T16 remains `NOT_STARTED`.
+
+# T15 Implementation Start
+
+Completed: 2026-09-15
+
+Status: `IN_PROGRESS`
+
+Execution Stage: `IMPLEMENT`
+
+- Required T10 browser-session, T12 conversation-runtime, T13 model-gateway, and T14 failure-policy
+  contracts were read before editing. The accepted cookie/CSRF/Origin/WebSocket/OIDC boundary is
+  preserved; no backend security weakening is permitted.
+- Frontend inventory found one existing generic HTTP client (`apiFetch`), one SSE path (`useChat`),
+  one WebSocket hook (`useWebSocket`), server-authoritative Zustand auth state, and no Axios,
+  EventSource, browser Bearer header, token storage, or token-bearing WebSocket URL path.
+- The existing raw Web Vitals keepalive request is classified as a legitimate non-authenticated
+  telemetry exception. Existing domain hooks already route through `apiFetch`.
+- `/chat` already accepts `Idempotency-Key`; T12 already exposes durable logical cancellation.
+  T15 will supply/reuse a domain key for one chat submission and will not invent keys for unrelated
+  mutations. Backend correlation IDs remain server-owned, with safe response metadata capture.
+- The two known protected-main baseline debts (OpenAI SDK cold-start and Celery fresh-process
+  import deadlines) remain deferred and are not a T15 blocker.
+
+State transition:
+
+- T14 remains externally accepted `PASS_WITH_NOTES`.
+- T15 is `IN_PROGRESS / IMPLEMENT`.
+- T16 remains `NOT_STARTED`; no later task was started.
+
+# T15 Implementation Closeout
+
+Completed: 2026-09-15
+
+Status: `IN_PROGRESS`
+
+Execution Stage: `VERIFY_PENDING`
+
+- Implemented one canonical browser HTTP transport with the accepted cookie-session contract,
+  centralized session-bound CSRF, normalized/sanitized errors, explicit timeout and cancellation,
+  bounded safe-read retry, idempotency-aware mutation policy, and safe correlation metadata.
+- Customer SSE now uses the shared reader and one logical run state machine for `TURN_ACCEPTED`,
+  deltas, metadata, terminal success/failure/cancel, local abort, and T12 logical cancellation.
+  T14 provider fallback remains invisible as a second frontend request.
+- The reusable WebSocket client strips token-like query parameters, relies on cookie/session and
+  browser Origin behavior, upgrades to `wss` under HTTPS, and uses bounded close-code-aware
+  reconnect with jitter. No backend replay/dedup contract was invented.
+- TanStack Query retries are disabled to avoid double retry. Domain hooks, multipart uploads, and
+  authenticated exports continue through the canonical transport; Web Vitals keepalive remains the
+  only raw fetch exception and is unauthenticated telemetry.
+- Frontend format check, lint, typecheck/build, `10` unit-test files (`47` tests), and two targeted
+  Playwright security flows passed. Focused T10 browser-session/WebSocket guards passed (`22`), the
+  route inventory guard passed, focused OIDC token-free browser tests passed (`3`), and
+  `uv run alembic heads` reports `e9f0a1b2c3d4`.
+- The first T10 smoke attempt exposed unavailable Compose host resolution. After starting only the
+  needed local dependencies and using explicit IPv4 loopback for the isolated test database, the
+  same focused guards passed. This was environment triage only; the full backend suite was not run.
+- No backend application code, migration, database schema, or T16 work changed. The OpenAI SDK
+  cold-start and Celery fresh-process import deadline sensitivities remain
+  `DEFERRED_BASELINE_TEST_DEBT`, are not attributed to T15, and do not block T15.
+
+State transition:
+
+- T14 remains externally accepted `PASS_WITH_NOTES`.
+- T15 remains `IN_PROGRESS / VERIFY_PENDING`; external acceptance is required before PASS.
+- T16 remains `NOT_STARTED`.
