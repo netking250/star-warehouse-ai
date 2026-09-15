@@ -2329,3 +2329,37 @@ State transition:
 - T14 moves from `NOT_STARTED` to `IN_PROGRESS / VERIFY_PENDING`; external acceptance is required
   before `PASS`.
 - T15 remains `NOT_STARTED`.
+
+## T14-VERIFY-CLOSEOUT - Final regression evidence and baseline debt record
+
+Completed: 2026-09-15
+
+Status: `AWAITING_ACCEPTANCE`
+
+Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
+
+- Preflight confirmed clean `feat/t14-ai-failure-policy` at
+  `2dfcd757de851de16dc053e07c3feac26a4ad984`, synchronized with its remote, with no
+  implementation changes.
+- The clean-checkout backend suite ran to completion without `-x`/`--maxfail`: `1819 collected`,
+  `1780 passed`, `2 failed`, `0 errors`, `37 skipped`, `81.62%` coverage, `1776.35s (29:36)`.
+- Failures are `tests/model_gateway/test_openai_adapter.py::test_openai_normalized_request_and_response`
+  (cold OpenAI SDK/platform initialization exceeded the existing two-second test deadline) and
+  `tests/tasks/test_celery_startup.py::test_celery_app_scheduled_tasks_are_registered` (fresh
+  process Celery import exceeded the existing 30-second deadline). Both reproduced in the same
+  clean Linux environment from protected `main`; they are `PRE_EXISTING_BASELINE_TEST_DEBT`, not
+  T14 regressions. No timeout, production code, test, or T14 implementation was changed.
+- All nine focused guards passed: bounded retry, OpenAI-to-DashScope fallback, BAD_REQUEST
+  no-fallback, post-visible-delta no-fallback, shared Redis OPEN state, bounded HALF_OPEN probes,
+  T12 cancellation/stale-run rejection, and the T13 gateway no-fallback boundary.
+- Isolation evidence passed: RedisVL/database safety (`10 passed`), no RedisVL/generic/circuit
+  keys remained in the isolated Redis databases, and Qdrant collection listing was empty.
+  RabbitMQ stayed on the documented `memory://` policy. No unexpected OpenAI/DashScope network,
+  real credentials, new skip/xfail, or TLS-disable workaround was introduced.
+
+State transition:
+
+- T13 remains externally accepted `PASS`.
+- T14 moves from `IN_PROGRESS / VERIFY_PENDING` to `AWAITING_ACCEPTANCE /
+  EXTERNAL_ACCEPTANCE_PENDING`; external acceptance is required before `PASS`.
+- T15 remains `NOT_STARTED`.
