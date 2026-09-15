@@ -3,8 +3,8 @@ schema_version: 1
 project: Star Warehouse AI
 phase: ENTERPRISE_HARDENING
 current_task: T15
-current_status: IN_PROGRESS
-execution_stage: VERIFY_PENDING
+current_status: AWAITING_ACCEPTANCE
+execution_stage: EXTERNAL_ACCEPTANCE_PENDING
 last_accepted_task: T14
 next_task: T16
 acceptance_owner: external
@@ -16,7 +16,7 @@ maintenance_status: PASS
 
 T13 Model Gateway is externally accepted `PASS`. T14 AI Failure Policy is externally accepted
 `PASS_WITH_NOTES` on the long-lived T14-T21 integration branch. T15 Frontend Transport is now
-`IN_PROGRESS / VERIFY_PENDING` on that same branch. M02's protected-main
+`AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` on that same branch. M02's protected-main
 consolidation is complete; the accepted baseline remains intact.
 
 The T14 implementation adds a bounded, provider-neutral policy seam for retries, ordered fallback,
@@ -34,13 +34,13 @@ The frozen product target is an **Enterprise Multi-tenant AI Customer Service Pl
 # Current Task
 
 - **Task:** T15 – Frontend Transport.
-- **Status:** `IN_PROGRESS`.
-- **Execution stage:** `VERIFY_PENDING`; the long-lived integration branch is
+- **Status:** `AWAITING_ACCEPTANCE`.
+- **Execution stage:** `EXTERNAL_ACCEPTANCE_PENDING`; the long-lived integration branch is
   `feat/t14-t21-enterprise-hardening`.
 - **Scope:** Canonical browser HTTP, SSE, WebSocket, auth-state, CSRF, error, timeout, cancellation,
   retry, and security-guard behavior. No T16 console work, backend security weakening, migration,
-  or protected-main baseline-debt repair. Targeted frontend and T10 compatibility verification
-  has passed; T15 remains in progress pending external acceptance.
+  or protected-main baseline-debt repair. Targeted frontend, browser, T10, T12, and T14
+  compatibility verification has passed; T15 is awaiting external acceptance.
 
 # Independent Maintenance Task
 
@@ -59,8 +59,9 @@ The frozen product target is an **Enterprise Multi-tenant AI Customer Service Pl
 `T16 – Enterprise Console` remains `NOT_STARTED` and cannot begin until T15 is externally accepted.
 
 T14 started only after T13 was fully verified and externally accepted. T14 remains
-`PASS_WITH_NOTES` after explicit external acceptance. T15 remains `NOT_STARTED` and follows
-the recorded IMPLEMENT → VERIFY → external acceptance sequence.
+`PASS_WITH_NOTES` after explicit external acceptance. T15 is now
+`AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` and follows the recorded IMPLEMENT → VERIFY
+→ external acceptance sequence.
 
 # T14 Verification Closeout
 
@@ -81,7 +82,7 @@ Execution Stage: `EXTERNAL_ACCEPTANCE_COMPLETE`
   Qdrant has no test collections remaining; RabbitMQ remains under the documented memory-broker
   policy; and no unexpected provider network or credential use occurred.
 - No implementation, test, migration, or T14 policy changes were made during closeout. The
-  feature branch remains clean and unmerged; T15 remains `NOT_STARTED`.
+  feature branch remained clean and unmerged; T15 was not started at that historical closeout.
 
 # T14-T21 Integration Workflow
 
@@ -419,7 +420,7 @@ The complete concise mapping is in [`ARCHITECTURE_GUARDRAILS.md`](../architectur
 - The extensive pre-existing dirty worktree is
   preserved and overlaps configuration, graph, agents, services, tests, and documentation.
 - T13 remains externally accepted `PASS`; T14 is externally accepted `PASS_WITH_NOTES`.
-  T15 remains `NOT_STARTED`; the two deferred baseline debts do not block it.
+  T15 is awaiting external acceptance; the two deferred baseline debts do not block it.
 
 # T13 Implementation Evidence
 
@@ -1081,8 +1082,47 @@ Execution Stage: `VERIFY_PENDING`
   cold-start and Celery fresh-process import deadline sensitivities remain
   `DEFERRED_BASELINE_TEST_DEBT`, are not attributed to T15, and do not block T15.
 
+State transition at implementation closeout:
+
+- T14 remains externally accepted `PASS_WITH_NOTES`.
+- T15 was `IN_PROGRESS / VERIFY_PENDING`; independent final verification is recorded below.
+- T16 remains `NOT_STARTED`.
+
+# T15 Verification Closeout
+
+Completed: 2026-09-15
+
+Status: `AWAITING_ACCEPTANCE`
+
+Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
+
+- Final verification started from implementation head
+  `93fde48077a998619ddce3c6c67b26abcde71f72` on
+  `feat/t14-t21-enterprise-hardening`; the remote branch matched exactly and the working tree
+  remained clean after verification.
+- Production-source inventory confirms one canonical HTTP client (`apiFetch`), one shared SSE
+  reader/customer stream, and one reusable cookie/origin WebSocket client. The only raw fetch
+  exception is unauthenticated Web Vitals telemetry; OIDC remains a backend-owned redirect flow.
+  No competing generic client, browser Bearer path, token persistence, or token URL path remains.
+- Frontend gates passed: format check, lint, TypeScript/build, and Vitest (`10` files, `47` tests,
+  `0` failures, `0` skips). Focused Chromium browser security flows passed (`2` tests).
+- Focused T10 compatibility passed (`26` tests), covering cookie session, CSRF, Origin,
+  logout/revocation, credential conflict, OIDC token-free callback, WebSocket query-token
+  rejection, and the HTTP/WS route inventory. Focused T12/T14 compatibility passed (`7` tests)
+  for logical cancellation, terminal uniqueness, provider fallback, post-visible no-fallback, and
+  one normalized terminal failure.
+- HTTP/SSE/WS retry, timeout, abort, normalized-error, idempotency, storage, URL, terminal-state,
+  reconnect, and TanStack retry-ownership guards passed through the frontend unit suite. T14
+  provider fallback remains one logical browser stream; no replay/dedup contract was fabricated.
+- `uv run alembic heads` reports the single accepted head `e9f0a1b2c3d4`. No application code,
+  backend route, migration, schema, or T16 work changed; the full backend regression was not run.
+- No feature-hiding skip/xfail/todo was added. The protected-main OpenAI SDK cold-start and
+  Celery fresh-process import deadline sensitivities remain
+  `DEFERRED_BASELINE_TEST_DEBT`, are not attributed to T15, and do not block T15.
+
 State transition:
 
 - T14 remains externally accepted `PASS_WITH_NOTES`.
-- T15 remains `IN_PROGRESS / VERIFY_PENDING`; external acceptance is required before PASS.
-- T16 remains `NOT_STARTED`.
+- T15 moves from `IN_PROGRESS / VERIFY_PENDING` to `AWAITING_ACCEPTANCE /
+  EXTERNAL_ACCEPTANCE_PENDING`; external acceptance is required before `PASS`.
+- T16 remains `NOT_STARTED` and cannot begin before T15 acceptance.

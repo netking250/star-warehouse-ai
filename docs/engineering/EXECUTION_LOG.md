@@ -2467,3 +2467,48 @@ State transition:
 - T14 remains externally accepted `PASS_WITH_NOTES`.
 - T15 remains `IN_PROGRESS / VERIFY_PENDING`; external acceptance is required before PASS.
 - T16 remains `NOT_STARTED`.
+
+## T15-VERIFY-CLOSEOUT - Frontend transport final verification
+
+Completed: 2026-09-15
+
+Status: `AWAITING_ACCEPTANCE`
+
+Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
+
+Branch and preflight:
+
+- Verification ran on `feat/t14-t21-enterprise-hardening` from implementation head
+  `93fde48077a998619ddce3c6c67b26abcde71f72`. `origin/feat/t14-t21-enterprise-hardening`
+  matched exactly after fetch, the old branch ref was absent, and the working tree was clean.
+- The production transport inventory remains one canonical HTTP client (`apiFetch`), one shared
+  SSE reader/customer stream, and one reusable cookie/origin WebSocket client. The only raw fetch
+  exception is unauthenticated Web Vitals telemetry; backend-owned OIDC redirects remain the
+  only credential-like URL exception.
+
+Verification:
+
+- Frontend format check, lint, TypeScript/build, and Vitest passed: `10` files, `47` passed,
+  `0` failed, `0` skipped. Focused Chromium Playwright flows passed: `2` tests.
+- Focused T10 compatibility passed `26` tests, covering cookie auth, CSRF, Origin,
+  logout/revocation, conflicting credentials, OIDC token-free callback behavior, WebSocket
+  query-token rejection, and the HTTP/WS route inventory. Focused T12/T14 compatibility passed
+  `7` tests covering logical cancellation, terminal uniqueness, fallback before visible output,
+  no fallback after visible output, and one normalized terminal failure.
+- HTTP, CSRF, auth-state, normalized-error, timeout, abort, bounded safe-read retry, mutation
+  retry/idempotency, streaming terminal, WebSocket reconnect, storage/URL security, and TanStack
+  retry-ownership guards passed. T14 fallback remains one logical browser request/stream, and no
+  replay/dedup contract was fabricated.
+- `uv run alembic heads` passed with the single expected head `e9f0a1b2c3d4`. No application
+  code, backend route, migration, schema, or T16 work changed. The complete backend regression
+  was intentionally not run.
+- No feature-hiding skip/xfail/todo was added. The OpenAI SDK cold-start and Celery fresh-process
+  import deadline sensitivities remain `DEFERRED_BASELINE_TEST_DEBT`, are not attributed to
+  T15, and do not block T15.
+
+State transition:
+
+- T14 remains externally accepted `PASS_WITH_NOTES`.
+- T15 moves from `IN_PROGRESS / VERIFY_PENDING` to `AWAITING_ACCEPTANCE /
+  EXTERNAL_ACCEPTANCE_PENDING`; external acceptance is required before `PASS`.
+- T16 remains `NOT_STARTED` and cannot begin before T15 acceptance.
