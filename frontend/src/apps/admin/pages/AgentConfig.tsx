@@ -41,6 +41,11 @@ import {
 } from '@/hooks/useAgentConfig'
 import type { AgentConfig, RoutingRule, AgentConfigVersion } from '@/types'
 import { AgentConfigEditor } from '../components/AgentConfigEditor'
+import { ConfirmDialog } from '../components/ConfirmDialog'
+import { ConsoleErrorState } from '../components/ConsoleState'
+import { hasCapability } from '@/lib/authorization'
+import { getConsoleErrorMessage } from '@/lib/console-errors'
+import { useAuthStore } from '@/stores/auth'
 
 function VersionMetrics({ agentName, versionId }: { agentName: string; versionId: number }) {
   const { data: metrics, isLoading } = useAgentVersionMetrics(agentName, versionId)
@@ -180,10 +185,15 @@ function PromptEffectReportList({ agentName }: { agentName: string }) {
 }
 
 export function AgentConfig() {
+  const { user } = useAuthStore()
+  const canManage = hasCapability(user, 'operations.manage')
   const {
     agents,
     routingRules,
     isLoading,
+    error,
+    refetch,
+    mutationError,
     updateAgent,
     isUpdating,
     rollbackAgent,
@@ -203,12 +213,14 @@ export function AgentConfig() {
   const [ruleForm, setRuleForm] = useState(EMPTY_RULE)
 
   const [expandedVersionId, setExpandedVersionId] = useState<number | null>(null)
+  const [pendingDeleteRuleId, setPendingDeleteRuleId] = useState<number | null>(null)
 
   const { data: versions, isLoading: isLoadingVersions } = useAgentVersions(
     selectedAgent?.agent_name
   )
 
   const handleToggle = async (agent: AgentConfig, enabled: boolean) => {
+    if (!canManage) return
     await updateAgent({ agentName: agent.agent_name, payload: { enabled } })
   }
 
@@ -226,10 +238,12 @@ export function AgentConfig() {
       enabled?: boolean
     }
   ) => {
+    if (!canManage) return
     await updateAgent({ agentName, payload })
   }
 
   const handleRollback = async (agentName: string) => {
+    if (!canManage) return
     await rollbackAgent(agentName)
   }
 
@@ -250,6 +264,7 @@ export function AgentConfig() {
   }
 
   const handleSaveRule = async () => {
+    if (!canManage) return
     await saveRoutingRule({
       id: ruleForm.id,
       intent_category: ruleForm.intent_category,
@@ -261,10 +276,18 @@ export function AgentConfig() {
     setRuleForm(EMPTY_RULE)
   }
 
-  const handleDeleteRule = async (id: number) => {
-    if (confirm('确定删除该路由规则吗？')) {
-      await deleteRoutingRule(id)
-    }
+  const handleDeleteRule = async () => {
+    if (!canManage || pendingDeleteRuleId === null) return
+    await deleteRoutingRule(pendingDeleteRuleId)
+    setPendingDeleteRuleId(null)
+  }
+
+  if (isLoading) {
+    return <div className="p-4 text-sm text-muted-foreground">Loading AI configuration...</div>
+  }
+
+  if (error) {
+    return <ConsoleErrorState error={error} onRetry={() => void refetch()} />
   }
 
   return (
@@ -314,7 +337,7 @@ export function AgentConfig() {
                             onCheckedChange={(checked) => {
                               void handleToggle(agent, checked)
                             }}
-                            disabled={isUpdating}
+                            disabled={!canManage || isUpdating}
                           />
                           <span className="text-xs">
                             {agent.enabled ? (
@@ -335,7 +358,12 @@ export function AgentConfig() {
                         {formatDate(agent.updated_at)}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" onClick={() => handleEdit(agent)}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(agent)}
+                          disabled={!canManage}
+                        >
                           <Edit className="mr-1 h-4 w-4" />
                           编辑
                         </Button>
@@ -354,7 +382,7 @@ export function AgentConfig() {
               <Route className="h-5 w-5 text-muted-foreground" />
               <CardTitle>路由规则</CardTitle>
             </div>
-            <Button size="sm" variant="outline" onClick={openCreateRule}>
+            <Button size="sm" variant="outline" onClick={openCreateRule} disabled={!canManage}>
               <Plus className="mr-1 h-4 w-4" />
               新增规则
             </Button>
@@ -391,8 +419,8 @@ export function AgentConfig() {
                             variant="ghost"
                             size="sm"
                             className="text-red-600"
-                            onClick={() => void handleDeleteRule(rule.id)}
-                            disabled={isDeletingRule}
+                            onClick={() => setPendingDeleteRuleId(rule.id)}
+                            disabled={!canManage || isDeletingRule}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -485,7 +513,7 @@ export function AgentConfig() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                disabled={isRollingBackToVersion}
+                                disabled={!canManage || isRollingBackToVersion}
                                 onClick={() => {
                                   void rollbackToVersion({
                                     agentName: selectedAgent.agent_name,
@@ -516,6 +544,28 @@ export function AgentConfig() {
         onRollback={handleRollback}
         isSaving={isUpdating}
         isRollingBack={isRollingBack}
+      />
+
+      {mutationError && (
+        <p
+          role="alert"
+          className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+        >
+          {getConsoleErrorMessage(mutationError)}
+        </p>
+      )}
+
+      <ConfirmDialog
+        open={pendingDeleteRuleId !== null}
+        title="Delete routing rule?"
+        description={`This permanently removes routing rule #${pendingDeleteRuleId ?? '—'} through the supported configuration API.`}
+        confirmLabel="Delete rule"
+        destructive
+        pending={isDeletingRule}
+        onOpenChange={(open) => {
+          if (!open && !isDeletingRule) setPendingDeleteRuleId(null)
+        }}
+        onConfirm={() => void handleDeleteRule()}
       />
 
       <Dialog open={ruleDialogOpen} onOpenChange={setRuleDialogOpen}>

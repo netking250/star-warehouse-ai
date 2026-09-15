@@ -2512,3 +2512,65 @@ State transition:
 - T15 moves from `IN_PROGRESS / VERIFY_PENDING` to `AWAITING_ACCEPTANCE /
   EXTERNAL_ACCEPTANCE_PENDING`; external acceptance is required before `PASS`.
 - T16 remains `NOT_STARTED` and cannot begin before T15 acceptance.
+
+## T16-IMPLEMENT-START - Enterprise console
+
+Completed: 2026-09-15
+
+Status: `IN_PROGRESS`
+
+Execution Stage: `IMPLEMENT`
+
+- Recovery confirmed the clean `feat/t14-t21-enterprise-hardening` branch at `828caea`.
+- Per the explicit user acceptance state for this task, T14 is `PASS_WITH_NOTES`, T15 is `PASS`,
+  T16 is `NOT_STARTED` before this transition, and T17 is `NOT_STARTED`.
+- The accepted ADR-018 scope is an extension of the existing frontend for Overview, AI,
+  Operations, Security, and Compliance. Contract recovery found existing APIs for memberships,
+  capability-derived `/me`, approvals/retention, tasks, conversations, alerts/metrics, and agent
+  configuration. It found no safe general audit API, async-job/outbox operator API, provider/circuit
+  administration API, or provider-secret-management contract.
+- T16 therefore starts with a shared capability-aware shell and supported pages only. The backend
+  remains authorization authority; no route, schema, migration, secret store, T17 observability,
+  or deployment control is added.
+- The active plan is `docs/exec-plans/active/T16.md`.
+
+State transition:
+
+- T14 remains externally accepted `PASS_WITH_NOTES`.
+- T15 is externally accepted `PASS` by explicit user instruction.
+- T16 moves from `NOT_STARTED` to `IN_PROGRESS / IMPLEMENT`.
+- T17 remains `NOT_STARTED`.
+
+## T16-IMPLEMENT-CLOSEOUT - Enterprise console
+
+Completed: 2026-09-15
+
+Status: `IN_PROGRESS`
+
+Execution Stage: `VERIFY_PENDING`
+
+- Implemented one shared admin shell with server-derived capability-aware navigation, session and
+  direct-route guards, explicit 401/403 handling, and privileged query-cache clearing on logout,
+  session invalidation, access denial, and capability changes.
+- Added supported Overview, Operations, Security, and Compliance surfaces. The existing AI config
+  page was routed into the shell, its mutation controls now require `operations.manage`, its
+  destructive rule action uses the shared confirmation dialog, and its requests preserve
+  normalized T15 transport errors.
+- Added bounded server-paginated conversation metadata, safe review metadata, exact approval
+  decisions, and preview-before-execute retention controls. No raw prompt/RAG content, export
+  content, secrets, provider keys, unrestricted breaker controls, general audit viewer, async
+  retry/cancel control, outbox mutation, or tenant switch was added.
+- Frontend verification passed: Prettier format check, ESLint, TypeScript/Vite build, Vitest
+  `12 files / 51 tests passed`, focused T15 guards `4 files / 31 tests passed`, and Chromium E2E
+  `6 tests passed`.
+- Focused backend compatibility tests were attempted but shared setup could not resolve PostgreSQL
+  host `db`; this is recorded as environment-only. A direct application inventory check reported
+  `136` classified entries and `0` unclassified routes. Alembic reports the single head
+  `e9f0a1b2c3d4`; no migration was added.
+
+State transition:
+
+- T14 remains externally accepted `PASS_WITH_NOTES`.
+- T15 remains externally accepted `PASS` by explicit user instruction.
+- T16 remains `IN_PROGRESS / VERIFY_PENDING`; external verification/acceptance is pending.
+- T17 remains `NOT_STARTED`.

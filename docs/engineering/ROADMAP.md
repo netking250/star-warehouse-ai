@@ -30,8 +30,8 @@ Codex may set a completed implementation to `AWAITING_ACCEPTANCE` only. `PASS` a
 | T12 | Conversation Runtime | PASS |
 | T13 | Model Gateway | PASS |
 | T14 | AI Failure Policy | PASS_WITH_NOTES |
-| T15 | Frontend Transport | AWAITING_ACCEPTANCE |
-| T16 | Enterprise Console | NOT_STARTED |
+| T15 | Frontend Transport | PASS |
+| T16 | Enterprise Console | IN_PROGRESS |
 | T17 | Observability | NOT_STARTED |
 | T18 | CI/CD + Supply Chain | NOT_STARTED |
 | T19 | Helm + k3s + AWS Reference | NOT_STARTED |
@@ -158,3 +158,28 @@ T15 may move to `PASS` or T16 may begin.
 `T-INIT → T00 → T01 → T02 → T03 → T04 → T05 → T06 → T07 → T08 → T09 → T10 → T11 → T12 → T13 → T14 → T15 → T16 → T17 → T18 → T19 → T20 → T21`
 
 The sequence is the default gate order. A user may issue a documented change request, but any dependency exception must be recorded in `PROJECT_STATE.md` and the active plan before implementation.
+
+## T16 Implementation Start
+
+- Status: `IN_PROGRESS`.
+- Execution stage: `VERIFY_PENDING`.
+- Branch: `feat/t14-t21-enterprise-hardening`.
+- T14 remains externally accepted `PASS_WITH_NOTES`; T15 is `PASS` by explicit user acceptance
+  instruction; T17 remains `NOT_STARTED`.
+- Frozen scope is the existing frontend extension for Overview, AI, Operations, Security, and
+  Compliance over already accepted backend contracts. No backend route, schema migration, provider
+  secret management, T17 observability work, or T18-T20 deployment/performance work is in scope.
+- The active plan is [`docs/exec-plans/active/T16.md`](../exec-plans/active/T16.md).
+
+## T16 Implementation Closeout
+
+- T16 remains `IN_PROGRESS` and is ready for external VERIFY; it is not marked PASS by Codex.
+- The single enterprise console hierarchy now covers capability-aware Overview, Operations, AI,
+  Security, and Compliance surfaces while preserving the stable existing workspaces.
+- Frontend verification passed: format check, lint, TypeScript/build, Vitest `51 passed`, focused
+  T15 transport guards `31 passed`, and Chromium E2E `6 passed`.
+- Focused backend pytest was attempted but blocked during shared fixture setup by unavailable
+  PostgreSQL host `db`; a direct application route inventory check reported `0` unclassified
+  HTTP/WS routes. Alembic remains at the single expected head `e9f0a1b2c3d4`.
+- No backend route, schema, migration, provider-secret management, T17 observability work, PR, or
+  merge was added.
