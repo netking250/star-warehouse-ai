@@ -3,8 +3,8 @@ schema_version: 1
 project: Star Warehouse AI
 phase: ENTERPRISE_HARDENING
 current_task: T17
-current_status: IN_PROGRESS
-execution_stage: VERIFY_PENDING
+current_status: AWAITING_ACCEPTANCE
+execution_stage: EXTERNAL_ACCEPTANCE_PENDING
 last_accepted_task: T16
 next_task: T18
 acceptance_owner: external
@@ -17,7 +17,7 @@ maintenance_status: PASS
 T13 Model Gateway is externally accepted `PASS`. T14 AI Failure Policy is externally accepted
 `PASS_WITH_NOTES` on the long-lived T14-T21 integration branch. T15 Frontend Transport and T16
 Enterprise Console are externally accepted `PASS` by the explicit T17 implementation instruction.
-T17 Production Observability Hardening is now `IN_PROGRESS / VERIFY_PENDING` on that same branch. M02's protected-main consolidation is
+T17 Production Observability Hardening is now `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` on that same branch. M02's protected-main consolidation is
 complete; the accepted baseline remains intact.
 
 The T14 implementation adds a bounded, provider-neutral policy seam for retries, ordered fallback,
@@ -36,8 +36,8 @@ The frozen product target is an **Enterprise Multi-tenant AI Customer Service Pl
 # Current Task
 
 - **Task:** T17 - Production Observability Hardening.
-- **Status:** `IN_PROGRESS`.
-- **Execution stage:** `VERIFY_PENDING`; the long-lived integration branch is
+- **Status:** `AWAITING_ACCEPTANCE`.
+- **Execution stage:** `EXTERNAL_ACCEPTANCE_PENDING`; the long-lived integration branch is
   `feat/t14-t21-enterprise-hardening`.
 - **Scope:** Reuse the accepted OpenTelemetry, Prometheus/Mimir, Grafana, Loki, Tempo, and
   Alertmanager stack to provide safe, bounded, correlated metrics, logs, traces, dashboards,
@@ -115,6 +115,46 @@ The frozen product target is an **Enterprise Multi-tenant AI Customer Service Pl
   was added. Disposable containers, volumes, and evidence files were removed.
 - T17 remains `IN_PROGRESS / VERIFY_PENDING`; the failed VERIFY gate must be resumed externally.
   T18 remains `NOT_STARTED`.
+
+## T17 Verification Evidence Closeout
+
+Completed: 2026-09-16
+
+- T17 moves to `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING`; Codex does not mark the task
+  `PASS`. T14 remains `PASS_WITH_NOTES`, T15/T16 remain `PASS`, and T18 remains `NOT_STARTED`.
+- Evidence used only the disposable Compose project `star-warehouse-ai-t17evidence`: one existing
+  admin/user/tenant fixture, one order/refund approval, a disposable PostgreSQL database, Redis
+  database, Qdrant service, and RabbitMQ vhost. Fixture cleanup left tenant, user, outbox, and
+  receipt counts at zero; the project containers, network, and volumes were then removed. The
+  long-lived monitoring stack and other developer databases were not mutated.
+- The real workflow passed end to end: API approval -> two transactional outbox events -> relay ->
+  RabbitMQ test vhost -> two Celery tasks. Both refunds/outbox events completed, with two completed
+  task receipts and no ACK, retry, or idempotency semantic change. API, outbox, and worker spans
+  shared trace `b418288a455fd6f29ac25035c52f4222` using the accepted parent/child relationship.
+- One fixed-path HTTP smoke remained green. A deterministic tenant-resolution rejection provided
+  normalized failure metric, sanitized Loki JSON, and Tempo trace correlation. Mock T13/T14
+  evidence preserved one logical request, three provider attempts, one retry, one fallback, and
+  one terminal outcome; circuit CLOSED/OPEN/HALF_OPEN signals and one-terminal T12 runtime guards
+  also passed.
+- Stopping only optional Tempo did not affect the real business workflow: the request completed,
+  the database transaction and async receipts committed, Collector retry behavior remained bounded
+  by its queue/max-elapsed settings, and the trace became queryable after Tempo was restored.
+- Runtime review checked 27 T17 metric families and effective Loki labels. No request, correlation,
+  trace, span, tenant, user, conversation, run, URL, exception-message, prompt, or free-text label
+  was found; provider/model identities remain bounded configured values. Four synthetic sentinel
+  secrets were absent from application logs, Loki, and trace attributes.
+- All three provisioned Grafana dashboards loaded and their representative Mimir queries evaluated
+  successfully. Eleven T17 rules were loaded by the Grafana rule engine with severity, summary, and
+  runbook metadata; Alertmanager loaded the local-no-op route without a real external secret. The
+  canonical Mimir query API had no T17 series because its existing scrape target is a separate
+  host-port service; the isolated API registry and metric/source tests provided the metric evidence.
+- Compact semantic regression passed `29/29` selected T02/T03/T04/T12/T13/T14/T17 checks. Ruff,
+  format, ty, Compose, Prometheus/rules, Alertmanager, OTel, route inventory, and Alembic checks
+  passed. Route inventory remains `136` classified and `0` unclassified; the single head remains
+  `e9f0a1b2c3d4`. No application code, frontend, migration, public route, or T18 work changed.
+- OpenAI SDK cold-start and Celery fresh-process import timing remain deferred baseline debt and
+  were not executed or repaired. Full backend and 288-test T17 matrices remain intentionally out
+  of scope.
 
 ## T16 Implementation Closeout
 

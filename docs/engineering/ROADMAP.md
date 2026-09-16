@@ -32,7 +32,7 @@ Codex may set a completed implementation to `AWAITING_ACCEPTANCE` only. `PASS` a
 | T14 | AI Failure Policy | PASS_WITH_NOTES |
 | T15 | Frontend Transport | PASS |
 | T16 | Enterprise Console | PASS |
-| T17 | Observability | IN_PROGRESS |
+| T17 | Observability | AWAITING_ACCEPTANCE |
 | T18 | CI/CD + Supply Chain | NOT_STARTED |
 | T19 | Helm + k3s + AWS Reference | NOT_STARTED |
 | T20 | Performance + Failure + DR | NOT_STARTED |
@@ -262,3 +262,35 @@ The sequence is the default gate order. A user may issue a documented change req
   existing correlation/trace fields; scheduler traces remained available.
 - Focused tests passed `17`; Ruff, format, ty, route inventory (`0` unclassified), Compose overlay
   validation, and Alembic head `e9f0a1b2c3d4` passed. T17 is ready to resume VERIFY, not acceptance.
+
+## T17 Verification Evidence Closeout
+
+- Status: `AWAITING_ACCEPTANCE`.
+- Execution stage: `EXTERNAL_ACCEPTANCE_PENDING`.
+- Disposable evidence used only the isolated `star-warehouse-ai-t17evidence` Compose project and
+  existing test factories. The authorized tenant, principal, order/refund approval, PostgreSQL
+  rows, Redis data, RabbitMQ test vhost, containers, network, and volumes were cleaned up; the
+  long-lived developer databases and monitoring stack were not mutated.
+- The accepted API -> transactional outbox -> relay -> RabbitMQ -> Celery workflow completed with
+  two published outbox events, two successful task receipts, and one shared API/outbox/worker
+  parent-child trace. ACK, retry, and idempotency semantics remained unchanged. Fixed HTTP smoke,
+  deterministic failure correlation, T13/T14 logical-versus-attempt/fallback evidence, circuit
+  state signals, and one-terminal T12 runtime evidence passed.
+- The optional Tempo outage probe passed without business failure; Collector retry/queue behavior
+  remained bounded and telemetry resumed after restoration. Runtime metric/Loki cardinality and
+  redaction reviews found no sensitive identifiers, raw URLs, exception messages, prompts, or
+  sentinel secrets. Grafana dashboards, eleven runtime-loaded rules, local Alertmanager routing,
+  and representative real-metric queries passed. Mimir returned healthy NoData for T17 families
+  because the canonical scrape target is a separate existing host-port service; isolated API
+  registry/source evidence remained valid.
+- The compact semantic matrix passed `29/29`; Ruff, format, ty, Compose, Prometheus/rules,
+  Alertmanager, OTel, route inventory, and Alembic checks passed. No migration, route, frontend,
+  T18-T20 work, or deferred OpenAI/Celery timing-debt repair was added.
+
+State transition:
+
+- T14 remains `PASS_WITH_NOTES`.
+- T15 and T16 remain `PASS` by explicit user instruction.
+- T17 moves from `IN_PROGRESS / VERIFY_PENDING` to `AWAITING_ACCEPTANCE /
+  EXTERNAL_ACCEPTANCE_PENDING`; Codex does not mark it `PASS`.
+- T18 remains `NOT_STARTED`.
