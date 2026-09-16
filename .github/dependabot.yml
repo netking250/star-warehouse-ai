@@ -26,3 +26,12 @@ updates:
       workflow-actions:
         patterns: ["*"]
     open-pull-requests-limit: 5
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      container-images:
+        patterns: ["*"]
+    open-pull-requests-limit: 5

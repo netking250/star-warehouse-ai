@@ -204,6 +204,24 @@ pre-commit install
 pre-commit run --all-files
 ```
 
+### CI and software supply chain
+
+- `.github/workflows/ci.yml` preserves five attributable protected-main gate families: Brand &
+  docs, Backend quality, Backend tests, Frontend, and Docker smoke. Evaluation, monitoring, and
+  performance remain separate workflows.
+- CI uses `uv sync --frozen`/`uv lock --check`, `npm ci` against `frontend/package-lock.json`,
+  explicit Python 3.12/Node 22, the repository's 75% backend coverage gate, and the accepted single
+  Alembic head. Do not add CI-only dependency updates or real provider credentials.
+- Pull-request workflows default to read-only contents, disable checkout credential persistence,
+  and must not use `pull_request_target` to execute PR-controlled code. Trusted artifact provenance
+  permissions are isolated to successful main/version-tag runs; PRs never publish images or receive
+  repository/environment secrets.
+- Supply-chain reports use the canonical T18 workflow and are short-retention, machine-readable
+  artifacts. Never upload `.env`, credentials, database dumps, tenant data, or raw sensitive test
+  data. Do not weaken a scanner gate with `|| true`, broad allowlists, or unreviewed suppressions.
+- The reproducible local supply-chain checks and release-boundary policy are documented in
+  [`docs/how-to-guides/ci-supply-chain.md`](docs/how-to-guides/ci-supply-chain.md).
+
 ## T14-T21 Solo Integration Workflow
 
 T14 through T21 use one long-lived integration branch:

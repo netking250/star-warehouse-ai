@@ -1,0 +1,288 @@
+name: Supply Chain
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supply-chain-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  IMAGE_NAME: star-warehouse-ai:ci-${{ github.sha }}
+  PIP_AUDIT_VERSION: 2.9.0
+  GITLEAKS_IMAGE: zricethezav/gitleaks:v8.24.2
+  TRIVY_IMAGE: aquasec/trivy:0.59.1
+  SYFT_IMAGE: anchore/syft:v1.18.1
+
+jobs:
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Scan tracked repository history
+        run: |
+          mkdir -p reports
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}:/repo:ro" \
+            -v "${GITHUB_WORKSPACE}/reports:/reports" \
+            "${GITLEAKS_IMAGE}" \
+            detect \
+            --source=/repo \
+            --no-git \
+            --config=/repo/.gitleaks.toml \
+            --no-banner \
+            --redact \
+            --report-format sarif \
+            --report-path=/reports/gitleaks.sarif \
+            --exit-code 1
+      - name: Upload secret scan report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: secret-scan-${{ github.run_id }}
+          path: reports/gitleaks.sarif
+          if-no-files-found: warn
+          retention-days: 14
+
+  dependency-scan:
+    name: Dependency scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081 # v5
+        with:
+          version: "0.6.5"
+          enable-cache: ${{ github.event_name != 'pull_request' }}
+          cache-dependency-glob: uv.lock
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: ${{ github.event_name != 'pull_request' && 'npm' || '' }}
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install locked project dependencies
+        run: |
+          uv lock --check
+          uv sync --frozen
+          npm install --global npm@11.9.0
+          npm --prefix frontend ci
+      - name: Audit locked backend dependencies
+        run: |
+          mkdir -p reports
+          uv export --frozen --all-groups --no-emit-project --format requirements-txt \
+            --output-file reports/backend-requirements.txt >/dev/null
+          set +e
+          uvx --no-cache --from "pip-audit==${PIP_AUDIT_VERSION}" \
+            pip-audit \
+            --requirement reports/backend-requirements.txt \
+            --format=json \
+            --output=reports/backend-pip-audit.json
+          status=$?
+          set -e
+          if [[ ! -s reports/backend-pip-audit.json ]]; then
+            echo "::error title=Backend dependency scanner failure::pip-audit did not produce a report"
+            exit 1
+          fi
+          if ! jq -e . reports/backend-pip-audit.json >/dev/null; then
+            echo "::error title=Backend dependency scanner failure::pip-audit produced invalid JSON"
+            exit 1
+          fi
+          vulnerabilities="$(jq '[.dependencies[]?.vulns[]?] | length' reports/backend-pip-audit.json)"
+          if [[ "${vulnerabilities}" -gt 0 ]]; then
+            echo "::warning title=Backend dependency vulnerability::${vulnerabilities} vulnerability record(s) found; inspect the uploaded report and remediate through dependency updates"
+          fi
+          if [[ "${status}" -ne 0 && "${vulnerabilities}" -eq 0 ]]; then
+            echo "::error title=Backend dependency scanner failure::pip-audit exited ${status} without vulnerability records; inspect network/tooling"
+            exit "${status}"
+          fi
+      - name: Audit locked frontend dependencies
+        working-directory: frontend
+        run: |
+          set +e
+          npm audit --package-lock-only --audit-level=high --json > ../reports/frontend-npm-audit.json
+          status=$?
+          set -e
+          if [[ ! -s ../reports/frontend-npm-audit.json ]]; then
+            echo "::error title=Frontend dependency scanner failure::npm audit did not produce a report"
+            exit 1
+          fi
+          if ! jq -e . ../reports/frontend-npm-audit.json >/dev/null; then
+            echo "::error title=Frontend dependency scanner failure::npm audit produced invalid JSON"
+            exit 1
+          fi
+          if jq -e 'has("error")' ../reports/frontend-npm-audit.json >/dev/null; then
+            echo "::error title=Frontend dependency scanner failure::npm audit returned a registry or tool error"
+            exit 1
+          fi
+          high_or_critical="$(jq '(.metadata.vulnerabilities.high // 0) + (.metadata.vulnerabilities.critical // 0)' ../reports/frontend-npm-audit.json)"
+          critical="$(jq '(.metadata.vulnerabilities.critical // 0)' ../reports/frontend-npm-audit.json)"
+          high="$(jq '(.metadata.vulnerabilities.high // 0)' ../reports/frontend-npm-audit.json)"
+          if [[ "${critical}" -gt 0 ]]; then
+            echo "::error title=Critical frontend dependency vulnerability::${critical} critical vulnerability record(s) found"
+            exit 1
+          fi
+          if [[ "${high}" -gt 0 ]]; then
+            echo "::warning title=High frontend dependency vulnerability::${high} high vulnerability record(s) remain visible in the uploaded report; remediate through dependency updates"
+          fi
+          if [[ "${status}" -ne 0 && "${high_or_critical}" -eq 0 ]]; then
+            echo "::error title=Frontend dependency scanner failure::npm audit exited ${status} without high/critical findings; inspect network/tooling"
+            exit "${status}"
+          fi
+      - name: Upload dependency scan reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: dependency-scan-${{ github.run_id }}
+          path: |
+            reports/backend-requirements.txt
+            reports/backend-pip-audit.json
+            reports/frontend-npm-audit.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  image-supply-chain:
+    name: Image scan and SBOM
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Build traceable application image
+        run: |
+          mkdir -p reports
+          docker build \
+            --tag "${IMAGE_NAME}" \
+            --build-arg VCS_REF="${GITHUB_SHA}" \
+            --build-arg BUILD_VERSION="5.0.0" \
+            --build-arg BUILD_TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --build-arg SOURCE_REPOSITORY="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
+            .
+      - name: Verify image provenance metadata and non-root runtime
+        run: |
+          image_id="$(docker image inspect --format '{{.Id}}' "${IMAGE_NAME}")"
+          image_user="$(docker image inspect --format '{{.Config.User}}' "${IMAGE_NAME}")"
+          image_revision="$(docker image inspect --format '{{index .Config.Labels \"org.opencontainers.image.revision\"}}' "${IMAGE_NAME}")"
+          jq -n \
+            --arg repository "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
+            --arg commit "${GITHUB_SHA}" \
+            --arg ref "${GITHUB_REF}" \
+            --arg workflow "${GITHUB_WORKFLOW}" \
+            --arg run_id "${GITHUB_RUN_ID}" \
+            --arg image "${IMAGE_NAME}" \
+            --arg image_id "${image_id}" \
+            --arg image_user "${image_user}" \
+            --arg image_revision "${image_revision}" \
+            '{repository: $repository, source_commit: $commit, ref: $ref, workflow: $workflow, run_id: $run_id, image: $image, image_id: $image_id, image_user: $image_user, image_revision: $image_revision}' \
+            > reports/image-metadata.json
+          jq -e --arg commit "${GITHUB_SHA}" \
+            '.source_commit == $commit and .image_revision == $commit and .image_user == "appuser"' \
+            reports/image-metadata.json >/dev/null
+      - name: Inspect image for local credentials
+        run: |
+          docker run --rm --entrypoint /bin/sh "${IMAGE_NAME}" -c '
+            test ! -e /app/.env &&
+            test ! -e /app/.git &&
+            test ! -e /app/.ssh &&
+            test ! -e /app/id_rsa &&
+            ! find /app -path /app/.venv -prune -o -type f \( -name "*.p12" -o -name "*.key" \) -print -quit | grep -q .
+          '
+      - name: Generate CycloneDX SBOM
+        run: |
+          docker save "${IMAGE_NAME}" -o reports/application-image.tar
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}/reports:/reports" \
+            "${SYFT_IMAGE}" \
+            "docker-archive:/reports/application-image.tar" \
+            -o cyclonedx-json=/reports/sbom.cdx.json
+          jq -e \
+            '.bomFormat == "CycloneDX" and (.specVersion | length > 0) and (.components | type == "array") and (.components | length > 0)' \
+            reports/sbom.cdx.json >/dev/null
+      - name: Scan image vulnerabilities
+        run: |
+          set +e
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}/reports:/reports" \
+            "${TRIVY_IMAGE}" \
+            image \
+            --input /reports/application-image.tar \
+            --scanners vuln \
+            --format json \
+            --output /reports/trivy-image.json \
+            --severity HIGH,CRITICAL \
+            --exit-code 1 \
+            --no-progress \
+            "${IMAGE_NAME}"
+          status=$?
+          set -e
+          if [[ ! -s reports/trivy-image.json ]] || ! jq -e . reports/trivy-image.json >/dev/null; then
+            echo "::error title=Container scanner failure::Trivy did not produce valid JSON"
+            exit 1
+          fi
+          critical="$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' reports/trivy-image.json)"
+          high="$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH")] | length' reports/trivy-image.json)"
+          high_fixed="$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH" and ((.FixedVersion // "") | length > 0))] | length' reports/trivy-image.json)"
+          echo "Trivy findings: critical=${critical}, high=${high}, high_with_fix=${high_fixed}"
+          if [[ "${critical}" -gt 0 ]]; then
+            echo "::error title=Critical container vulnerability::${critical} critical finding(s) detected"
+            exit 1
+          fi
+          if [[ "${high_fixed}" -gt 0 ]]; then
+            echo "::warning title=High container vulnerability::${high_fixed} high finding(s) have a known fix; remediate through base-image or dependency updates"
+          fi
+          if [[ "${high}" -gt 0 ]]; then
+            echo "::warning title=Unfixed high container vulnerability::${high} high finding(s) remain visible in the Trivy report without a known fix"
+          fi
+          if [[ "${status}" -ne 0 && "${critical}" -eq 0 && "${high}" -eq 0 ]]; then
+            echo "::error title=Container scanner failure::Trivy exited ${status} without vulnerability records; inspect network/tooling"
+            exit "${status}"
+          fi
+          rm -f reports/application-image.tar
+      - name: Upload image supply-chain artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: supply-chain-reports-${{ github.run_id }}
+          path: |
+            reports/image-metadata.json
+            reports/sbom.cdx.json
+            reports/trivy-image.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  trusted-provenance:
+    name: Trusted artifact provenance
+    if: >-
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+    needs: image-supply-chain
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: supply-chain-reports-${{ github.run_id }}
+          path: release-artifacts
+      - name: Attest the release SBOM in trusted context
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: release-artifacts/sbom.cdx.json

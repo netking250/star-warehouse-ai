@@ -40,6 +40,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
       - name: Validate Compose model
         run: docker compose -f docker-compose.monitoring.yml config --quiet
       - name: Validate Grafana dashboards
@@ -57,10 +59,10 @@ jobs:
         run: |
           cp alertmanager/alertmanager.yml /tmp/star-warehouse-alertmanager.yml
           sed -i \
-            -e 's#\${SMTP_HOST}#localhost:587#g' \
-            -e 's#\${ALERT_EMAIL_FROM}#alerts@example.com#g' \
-            -e 's#\${ALERT_ADMIN_EMAILS}#oncall@example.com#g' \
-            -e 's#\${ALERT_WEBHOOK_URL}#http://localhost:8000/api/v1/admin/alerts/webhook#g' \
+            -e "s#\${SMTP_HOST}#localhost:587#g" \
+            -e "s#\${ALERT_EMAIL_FROM}#alerts@example.com#g" \
+            -e "s#\${ALERT_ADMIN_EMAILS}#oncall@example.com#g" \
+            -e "s#\${ALERT_WEBHOOK_URL}#http://localhost:8000/api/v1/admin/alerts/webhook#g" \
             /tmp/star-warehouse-alertmanager.yml
           docker run --rm --entrypoint /bin/amtool \
             -v /tmp/star-warehouse-alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro \
@@ -71,8 +73,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - run: python -m pip install pytest pyyaml
-      - run: pytest --confcutdir=tests/monitoring tests/monitoring -q
+      - uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081 # v5
+        with:
+          version: "0.6.5"
+          enable-cache: ${{ github.event_name != 'pull_request' }}
+          cache-dependency-glob: uv.lock
+      - run: uv sync --frozen
+      - name: Verify locked dependency graph
+        run: uv lock --check
+      - run: uv run pytest --confcutdir=tests/monitoring tests/monitoring -q

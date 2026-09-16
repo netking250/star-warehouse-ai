@@ -1,11 +1,31 @@
 FROM node:22-slim AS frontend-builder
 WORKDIR /app
 COPY frontend/package.json frontend/package-lock.json ./frontend/
-RUN cd frontend && npm ci
+ARG NPM_VERSION=11.9.0
+RUN npm install --global "npm@${NPM_VERSION}" \
+    && cd frontend \
+    && npm ci
 COPY frontend/ ./frontend/
 RUN cd frontend && npm run build
 
 FROM python:3.12-slim
+
+ARG BUILD_VERSION=5.0.0
+ARG VCS_REF=unknown
+ARG BUILD_TIMESTAMP=unknown
+ARG SOURCE_REPOSITORY=https://github.com/netking250/star-warehouse-ai
+
+LABEL org.opencontainers.image.title="Star Warehouse AI" \
+      org.opencontainers.image.description="Star Warehouse AI customer-service platform" \
+      org.opencontainers.image.version="${BUILD_VERSION}" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.created="${BUILD_TIMESTAMP}" \
+      org.opencontainers.image.source="${SOURCE_REPOSITORY}"
+
+# Apply current distribution security updates before installing the application.
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN groupadd -r appgroup && useradd -r -g appgroup appuser
 
