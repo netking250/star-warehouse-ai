@@ -1,0 +1,138 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "star-warehouse-ai.fullname" . }}-worker
+  labels:
+    {{- include "star-warehouse-ai.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  replicas: {{ .Values.worker.replicas }}
+  selector:
+    matchLabels:
+      {{- include "star-warehouse-ai.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels:
+        {{- include "star-warehouse-ai.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: worker
+      annotations:
+        {{- include "star-warehouse-ai.podAnnotations" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "star-warehouse-ai.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: {{ .Values.worker.terminationGracePeriodSeconds }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- include "star-warehouse-ai.imagePullSecrets" . | nindent 6 }}
+      {{- if .Values.migration.enabled }}
+      initContainers:
+        {{- include "star-warehouse-ai.migrationInitContainer" (dict "root" . "capability" "runtime") | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: worker
+          image: {{ include "star-warehouse-ai.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["celery"]
+          args:
+            - -A
+            - app.celery_app
+            - worker
+            - --loglevel=info
+            - --pool=solo
+            - --events
+            - --concurrency={{ .Values.worker.concurrency }}
+            - --queues={{ .Values.worker.queues }}
+          {{- include "star-warehouse-ai.runtimeEnvFrom" . | nindent 10 }}
+          env:
+            {{- include "star-warehouse-ai.runtimeEnv" . | nindent 12 }}
+            {{- include "star-warehouse-ai.databaseEnv" (dict "root" . "capability" "runtime") | nindent 12 }}
+            - name: DB_CAPABILITY
+              value: runtime
+            - name: OTEL_SERVICE_NAME
+              value: star-warehouse-ai-worker
+          livenessProbe:
+            exec:
+              command: ["/bin/sh", "-ec", "kill -0 1"]
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 6
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          volumeMounts:
+            {{- include "star-warehouse-ai.volumeMounts" . | nindent 12 }}
+      volumes:
+        {{- include "star-warehouse-ai.volumes" . | nindent 8 }}
+
+{{- if .Values.maintenanceWorker.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "star-warehouse-ai.fullname" . }}-maintenance-worker
+  labels:
+    {{- include "star-warehouse-ai.labels" . | nindent 4 }}
+    app.kubernetes.io/component: maintenance-worker
+spec:
+  replicas: {{ .Values.maintenanceWorker.replicas }}
+  selector:
+    matchLabels:
+      {{- include "star-warehouse-ai.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: maintenance-worker
+  template:
+    metadata:
+      labels:
+        {{- include "star-warehouse-ai.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: maintenance-worker
+      annotations:
+        {{- include "star-warehouse-ai.podAnnotations" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "star-warehouse-ai.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: {{ .Values.maintenanceWorker.terminationGracePeriodSeconds }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- include "star-warehouse-ai.imagePullSecrets" . | nindent 6 }}
+      {{- if .Values.migration.enabled }}
+      initContainers:
+        {{- include "star-warehouse-ai.migrationInitContainer" (dict "root" . "capability" "maintenance") | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: maintenance-worker
+          image: {{ include "star-warehouse-ai.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["celery"]
+          args:
+            - -A
+            - app.celery_app
+            - worker
+            - --loglevel=info
+            - --pool=solo
+            - --events
+            - --concurrency={{ .Values.maintenanceWorker.concurrency }}
+            - --queues=maintenance
+          {{- include "star-warehouse-ai.runtimeEnvFrom" . | nindent 10 }}
+          env:
+            {{- include "star-warehouse-ai.runtimeEnv" . | nindent 12 }}
+            {{- include "star-warehouse-ai.databaseEnv" (dict "root" . "capability" "maintenance") | nindent 12 }}
+            - name: DB_CAPABILITY
+              value: maintenance
+            - name: OTEL_SERVICE_NAME
+              value: star-warehouse-ai-maintenance
+          livenessProbe:
+            exec:
+              command: ["/bin/sh", "-ec", "kill -0 1"]
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 6
+          resources:
+            {{- toYaml .Values.maintenanceWorker.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          volumeMounts:
+            {{- include "star-warehouse-ai.volumeMounts" . | nindent 12 }}
+      volumes:
+        {{- include "star-warehouse-ai.volumes" . | nindent 8 }}
+{{- end }}

@@ -252,7 +252,17 @@ jobs:
             echo "::error title=Container scanner failure::Trivy exited ${status} without vulnerability records; inspect network/tooling"
             exit "${status}"
           fi
-          rm -f reports/application-image.tar
+      - name: Preserve the scanned image for trusted publication
+        if: >-
+          github.event_name == 'push' &&
+          (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+        uses: actions/upload-artifact@v7
+        with:
+          name: trusted-image-${{ github.run_id }}
+          path: reports/application-image.tar
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
       - name: Upload image supply-chain artifacts
         if: always()
         uses: actions/upload-artifact@v7
@@ -265,12 +275,67 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+  publish-image:
+    name: Publish trusted image
+    if: >-
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+    needs: image-supply-chain
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: trusted-image-${{ github.run_id }}
+          path: release-image
+      - name: Load the scanned image
+        run: docker load --input release-image/application-image.tar
+      - name: Authenticate to GHCR with the workflow identity
+        run: echo "${GITHUB_TOKEN}" | docker login ghcr.io --username "${GITHUB_ACTOR}" --password-stdin
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish immutable commit and optional release tags
+        id: publish
+        run: |
+          registry_image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          commit_tag="sha-${GITHUB_SHA}"
+          docker tag "${IMAGE_NAME}" "${registry_image}:${commit_tag}"
+          docker push "${registry_image}:${commit_tag}"
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            release_tag="${GITHUB_REF_NAME}"
+            docker tag "${IMAGE_NAME}" "${registry_image}:${release_tag}"
+            docker push "${registry_image}:${release_tag}"
+          fi
+          digest="$(docker inspect --format='{{index .RepoDigests 0}}' "${registry_image}:${commit_tag}" | cut -d@ -f2)"
+          test -n "${digest}"
+          echo "registry-image=${registry_image}" >> "${GITHUB_OUTPUT}"
+          echo "digest=${digest}" >> "${GITHUB_OUTPUT}"
+          printf '%s@%s\n' "${registry_image}" "${digest}" > image-reference.txt
+      - name: Attest the published container image
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ steps.publish.outputs.registry-image }}
+          subject-digest: ${{ steps.publish.outputs.digest }}
+          push-to-registry: true
+      - name: Upload immutable deployment reference
+        uses: actions/upload-artifact@v7
+        with:
+          name: image-reference-${{ github.run_id }}
+          path: image-reference.txt
+          if-no-files-found: error
+          retention-days: 14
+
   trusted-provenance:
     name: Trusted artifact provenance
     if: >-
       github.event_name == 'push' &&
       (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
-    needs: image-supply-chain
+    needs: [image-supply-chain, publish-image]
     runs-on: ubuntu-latest
     permissions:
       contents: read

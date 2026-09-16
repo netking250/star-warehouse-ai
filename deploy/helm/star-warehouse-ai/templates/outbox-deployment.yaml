@@ -1,0 +1,60 @@
+{{- if .Values.outboxRelay.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "star-warehouse-ai.fullname" . }}-outbox
+  labels:
+    {{- include "star-warehouse-ai.labels" . | nindent 4 }}
+    app.kubernetes.io/component: outbox-relay
+spec:
+  replicas: {{ .Values.outboxRelay.replicas }}
+  selector:
+    matchLabels:
+      {{- include "star-warehouse-ai.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: outbox-relay
+  template:
+    metadata:
+      labels:
+        {{- include "star-warehouse-ai.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: outbox-relay
+      annotations:
+        {{- include "star-warehouse-ai.podAnnotations" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "star-warehouse-ai.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: {{ .Values.outboxRelay.terminationGracePeriodSeconds }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- include "star-warehouse-ai.imagePullSecrets" . | nindent 6 }}
+      {{- if .Values.migration.enabled }}
+      initContainers:
+        {{- include "star-warehouse-ai.migrationInitContainer" (dict "root" . "capability" "maintenance") | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: outbox-relay
+          image: {{ include "star-warehouse-ai.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["python", "-m", "app.outbox"]
+          {{- include "star-warehouse-ai.runtimeEnvFrom" . | nindent 10 }}
+          env:
+            {{- include "star-warehouse-ai.runtimeEnv" . | nindent 12 }}
+            {{- include "star-warehouse-ai.databaseEnv" (dict "root" . "capability" "maintenance") | nindent 12 }}
+            - name: DB_CAPABILITY
+              value: maintenance
+            - name: OTEL_SERVICE_NAME
+              value: star-warehouse-ai-outbox
+          livenessProbe:
+            exec:
+              command: ["/bin/sh", "-ec", "kill -0 1"]
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 6
+          resources:
+            {{- toYaml .Values.outboxRelay.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          volumeMounts:
+            {{- include "star-warehouse-ai.volumeMounts" . | nindent 12 }}
+      volumes:
+        {{- include "star-warehouse-ai.volumes" . | nindent 8 }}
+{{- end }}

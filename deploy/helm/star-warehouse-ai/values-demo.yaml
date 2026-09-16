@@ -1,0 +1,55 @@
+productionMode: false
+
+image:
+  repository: star-warehouse-ai
+  tag: local
+  digest: ""
+  pullPolicy: IfNotPresent
+  allowMutableTag: true
+
+config:
+  ENVIRONMENT: production
+  LOCAL_BOOTSTRAP_TENANT_ID: demo
+  POSTGRES_SERVER: star-warehouse-ai-postgres
+  REDIS_HOST: star-warehouse-ai-redis
+  QDRANT_URL: http://star-warehouse-ai-qdrant:6333
+  OIDC_REDIRECT_URI: https://app.example.com/api/v1/oidc/callback
+  CORS_ORIGINS: '["https://app.example.com"]'
+  OTEL_EXPORTER_OTLP_ENDPOINT: ""
+
+api:
+  replicas: 1
+
+worker:
+  replicas: 1
+  concurrency: 1
+
+maintenanceWorker:
+  enabled: true
+  replicas: 1
+  concurrency: 1
+
+scheduler:
+  replicas: 1
+
+outboxRelay:
+  replicas: 1
+
+ingress:
+  enabled: true
+  className: traefik
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+  host: app.example.com
+  tls:
+    enabled: true
+    secretName: star-warehouse-ai-tls
+
+demoInfrastructure:
+  enabled: true
+  secretRefName: star-warehouse-ai-runtime
+
+# k3s ships Traefik by default. Its WebSocket and streaming proxying require no second ingress
+# controller. Tune Traefik's bounded entryPoint respondingTimeouts at the cluster layer if the
+# accepted 45-second application stream timeout is increased.

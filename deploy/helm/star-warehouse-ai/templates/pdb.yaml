@@ -1,0 +1,18 @@
+{{- if .Values.pdb.api.enabled }}
+{{- if lt (int .Values.api.replicas) 2 }}
+{{- fail "api PDB requires api.replicas >= 2" }}
+{{- end }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "star-warehouse-ai.fullname" . }}-api
+  labels:
+    {{- include "star-warehouse-ai.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  minAvailable: {{ .Values.pdb.api.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "star-warehouse-ai.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: api
+{{- end }}

@@ -2913,3 +2913,63 @@ State transition:
 - T18 moves from `IN_PROGRESS / VERIFY_PENDING` to `AWAITING_ACCEPTANCE /
   EXTERNAL_ACCEPTANCE_PENDING`; Codex does not mark it `PASS`.
 - T19 and T20 remain `NOT_STARTED`.
+
+## T19-IMPLEMENT-CLOSEOUT - Production Deployment Baseline
+
+Completed: 2026-09-17
+
+Status: `IN_PROGRESS`
+
+Execution Stage: `VERIFY_PENDING`
+
+- Recovered the frozen deployment scope from ADR-015/ADR-016, engineering ledgers, T17/T18
+  documentation, Docker/Compose/runtime configuration, startup/migration/probe contracts, and the
+  existing deployment inventory. No competing Helm, Kubernetes, Terraform, or application
+  deployment system existed; there was no scope conflict.
+- Added one canonical Helm chart for the existing API, tenant worker, maintenance worker,
+  singleton scheduler, and conservative singleton outbox relay. The chart consumes one prebuilt
+  image, prefers a digest, rejects missing production digests and non-overridden `latest`, exposes
+  only the API, references rather than creates secrets, and keeps normal pods non-root with no
+  privilege escalation, host namespaces/paths, RBAC, or service-account token.
+- Added a revision-scoped migration Job as the sole `alembic upgrade head` owner. Workload init
+  checks are non-mutating, and the Job grants only read access to `alembic_version` to the runtime
+  and maintenance logins. API replicas never migrate; Helm rollback does not downgrade the schema
+  or delete PVCs.
+- Added TLS ingress profiles for k3s Traefik and production-reference nginx behavior, exact public
+  origin/OIDC configuration, upload and bounded streaming timeouts, internal-only metrics and
+  infrastructure, resource/probe/lifecycle defaults, config checksums, private pull-secret support,
+  and PVC-backed demo PostgreSQL/Redis/RabbitMQ/Qdrant with non-root-compatible writable paths.
+- Extended the trusted T18 workflow so only successful `main`/version-tag runs publish the exact
+  scanned image to GHCR under immutable commit/version tags, resolve its digest, attest that
+  subject, and preserve a short-lived image-reference artifact. Pull requests do not publish and
+  `latest` is never created.
+- Added bounded validation/deployment scripts and operator documentation for Helm, low-cost k3s,
+  secret keys, migrations, upgrades/rollbacks, failure visibility, browser security, T17 telemetry,
+  trusted artifacts, and the AWS reference mapping (EKS/ALB, RDS PostgreSQL, ElastiCache-compatible
+  Redis, Amazon MQ for RabbitMQ, self-hosted/managed Qdrant, S3, Secrets Manager/External Secrets,
+  and ECR/GHCR boundary). No AWS resource or alternate IaC stack was created.
+- Helm 3.17.3 lint/template passed for default, demo, and production reference. Kubeconform 0.6.7
+  against Kubernetes 1.30 reported `38` valid resources with `0` invalid/errors/skipped. ShellCheck
+  0.11.0, actionlint 1.7.12, image-negative cases, and the rendered manifest security/secret scan
+  passed.
+- A disposable k3d 5.9.0 node running actual k3s `v1.35.5+k3s1` passed complete install, the
+  revision migration, all application/dependency readiness, HTTPS `/health`, service endpoints,
+  internal metrics, structured API/worker logs, query-token WebSocket rejection, a benign upgrade,
+  application rollback without schema downgrade, and a missing application Secret failure that
+  was recorded failed and atomically recovered to deployed revision 8. PVCs remained intact.
+- OCI metadata inspection confirmed the reused T18 image is non-root and carries version `5.0.0`,
+  source repository, and revision `8802702b8efbe636e6ba3c92dc889c3ee01650b5`. Direct route
+  inventory remained `136` classified entries with `0` unclassified; Alembic remained the single
+  head `e9f0a1b2c3d4`. No application route, business code, or migration changed.
+- Hosted GHCR runtime/attestation evidence remains deferred to T21. The disposable run proves k3s
+  behavior, while a real public VM/DNS/CA deployment remains environment-specific VERIFY evidence.
+  OpenAI/Celery timing debt and the T18 vulnerability baseline were not changed. No T20
+  performance, resilience, backup/restore, DR, or capacity work was performed.
+
+State transition:
+
+- T14 remains `PASS_WITH_NOTES`; T15, T16, and T17 remain `PASS`; T18 remains
+  `PASS_WITH_NOTES` by explicit user instruction.
+- T19 remains `IN_PROGRESS` and advances from `IMPLEMENT` to `VERIFY_PENDING`; Codex does not mark
+  it `PASS`.
+- T20 remains `NOT_STARTED`; no PR or merge is created before T21.

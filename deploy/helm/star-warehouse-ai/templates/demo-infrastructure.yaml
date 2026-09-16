@@ -1,0 +1,405 @@
+{{- if .Values.demoInfrastructure.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "star-warehouse-ai.fullname" . }}-postgres
+  labels:
+    {{- include "star-warehouse-ai.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+spec:
+  clusterIP: None
+  selector:
+    {{- include "star-warehouse-ai.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "star-warehouse-ai.fullname" . }}-postgres
+  labels:
+    {{- include "star-warehouse-ai.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+spec:
+  serviceName: {{ include "star-warehouse-ai.fullname" . }}-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "star-warehouse-ai.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: postgres
+  template:
+    metadata:
+      labels:
+        {{- include "star-warehouse-ai.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: postgres
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: postgres
+          image: {{ .Values.demoInfrastructure.postgres.image | quote }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+            - name: POSTGRES_DB
+              value: {{ .Values.config.POSTGRES_DB | quote }}
+            - name: POSTGRES_USER
+              value: {{ .Values.config.POSTGRES_USER | quote }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "star-warehouse-ai.demoSecretName" . }}
+                  key: POSTGRES_PASSWORD
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", {{ .Values.config.POSTGRES_USER | quote }}, "-d", {{ .Values.config.POSTGRES_DB | quote }}]
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 12
+          livenessProbe:
+            tcpSocket:
+              port: postgres
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 6
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: "1", memory: 1Gi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- with .Values.demoInfrastructure.storageClassName }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.demoInfrastructure.postgres.storage }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "star-warehouse-ai.fullname" . }}-redis
+  labels:
+    {{- include "star-warehouse-ai.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+spec:
+  clusterIP: None
+  selector:
+    {{- include "star-warehouse-ai.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: redis
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "star-warehouse-ai.fullname" . }}-redis
+  labels:
+    {{- include "star-warehouse-ai.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+spec:
+  serviceName: {{ include "star-warehouse-ai.fullname" . }}-redis
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "star-warehouse-ai.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: redis
+  template:
+    metadata:
+      labels:
+        {{- include "star-warehouse-ai.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: redis
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: redis
+          image: {{ .Values.demoInfrastructure.redis.image | quote }}
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-ec"]
+          args: ["exec redis-server --dir /data --requirepass \"$REDIS_PASSWORD\" --appendonly yes --loadmodule /opt/redis-stack/lib/redisearch.so --loadmodule /opt/redis-stack/lib/rejson.so"]
+          ports:
+            - name: redis
+              containerPort: 6379
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "star-warehouse-ai.demoSecretName" . }}
+                  key: REDIS_PASSWORD
+            - name: REDISCLI_AUTH
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "star-warehouse-ai.demoSecretName" . }}
+                  key: REDIS_PASSWORD
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 12
+          livenessProbe:
+            tcpSocket:
+              port: redis
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 6
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: "1", memory: 1Gi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- with .Values.demoInfrastructure.storageClassName }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.demoInfrastructure.redis.storage }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "star-warehouse-ai.fullname" . }}-rabbitmq
+  labels:
+    {{- include "star-warehouse-ai.labels" . | nindent 4 }}
+    app.kubernetes.io/component: rabbitmq
+spec:
+  clusterIP: None
+  selector:
+    {{- include "star-warehouse-ai.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: rabbitmq
+  ports:
+    - name: amqp
+      port: 5672
+      targetPort: amqp
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "star-warehouse-ai.fullname" . }}-rabbitmq
+  labels:
+    {{- include "star-warehouse-ai.labels" . | nindent 4 }}
+    app.kubernetes.io/component: rabbitmq
+spec:
+  serviceName: {{ include "star-warehouse-ai.fullname" . }}-rabbitmq
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "star-warehouse-ai.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: rabbitmq
+  template:
+    metadata:
+      labels:
+        {{- include "star-warehouse-ai.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: rabbitmq
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: rabbitmq-cookie-permissions
+          image: {{ .Values.demoInfrastructure.rabbitmq.image | quote }}
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-ec"]
+          args: ['if [ -f /var/lib/rabbitmq/.erlang.cookie ]; then chmod 600 /var/lib/rabbitmq/.erlang.cookie; fi']
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests: {cpu: 5m, memory: 16Mi}
+            limits: {cpu: 50m, memory: 64Mi}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/rabbitmq
+      containers:
+        - name: rabbitmq
+          image: {{ .Values.demoInfrastructure.rabbitmq.image | quote }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: amqp
+              containerPort: 5672
+          env:
+            - name: RABBITMQ_DEFAULT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "star-warehouse-ai.demoSecretName" . }}
+                  key: RABBITMQ_USER
+            - name: RABBITMQ_DEFAULT_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "star-warehouse-ai.demoSecretName" . }}
+                  key: RABBITMQ_PASSWORD
+          readinessProbe:
+            exec:
+              command: ["rabbitmq-diagnostics", "-q", "ping"]
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 12
+          livenessProbe:
+            tcpSocket:
+              port: amqp
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 6
+          resources:
+            requests: {cpu: 100m, memory: 384Mi}
+            limits: {cpu: "1", memory: 1Gi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/rabbitmq
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- with .Values.demoInfrastructure.storageClassName }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.demoInfrastructure.rabbitmq.storage }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "star-warehouse-ai.fullname" . }}-qdrant
+  labels:
+    {{- include "star-warehouse-ai.labels" . | nindent 4 }}
+    app.kubernetes.io/component: qdrant
+spec:
+  clusterIP: None
+  selector:
+    {{- include "star-warehouse-ai.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: qdrant
+  ports:
+    - name: http
+      port: 6333
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "star-warehouse-ai.fullname" . }}-qdrant
+  labels:
+    {{- include "star-warehouse-ai.labels" . | nindent 4 }}
+    app.kubernetes.io/component: qdrant
+spec:
+  serviceName: {{ include "star-warehouse-ai.fullname" . }}-qdrant
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "star-warehouse-ai.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: qdrant
+  template:
+    metadata:
+      labels:
+        {{- include "star-warehouse-ai.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: qdrant
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: qdrant
+          image: {{ .Values.demoInfrastructure.qdrant.image | quote }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 6333
+          env:
+            - name: QDRANT__STORAGE__SNAPSHOTS_PATH
+              value: /qdrant/storage/snapshots
+            - name: QDRANT__SERVICE__API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "star-warehouse-ai.demoSecretName" . }}
+                  key: QDRANT_API_KEY
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 12
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 6
+          resources:
+            requests: {cpu: 100m, memory: 384Mi}
+            limits: {cpu: "1", memory: 1Gi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /qdrant/storage
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- with .Values.demoInfrastructure.storageClassName }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.demoInfrastructure.qdrant.storage }}
+{{- end }}

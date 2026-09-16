@@ -4,6 +4,8 @@
 
 - [架构守护规则](../../architecture/ARCHITECTURE_GUARDRAILS.md) — T02–T21 结构变更的权威边界与债务映射
 - [Accepted decisions](../../engineering/DECISIONS.md) — 当前架构基线
+- [Deployment architecture](./deployment.md) — Helm runtime roles, trusted image flow, k3s demo,
+  and the qualified AWS production reference
 - [Enterprise authorization](../../architecture/AUTHORIZATION.md) — tenant membership, roles,
   capabilities, route policy, revocation, and audit semantics
 - [Secure browser session](../../architecture/SECURE_BROWSER_SESSION.md) — HttpOnly cookie,

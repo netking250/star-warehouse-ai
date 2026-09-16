@@ -1,0 +1,57 @@
+productionMode: true
+
+image:
+  repository: ghcr.io/netking250/star-warehouse-ai
+  tag: ""
+  digest: ""
+  pullPolicy: IfNotPresent
+  allowMutableTag: false
+
+config:
+  ENVIRONMENT: production
+  LOCAL_BOOTSTRAP_TENANT_ID: ""
+  POSTGRES_SERVER: replace-with-rds-endpoint.example.internal
+  REDIS_HOST: replace-with-elasticache-endpoint.example.internal
+  QDRANT_URL: https://replace-with-qdrant-endpoint.example.internal
+  OIDC_ENABLED: "true"
+  OIDC_ISSUER: https://identity.example.com/realms/star-warehouse
+  OIDC_CLIENT_ID: star-warehouse-ai
+  OIDC_REDIRECT_URI: https://app.example.com/api/v1/oidc/callback
+  CORS_ORIGINS: '["https://app.example.com"]'
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector.observability.svc.cluster.local:4317
+
+api:
+  replicas: 2
+
+worker:
+  replicas: 2
+
+maintenanceWorker:
+  replicas: 1
+
+scheduler:
+  replicas: 1
+
+outboxRelay:
+  replicas: 1
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-body-size: 20m
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
+  host: app.example.com
+  tls:
+    enabled: true
+    secretName: star-warehouse-ai-tls
+
+pdb:
+  api:
+    enabled: true
+    minAvailable: 1
+
+demoInfrastructure:
+  enabled: false
