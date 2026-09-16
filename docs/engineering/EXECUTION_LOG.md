@@ -2671,6 +2671,50 @@ State transition:
 - T17 remains `IN_PROGRESS / VERIFY_PENDING` and is ready to resume VERIFY.
 - T18 remains `NOT_STARTED`.
 
+## T17-VERIFY-EVIDENCE - Disposable fixture acceptance closeout
+
+Completed: 2026-09-16
+
+Status: `AWAITING_ACCEPTANCE`
+
+Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
+
+- Preflight confirmed the synchronized `feat/t14-t21-enterprise-hardening` branch at the accepted
+  T17 fix head with a clean worktree. The evidence run used only the disposable
+  `star-warehouse-ai-t17evidence` Compose project and existing test factories; no production or
+  long-lived developer database was used.
+- One authorized disposable tenant/principal and one order/refund approval exercised the real API
+  -> transactional outbox -> relay -> RabbitMQ test vhost -> Celery path. Two outbox events were
+  published and two worker receipts completed. API, outbox, and worker spans shared trace
+  `b418288a455fd6f29ac25035c52f4222` with the accepted parent/child relationship. ACK, retry, and
+  idempotency semantics were unchanged.
+- The fixed HTTP smoke, deterministic failure metric/log/trace correlation, mock model logical
+  request versus provider-attempt/fallback/retry counts, circuit state/rejection/probe signals,
+  and T12 one-terminal runtime guards passed. Twenty-nine compact semantic tests passed (`29/29`).
+- Stopping only optional Tempo left the business transaction and async delivery successful; the
+  Collector's bounded retry/queue behavior was observed, Tempo was restored, and the trace was
+  queryable again. Runtime metric-family and Loki-label reviews found no unbounded or sensitive
+  identifiers. Four synthetic sentinels were absent from logs, Loki, and traces.
+- Three Grafana dashboards loaded, representative real-metric queries evaluated successfully, all
+  eleven T17 rules were loaded by the running Grafana rule engine, and Alertmanager loaded its
+  local-no-op routing without production credentials. The canonical Mimir endpoint returned
+  successful NoData for T17 families because its pre-existing scrape target is a separate
+  host-port service; isolated API registry/source evidence remained valid.
+- Disposable tenant/user/outbox/receipt counts were zero before teardown, RabbitMQ queues were
+  empty, and the disposable containers/network/volumes were removed. Monitoring containers
+  remained running. Ruff, format, ty, Compose, Prometheus/rules, Alertmanager, OTel, route
+  inventory, and Alembic checks passed; route inventory stayed at `136` classified and `0`
+  unclassified with single head `e9f0a1b2c3d4`. No code, migration, route, frontend, T18 work, or
+  deferred OpenAI/Celery timing-debt repair changed.
+
+State transition:
+
+- T14 remains `PASS_WITH_NOTES`.
+- T15 and T16 remain `PASS` by explicit user instruction.
+- T17 moves from `IN_PROGRESS / VERIFY_PENDING` to `AWAITING_ACCEPTANCE /
+  EXTERNAL_ACCEPTANCE_PENDING`; Codex does not mark it `PASS`.
+- T18 remains `NOT_STARTED`.
+
 ## T16-IMPLEMENT-CLOSEOUT - Enterprise console
 
 Completed: 2026-09-15
