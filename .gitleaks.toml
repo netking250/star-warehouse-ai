@@ -1,0 +1,7 @@
+title = "Star Warehouse AI secret scanning policy"
+
+[allowlist]
+description = "The CI-only provider placeholder is intentionally non-secret test configuration."
+regexes = [
+  '''(?i)\bsk-test\b''',
+]

@@ -193,7 +193,8 @@ Alertmanager, Loki, Promtail, Tempo, OpenTelemetry Collector, and Mimir configur
 - T13 delivers the Dynamic Model Gateway with OpenAI, DashScope, and Mock adapters.
 - T14 (AI Failure Policy) is complete on the long-lived
   `feat/t14-t21-enterprise-hardening` branch; T15 Frontend Transport is `IN_PROGRESS / VERIFY_PENDING`.
-- T14-T21 use one integration branch with targeted stage verification and one final PR after T21;
+- T15, T16, and T17 are accepted `PASS`; T18 CI/CD and Supply Chain is in implementation on the
+  same integration branch. T14-T21 use targeted stage verification and one final PR after T21;
   see the [current project state](docs/engineering/PROJECT_STATE.md) for the workflow and debt policy.
 
 Detailed milestone evidence remains in the engineering state documents rather than this project
@@ -210,5 +211,6 @@ introduction.
 - [Deployment guide](docs/how-to-guides/deploy.md)
 - [Environment reference](docs/reference/environment-variables.md)
 - [Operations runbooks](docs/runbooks/README.md)
+- [CI/CD and software supply chain](docs/how-to-guides/ci-supply-chain.md)
 
 Contributors and coding agents should read [AGENTS.md](AGENTS.md) before changing the repository.

@@ -81,14 +81,19 @@ jobs:
       ACCESS_TOKEN_EXPIRE_MINUTES: "1440"
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081 # v5
         with:
           version: "0.6.5"
-          enable-cache: true
+          enable-cache: ${{ github.event_name != 'pull_request' }}
+          cache-dependency-glob: uv.lock
       - run: uv sync --frozen
+      - name: Verify locked dependency graph
+        run: uv lock --check
       - name: Run offline evaluation suite
         run: mkdir -p reports && uv run pytest tests/evaluation -q --junitxml=reports/evaluation.xml
       - name: Upload evaluation report

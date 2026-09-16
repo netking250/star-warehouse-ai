@@ -2820,3 +2820,53 @@ State transition:
 - T16 moves from `IN_PROGRESS / VERIFY_PENDING` to `AWAITING_ACCEPTANCE /
   EXTERNAL_ACCEPTANCE_PENDING`; Codex does not mark it `PASS`.
 - T17 remains `NOT_STARTED`.
+
+## T18-IMPLEMENT-CLOSEOUT - Enterprise CI/CD and Software Supply Chain
+
+Completed: 2026-09-16
+
+Status: `IN_PROGRESS`
+
+Execution Stage: `VERIFY_PENDING`
+
+- Recovered the mandatory T18 state from `PROJECT_STATE.md`, `ROADMAP.md`, `DECISIONS.md`, the
+  latest relevant execution log, the active plan, root instructions, architecture guardrails, and
+  repository README. Recovery started from a clean, synchronized
+  `feat/t14-t21-enterprise-hardening` worktree at `5dd8bde`; no branch, PR, merge, or main rule was
+  changed.
+- Preserved the accepted Brand & docs, Backend quality, Backend tests, Frontend, and Docker smoke
+  job families. Hardened checkouts, lock checks, migration-head checks, frozen installs, explicit
+  Python 3.12/Node 22/uv 0.6.5/npm 11.9.0, PR cache isolation, bounded JUnit/coverage artifacts,
+  clean-checkout Docker role provisioning, non-root/image-secret checks, and OCI source metadata.
+- Added `.github/workflows/supply-chain.yml`, `dependency-review.yml`, and `codeql.yml`; retained
+  Dependabot and added Docker ecosystem coverage. PR workflows remain read-only and secret-free;
+  no `pull_request_target` exists. Trusted provenance is configured only for `main`/tag pushes with
+  narrowly scoped attestation permissions. Registry publication and image signing remain deferred.
+- Added redacted current-checkout Gitleaks SARIF, locked backend/frontend audit reports, archive-
+  based Trivy image JSON, CycloneDX JSON SBOM, image metadata, and 14-day artifacts. Third-party
+  scanner containers receive no Docker daemon socket. The exact synthetic `sk-test` fixture value
+  is the only secret-scan allowlist entry.
+- Local evidence passed: repository identity; workflow YAML parsing; pinned actionlint across all
+  workflows; `uv lock --check`, Ruff lint/format, ty, Alembic single head
+  `e9f0a1b2c3d4`; frontend npm frozen install, format, lint, Vitest (51 tests), and build; hardened
+  Docker build/non-root/metadata/credential inspection; disposable Compose migration, role
+  provisioning, and health smoke; Gitleaks (0 current-checkout findings); CycloneDX parse (1.6,
+  255 components); and hardened Trivy scan (0 critical, 81 high, 37 high with known fixes).
+- The frozen dependency audits intentionally did not change lockfiles: pip-audit reported 83 records
+  across 19 packages without severity fields in its JSON format; npm audit reported 9 high, 4
+  moderate, 1 low, and 0 critical. These findings remain visible as warnings and artifacts, while
+  critical findings block and PR Dependency Review blocks new high/critical dependency deltas. The
+  pre-update image's critical Debian findings were removed by the bounded base-image security-update
+  step; no suppressions were added.
+- The broader backend fixture smoke was limited by the local environment's unavailable `db`
+  hostname; focused branding smoke passed. The full backend suite, hosted protected-PR proof, and
+  trusted hosted attestation were intentionally deferred to VERIFY/T21. OpenAI cold-start and
+  Celery fresh-process timing debt was not changed.
+
+State transition:
+
+- T14 remains externally accepted `PASS_WITH_NOTES`.
+- T15, T16, and T17 remain accepted `PASS` by the explicit T18 implementation instruction.
+- T18 remains `IN_PROGRESS / VERIFY_PENDING`; external verification is required and Codex does not
+  mark it `PASS`.
+- T19 and T20 remain `NOT_STARTED`.

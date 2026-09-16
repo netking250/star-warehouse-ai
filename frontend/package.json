@@ -2,6 +2,7 @@
   "name": "star-warehouse-ai-frontend",
   "private": true,
   "version": "5.0.0",
+  "packageManager": "npm@11.9.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

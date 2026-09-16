@@ -2,11 +2,11 @@
 schema_version: 1
 project: Star Warehouse AI
 phase: ENTERPRISE_HARDENING
-current_task: T17
-current_status: AWAITING_ACCEPTANCE
-execution_stage: EXTERNAL_ACCEPTANCE_PENDING
-last_accepted_task: T16
-next_task: T18
+current_task: T18
+current_status: IN_PROGRESS
+execution_stage: VERIFY_PENDING
+last_accepted_task: T17
+next_task: T19
 acceptance_owner: external
 maintenance_task: M02
 maintenance_status: PASS
@@ -15,10 +15,11 @@ maintenance_status: PASS
 # Current Objective
 
 T13 Model Gateway is externally accepted `PASS`. T14 AI Failure Policy is externally accepted
-`PASS_WITH_NOTES` on the long-lived T14-T21 integration branch. T15 Frontend Transport and T16
-Enterprise Console are externally accepted `PASS` by the explicit T17 implementation instruction.
-T17 Production Observability Hardening is now `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` on that same branch. M02's protected-main consolidation is
-complete; the accepted baseline remains intact.
+`PASS_WITH_NOTES` on the long-lived T14-T21 integration branch. T15 Frontend Transport, T16
+Enterprise Console, and T17 Production Observability Hardening are externally accepted `PASS` by
+the explicit T18 implementation instruction. T18 CI/CD and Supply Chain is now `IN_PROGRESS /
+VERIFY_PENDING` on that same branch. M02's protected-main consolidation is complete; the accepted
+baseline remains intact.
 
 The T14 implementation adds a bounded, provider-neutral policy seam for retries, ordered fallback,
 Redis-coordinated provider circuits, cancellation-safe streaming, and explicit safe degradation.
@@ -35,15 +36,48 @@ The frozen product target is an **Enterprise Multi-tenant AI Customer Service Pl
 
 # Current Task
 
-- **Task:** T17 - Production Observability Hardening.
-- **Status:** `AWAITING_ACCEPTANCE`.
-- **Execution stage:** `EXTERNAL_ACCEPTANCE_PENDING`; the long-lived integration branch is
+- **Task:** T18 - Enterprise CI/CD and Software Supply Chain.
+- **Status:** `IN_PROGRESS`.
+- **Execution stage:** `VERIFY_PENDING`; the long-lived integration branch is
   `feat/t14-t21-enterprise-hardening`.
-- **Scope:** Reuse the accepted OpenTelemetry, Prometheus/Mimir, Grafana, Loki, Tempo, and
-  Alertmanager stack to provide safe, bounded, correlated metrics, logs, traces, dashboards,
-  alerts, and runbooks across API, asynchronous delivery, workers, conversation runtime, and the
-  model failure policy. Preserve T02/T03/T04/T12/T13/T14 semantics. No T18-T20 work, frontend
-  console expansion, migration, or new public business route.
+- **Scope:** Preserve the five accepted CI gate families while adding least-privilege workflow
+  controls, frozen dependency installation, secret/dependency/image scanning, CycloneDX SBOM
+  generation, safe artifact metadata, and a trusted-only provenance boundary. No T19 deployment,
+  T20 performance/DR work, branch-protection mutation, registry publication, image signing key, or
+  deferred OpenAI/Celery timing-debt repair is in scope.
+
+## T18 Implementation Start
+
+- The repository has no narrower tracked T18 plan; the explicit T18 implementation instruction and
+  ADR-016 are the recovered frozen scope. The active plan is
+  [`docs/exec-plans/active/T18.md`](../exec-plans/active/T18.md).
+- Recovery confirmed a clean, synchronized `feat/t14-t21-enterprise-hardening` worktree at
+  `5dd8bde`. The current CI retains Brand & docs, Backend quality, Backend tests, Frontend, and
+  Docker smoke as separate attributable jobs; evaluation, monitoring, and performance workflows
+  remain separate.
+- The implementation must keep untrusted pull requests read-only and secret-free. Trusted main/tag
+  provenance is a separate job boundary. The accepted Alembic head remains `e9f0a1b2c3d4`.
+
+## T18 Implementation Closeout
+
+- T18 implementation is complete and moves to `IN_PROGRESS / VERIFY_PENDING`; Codex does not mark
+  the task `PASS`. The branch remains `feat/t14-t21-enterprise-hardening`; T19 and T20 remain
+  `NOT_STARTED`.
+- Preserved the five accepted CI families and added lock/migration checks, explicit Python/Node/npm
+  versions, frozen installs, bounded reports, safe image metadata, current Debian runtime security
+  updates, secret/dependency/image scans, CycloneDX SBOM generation, trusted-only provenance
+  attestation configuration, PR Dependency Review, and trusted-context CodeQL.
+- Local evidence passed for identity, workflow YAML/actionlint, uv lock/Ruff/format/ty, Alembic head,
+  frontend gates, Docker build/non-root/metadata, disposable Compose migration/role/health smoke,
+  Gitleaks, SBOM parsing, and image metadata. The rebuilt image has `0` critical Trivy findings;
+  remaining dependency/image findings are visible warnings with machine-readable reports and no
+  suppressions.
+- Local audit baseline on 2026-09-16: backend pip-audit `83` records across `19` packages with no
+  severity field in its JSON format; frontend npm audit `9` high, `4` moderate, `1` low, `0`
+  critical; hardened image Trivy `0` critical, `81` high, `37` high with a known fix. No lockfile
+  was updated to conceal or automatically remediate findings.
+- Full backend regression, hosted protected-PR evidence, and trusted hosted attestation remain
+  VERIFY/T21 acceptance work. OpenAI SDK and Celery fresh-process timing debt was not changed.
 
 ## T17 Implementation Start
 

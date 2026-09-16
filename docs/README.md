@@ -12,6 +12,7 @@
 - [部署边界与 profiles](./how-to-guides/deploy.md)
 - [故障排查](./how-to-guides/troubleshoot.md)
 - [Operations runbooks](./runbooks/README.md)
+- [CI/CD and software supply chain](./how-to-guides/ci-supply-chain.md)
 - [管理员后台操作指南](./how-to-guides/admin-operations.md)
 - [迁移到 v5](./how-to-guides/migrate-to-v5.md)
 

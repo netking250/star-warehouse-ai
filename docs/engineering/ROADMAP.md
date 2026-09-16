@@ -32,8 +32,8 @@ Codex may set a completed implementation to `AWAITING_ACCEPTANCE` only. `PASS` a
 | T14 | AI Failure Policy | PASS_WITH_NOTES |
 | T15 | Frontend Transport | PASS |
 | T16 | Enterprise Console | PASS |
-| T17 | Observability | AWAITING_ACCEPTANCE |
-| T18 | CI/CD + Supply Chain | NOT_STARTED |
+| T17 | Observability | PASS |
+| T18 | CI/CD + Supply Chain | IN_PROGRESS |
 | T19 | Helm + k3s + AWS Reference | NOT_STARTED |
 | T20 | Performance + Failure + DR | NOT_STARTED |
 | T21 | Eval + Portfolio + Interview | NOT_STARTED |
@@ -294,3 +294,36 @@ State transition:
 - T17 moves from `IN_PROGRESS / VERIFY_PENDING` to `AWAITING_ACCEPTANCE /
   EXTERNAL_ACCEPTANCE_PENDING`; Codex does not mark it `PASS`.
 - T18 remains `NOT_STARTED`.
+
+## T18 Implementation Start
+
+- Status: `IN_PROGRESS`.
+- Execution stage: `IMPLEMENT`.
+- Branch: `feat/t14-t21-enterprise-hardening`.
+- T14 remains `PASS_WITH_NOTES`; T15, T16, and T17 are accepted `PASS` by the explicit T18
+  implementation instruction. T19 and T20 remain `NOT_STARTED`.
+- The repository contains no narrower T18 plan. The recovered frozen scope is ADR-016 plus the
+  explicit T18 instruction: preserve the five existing CI gate families, harden workflow trust and
+  lockfile determinism, add secret/dependency/image scanning, generate and validate a CycloneDX
+  image SBOM, capture safe source metadata, and isolate trusted provenance from untrusted PRs.
+- No branch-protection mutation, registry publication, image signing key, T19 deployment, T20
+  performance/DR work, or deferred OpenAI/Celery timing-debt repair is in scope.
+- The active plan is [`docs/exec-plans/active/T18.md`](../exec-plans/active/T18.md).
+
+## T18 Implementation Closeout
+
+- Status: `IN_PROGRESS`.
+- Execution stage: `VERIFY_PENDING`.
+- The five accepted CI gate families remain separate. Added read-only PR supply-chain analysis,
+  frozen backend/frontend installs, explicit runtime versions, clean-checkout Docker smoke role
+  provisioning, Gitleaks, locked dependency audits, archive-based Trivy/Syft scanning, CycloneDX
+  SBOM, safe OCI/source metadata, PR Dependency Review, and trusted-context CodeQL/attestation
+  configuration.
+- Local evidence passed for actionlint, repository identity, backend quality, frontend gates,
+  Docker build/non-root/metadata, disposable Compose migration/role/health smoke, current-checkout
+  secret scan, SBOM parsing, and hardened image scanning. The hardened image has 0 critical Trivy
+  findings; existing backend/frontend/high image findings are retained as visible warnings with
+  reports and no suppressions.
+- The hosted protected-PR run and trusted main/tag attestation proof are intentionally deferred to
+  T21/final PR. No branch protection, PR, merge, registry publication, image signing, T19, T20, or
+  deferred OpenAI/Celery timing-debt work was performed.
