@@ -2870,3 +2870,46 @@ State transition:
 - T18 remains `IN_PROGRESS / VERIFY_PENDING`; external verification is required and Codex does not
   mark it `PASS`.
 - T19 and T20 remain `NOT_STARTED`.
+
+## T18-VERIFY-CLOSEOUT - CI/CD and Software Supply Chain final verification
+
+Completed: 2026-09-16
+
+Status: `AWAITING_ACCEPTANCE`
+
+Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
+
+- Preflight reconfirmed the required integration branch, a clean worktree, and local/remote
+  synchronization at implementation HEAD `940189b0d5db078d55c89147b27c2356a064bd89`. No PR,
+  merge, main-rule change, registry publication, deployment, T19, or T20 work occurred.
+- Workflow review passed: all workflow defaults are `contents: read`; no `pull_request_target`; no
+  untrusted PR secrets, OIDC, package/release writes, or attestation writes; only CodeQL
+  `security-events: write` and trusted main/tag provenance `id-token: write`/`attestations: write`.
+  Third-party action pinning, dangerous-pattern review, credential persistence, cache conditions,
+  and job dependency semantics passed. Actionlint 1.7.7 reported zero errors.
+- Determinism passed for Python 3.12, Node 22, uv 0.6.5, npm 11.9.0, uv frozen/lock checks, npm
+  ci, clean archive identity/lock checks, and altered-copy lock-mismatch failure fixtures. The
+  five accepted gate families remain separate. Backend quality passed; representative backend
+  smoke passed; frontend format/lint/Vitest (`12` files / `51` tests)/build passed; Docker rebuilt,
+  ran non-root, imported with synthetic-only settings, and passed image secret-path inspection.
+- Gitleaks reported zero current-checkout findings with redacted SARIF. A non-documentation
+  synthetic sentinel was detected and failed the scanner as expected. CycloneDX JSON 1.6 parsed with
+  `255` components and matched representative packages in the scanned image. OCI revision metadata
+  matched the implementation build commit and contained no secrets.
+- Machine-readable vulnerability evidence remains visible: npm `0` critical / `9` high / `4`
+  moderate / `1` low; pip-audit `83` records across `19` packages with no severity field; Trivy
+  `0` critical / `81` high, including `37` high records with known fixes. Grouped package IDs,
+  runtime/dev scope, fixes, and dispositions are recorded in the active plan. No suppressions or
+  bulk upgrades were introduced. Critical npm/image findings and invalid/reportless scanner output
+  fail their policy; existing highs remain documented warnings.
+- The protected-PR and trusted-hosted-attestation runs are `NOT YET EXECUTED` by design and remain
+  mandatory `T21 FINAL GATE` evidence. The OpenAI cold-start and Celery import timing debts remain
+  untouched deferred baseline debt. No new T18 debt was introduced.
+
+State transition:
+
+- T14 remains `PASS_WITH_NOTES`.
+- T15, T16, and T17 remain accepted `PASS` by the explicit T18 instruction.
+- T18 moves from `IN_PROGRESS / VERIFY_PENDING` to `AWAITING_ACCEPTANCE /
+  EXTERNAL_ACCEPTANCE_PENDING`; Codex does not mark it `PASS`.
+- T19 and T20 remain `NOT_STARTED`.

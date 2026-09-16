@@ -3,8 +3,8 @@ schema_version: 1
 project: Star Warehouse AI
 phase: ENTERPRISE_HARDENING
 current_task: T18
-current_status: IN_PROGRESS
-execution_stage: VERIFY_PENDING
+current_status: AWAITING_ACCEPTANCE
+execution_stage: EXTERNAL_ACCEPTANCE_PENDING
 last_accepted_task: T17
 next_task: T19
 acceptance_owner: external
@@ -17,8 +17,8 @@ maintenance_status: PASS
 T13 Model Gateway is externally accepted `PASS`. T14 AI Failure Policy is externally accepted
 `PASS_WITH_NOTES` on the long-lived T14-T21 integration branch. T15 Frontend Transport, T16
 Enterprise Console, and T17 Production Observability Hardening are externally accepted `PASS` by
-the explicit T18 implementation instruction. T18 CI/CD and Supply Chain is now `IN_PROGRESS /
-VERIFY_PENDING` on that same branch. M02's protected-main consolidation is complete; the accepted
+the explicit T18 implementation instruction. T18 CI/CD and Supply Chain is now `AWAITING_ACCEPTANCE /
+EXTERNAL_ACCEPTANCE_PENDING` on that same branch. M02's protected-main consolidation is complete; the accepted
 baseline remains intact.
 
 The T14 implementation adds a bounded, provider-neutral policy seam for retries, ordered fallback,
@@ -37,8 +37,8 @@ The frozen product target is an **Enterprise Multi-tenant AI Customer Service Pl
 # Current Task
 
 - **Task:** T18 - Enterprise CI/CD and Software Supply Chain.
-- **Status:** `IN_PROGRESS`.
-- **Execution stage:** `VERIFY_PENDING`; the long-lived integration branch is
+- **Status:** `AWAITING_ACCEPTANCE`.
+- **Execution stage:** `EXTERNAL_ACCEPTANCE_PENDING`; the long-lived integration branch is
   `feat/t14-t21-enterprise-hardening`.
 - **Scope:** Preserve the five accepted CI gate families while adding least-privilege workflow
   controls, frozen dependency installation, secret/dependency/image scanning, CycloneDX SBOM
@@ -78,6 +78,28 @@ The frozen product target is an **Enterprise Multi-tenant AI Customer Service Pl
   was updated to conceal or automatically remediate findings.
 - Full backend regression, hosted protected-PR evidence, and trusted hosted attestation remain
   VERIFY/T21 acceptance work. OpenAI SDK and Celery fresh-process timing debt was not changed.
+
+## T18 Verification Closeout
+
+- T18 moves to `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING`; Codex does not mark it `PASS`.
+  The branch remains `feat/t14-t21-enterprise-hardening`, T19 and T20 remain `NOT_STARTED`, and
+  the final PR remains intentionally deferred until T21.
+- Verification reconfirmed read-only workflow defaults, secret-free/unprivileged untrusted PR
+  execution, no `pull_request_target`, immutable third-party action pinning, explicit runtime
+  versions, frozen installs, PR cache isolation, and trusted-only attestation permissions.
+- The five accepted CI families remain separate. Actionlint passed. Backend quality, frontend
+  (`51` tests), Docker build/non-root/image-secret checks, Gitleaks, dependency-report parsing,
+  Trivy policy, and CycloneDX 1.6 SBOM validation (`255` components) passed locally. Temporary
+  altered manifests proved lock mismatch failure; a clean archive passed identity and uv lock
+  checks. The full backend suite was intentionally not run.
+- Vulnerability baseline remains visible: npm `0` critical / `9` high, pip-audit `83` records
+  across `19` packages without severity fields, and Trivy `0` critical / `81` high with `37` known
+  fixes. Findings are grouped with package/ID/fix/disposition detail in the active T18 plan; no
+  suppressions or bulk upgrades were added. The pre-update image's critical Debian findings remain
+  resolved by the bounded base-image security-update step.
+- Protected-PR and trusted hosted attestation evidence remain `T21 FINAL GATE`. Main protection,
+  reviewer policy, registry publication, image signing, deployment, routes, and migrations were
+  not changed. The OpenAI/Celery timing debts remain deferred and untouched.
 
 ## T17 Implementation Start
 
