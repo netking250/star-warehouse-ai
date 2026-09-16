@@ -80,6 +80,19 @@ The frozen product target is an **Enterprise Multi-tenant AI Customer Service Pl
   head checks. Existing DB/client fixture collection failures remain environment/test-infrastructure
   debt and are not T17 implementation failures.
 
+## T17 Verification Attempt
+
+- Attempted on 2026-09-16 against the canonical API, worker, scheduler, outbox relay, and disposable
+  PostgreSQL/Redis/RabbitMQ/Qdrant runtime. The monitoring stack remained healthy and all temporary
+  verification resources were removed afterward.
+- Prometheus scraped the canonical API and observed the normalized `/api/v1/login` HTTP metric with
+  bounded labels. The API container had the running Collector endpoint configured.
+- A real API request carrying a valid W3C `traceparent` and correlation ID did not return `X-Trace-ID`.
+  Tempo contained scheduler traces from the same Collector but no `star-warehouse-ai-api` trace.
+  This is a real HTTP tracing acceptance failure, not a test-fixture failure.
+- Primary classification: `TRACE_PROPAGATION_FAILURE`. No implementation change was made during
+  VERIFY; T17 remains `IN_PROGRESS / VERIFY_PENDING` and is not ready for external acceptance.
+
 ## T16 Implementation Closeout
 
 - T16 implementation and final verification are complete; the task is now
