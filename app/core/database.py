@@ -13,6 +13,7 @@ from app.core.config import settings
 from app.core.rls import bind_database_transaction
 from app.core.tenancy import TenantIsolationError, get_current_tenant_id, get_optional_tenant_id
 from app.models.tenant import TenantScopedModel
+from app.observability.database import setup_database_observability
 
 logger = logging.getLogger(__name__)
 
@@ -184,6 +185,8 @@ sync_engine = create_engine(
     connect_args=_sync_connect_args,
 )
 sync_session_maker = sessionmaker(sync_engine, class_=Session, expire_on_commit=False)
+
+setup_database_observability(async_engine.sync_engine, sync_engine)
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:

@@ -147,10 +147,13 @@ class RedisHealthCheck:
                     return True
             except aioredis.RedisError as exc:
                 logger.warning(
-                    "Redis health check attempt %s/%s failed: %s",
-                    attempt,
-                    self.max_retries,
-                    exc,
+                    "Redis health check attempt failed",
+                    extra={
+                        "event": "redis_health_check_failure",
+                        "attempt": attempt,
+                        "max_retries": self.max_retries,
+                        "error_type": type(exc).__name__,
+                    },
                 )
                 if attempt < self.max_retries:
                     await asyncio.sleep(self.retry_delay)

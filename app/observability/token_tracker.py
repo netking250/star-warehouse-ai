@@ -56,7 +56,10 @@ class TokenTracker:
         await self.session.refresh(log)
 
         if total >= 10000:
-            logger.warning("High token usage detected: %d tokens for user %d", total, user_id)
+            logger.warning(
+                "High token usage detected",
+                extra={"event": "high_token_usage", "token_count": total},
+            )
             record_high_cost_request(agent_type)
 
         await self._maybe_generate_suggestions(log)

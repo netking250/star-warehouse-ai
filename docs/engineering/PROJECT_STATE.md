@@ -2,11 +2,11 @@
 schema_version: 1
 project: Star Warehouse AI
 phase: ENTERPRISE_HARDENING
-current_task: T16
-current_status: AWAITING_ACCEPTANCE
-execution_stage: EXTERNAL_ACCEPTANCE_PENDING
-last_accepted_task: T15
-next_task: T17
+current_task: T17
+current_status: IN_PROGRESS
+execution_stage: VERIFY_PENDING
+last_accepted_task: T16
+next_task: T18
 acceptance_owner: external
 maintenance_task: M02
 maintenance_status: PASS
@@ -15,9 +15,9 @@ maintenance_status: PASS
 # Current Objective
 
 T13 Model Gateway is externally accepted `PASS`. T14 AI Failure Policy is externally accepted
-`PASS_WITH_NOTES` on the long-lived T14-T21 integration branch. T15 Frontend Transport is
-externally accepted `PASS` by the explicit T16 implementation instruction. T16 Enterprise Console
-is now `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` on that same branch. M02's protected-main consolidation is
+`PASS_WITH_NOTES` on the long-lived T14-T21 integration branch. T15 Frontend Transport and T16
+Enterprise Console are externally accepted `PASS` by the explicit T17 implementation instruction.
+T17 Production Observability Hardening is now `IN_PROGRESS / VERIFY_PENDING` on that same branch. M02's protected-main consolidation is
 complete; the accepted baseline remains intact.
 
 The T14 implementation adds a bounded, provider-neutral policy seam for retries, ordered fallback,
@@ -35,14 +35,50 @@ The frozen product target is an **Enterprise Multi-tenant AI Customer Service Pl
 
 # Current Task
 
-- **Task:** T16 - Enterprise Console.
-- **Status:** `AWAITING_ACCEPTANCE`.
-- **Execution stage:** `EXTERNAL_ACCEPTANCE_PENDING`; the long-lived integration branch is
+- **Task:** T17 - Production Observability Hardening.
+- **Status:** `IN_PROGRESS`.
+- **Execution stage:** `VERIFY_PENDING`; the long-lived integration branch is
   `feat/t14-t21-enterprise-hardening`.
-- **Scope:** Capability-aware Overview, AI, Operations, Security, and Compliance console surfaces
-  over existing backend contracts, preserving T15 transport, secure session, tenant boundaries,
-  and immutable/sensitive-operation semantics. No backend API invention, migration, T17 work, or
-  protected-main baseline-debt repair.
+- **Scope:** Reuse the accepted OpenTelemetry, Prometheus/Mimir, Grafana, Loki, Tempo, and
+  Alertmanager stack to provide safe, bounded, correlated metrics, logs, traces, dashboards,
+  alerts, and runbooks across API, asynchronous delivery, workers, conversation runtime, and the
+  model failure policy. Preserve T02/T03/T04/T12/T13/T14 semantics. No T18-T20 work, frontend
+  console expansion, migration, or new public business route.
+
+## T17 Implementation Start
+
+- The repository planning ledgers contain no narrower T17-specific plan; the explicit T17 task
+  instruction is therefore the recovered frozen scope for this stage.
+- Initial inventory found application metrics and tracing primitives plus optional local Compose
+  provisioning, but no canonical HTTP/worker/runtime metric contract, no bounded exporter-failure
+  policy, stale dashboard/alert references, and a logging filter that did not cover sensitive
+  structured fields. The active implementation plan is
+  [`docs/exec-plans/active/T17.md`](../exec-plans/active/T17.md).
+- The existing trusted `TaskContext`/`TaskEnvelope`, transactional outbox relay, RabbitMQ/Celery
+  delivery, conversation state machine, and model gateway/failure-policy seam remain the owners
+  of their semantics. Observability will consume those boundaries only.
+
+## T17 Implementation Closeout
+
+- T17 implementation is complete and moves to `IN_PROGRESS / VERIFY_PENDING`; Codex does not mark
+  the task `PASS`.
+- Reused the accepted OpenTelemetry, Prometheus/Mimir, Grafana, Loki/Promtail, Tempo, and
+  Alertmanager stack. Added bounded metrics (including aggregate database query/pool/error
+  signals), sanitized JSON logging, W3C/TaskEnvelope trace propagation,
+  worker/outbox/conversation/model signals, three dashboards, eleven actionable rules, local no-op
+  routing, and focused runbooks/tests.
+- Preserved T02 trusted context, T03/T04 outbox and Celery delivery semantics, T12 terminal
+  uniqueness, and T13/T14 logical-request/attempt and failure-policy semantics. No public business
+  route, frontend change, migration, T18/T19/T20 work, or deferred baseline timing-debt repair was
+  added.
+- Local monitoring smoke passed for Prometheus, Mimir, Grafana, Loki, Tempo, Alertmanager, and the
+  OTel Collector. A synthetic failure was correlated through Loki and Tempo using a safe correlation
+  field and trace ID. The repository API was not started because an unrelated container occupied
+  host port 8000; focused metric-registry evidence passed.
+- Targeted instrumentation, logging, policy, monitoring, intent, and context tests passed along
+  with Ruff format/check, ty, route classification, compile/import, config validation, and Alembic
+  head checks. Existing DB/client fixture collection failures remain environment/test-infrastructure
+  debt and are not T17 implementation failures.
 
 ## T16 Implementation Closeout
 

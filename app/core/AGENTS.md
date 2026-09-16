@@ -80,6 +80,11 @@ General Python rules are defined in the root `AGENTS.md`. Core-specific conventi
 - **Database capabilities**: Alembic/role provisioning uses `MIGRATION_DATABASE_URL`; API and tenant workers use the runtime login/capability, while outbox and scheduled maintenance use the separately deployed maintenance login/capability. Application RBAC never selects a database capability.
 - **Storage namespaces**: Construct tenant Redis keys with `TenantNamespace`/`namespaced_key()`, system keys with `namespaced_system_key()`, and local object paths with `tenant_storage_path()`. Qdrant payloads and filters use the retrieval tenant-boundary seam; never hand-compose shared-storage namespaces.
 - **Secret management**: Never log secrets or tokens; use `SecretStr` in Pydantic models.
+- **Cache observability**: Cache and Redis diagnostics use operation/cache names and normalized
+  error types only; never log Redis keys, values, query bodies, or payloads.
+- **Database observability**: SQLAlchemy telemetry records only bounded engine role, SQL verb,
+  pool-in-use count, and normalized error category. Never log or label statement text, bind values,
+  tenant identities, or query payloads.
 - **LLM caching**: Cache LLM instances in `llm_factory.py` to avoid repeated initialization.
 
 ## Anti-Patterns

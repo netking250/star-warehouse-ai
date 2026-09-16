@@ -41,6 +41,12 @@ from app.models.conversation import (
     ToolExecutionStatus,
 )
 from app.models.message import MessageCard, MessageStatus, MessageType
+from app.observability.metrics import (
+    record_conversation_duration,
+    record_conversation_lifecycle,
+    record_conversation_terminal,
+    record_conversation_transition,
+)
 from app.task_runtime.context import build_task_context
 
 logger = logging.getLogger(__name__)
@@ -371,6 +377,7 @@ class ConversationRuntime:
             now = utc_now()
             self._transition(conversation, turn, run, RunStatus.CANCELLED, now)
             run.cancelled_at = now
+            self._record_terminal_metric(status="cancelled", category="cancelled")
             pending_tools = (
                 await session.exec(
                     select(ConversationToolExecution).where(
@@ -544,6 +551,9 @@ class ConversationRuntime:
                 run.failure_category = tool.failure_category
                 run.failure_metadata = {"tool_name": tool.tool_name}
                 run.completed_at = now
+                self._record_terminal_metric(
+                    status="failed", category=tool.failure_category or "tool_failed"
+                )
                 if conversation.active_run_id == run.run_id:
                     conversation.active_run_id = None
                 event_type = RuntimeEventType.TOOL_FAILED
@@ -628,6 +638,7 @@ class ConversationRuntime:
                 run.failure_category = "ORPHANED_RUN"
                 run.failure_metadata = {"reason": "operational_timeout"}
                 run.completed_at = now
+                self._record_terminal_metric(status="failed", category="orphaned_run")
                 if conversation.active_run_id == run.run_id:
                     conversation.active_run_id = None
                 await self._append_event(
@@ -734,6 +745,7 @@ class ConversationRuntime:
             self._transition(conversation, turn, run, RunStatus.COMPLETED, now)
             run.final_message_id = message.id
             run.completed_at = now
+            self._record_terminal_metric(status="completed", category="completed")
             conversation.active_run_id = None
             event = await self._append_event(
                 session,
@@ -763,6 +775,7 @@ class ConversationRuntime:
             run.failure_category = "EXECUTOR_ERROR"
             run.failure_metadata = {"error_type": type(error).__name__}
             run.completed_at = now
+            self._record_terminal_metric(status="failed", category="executor_error")
             if conversation.active_run_id == run.run_id:
                 conversation.active_run_id = None
             event = await self._append_event(
@@ -973,6 +986,42 @@ class ConversationRuntime:
                 "transition": f"{previous_status}->{new_status}",
             },
         )
+        try:
+            record_conversation_transition(
+                from_status=previous_status.value,
+                to_status=new_status.value,
+            )
+            lifecycle_event = {
+                RunStatus.RUNNING: "started",
+                RunStatus.WAITING_TOOL: "waiting_tool",
+                RunStatus.WAITING_HUMAN: "waiting_human",
+                RunStatus.COMPLETED: "completed",
+                RunStatus.FAILED: "failed",
+                RunStatus.CANCELLED: "cancelled",
+            }.get(new_status)
+            if lifecycle_event is not None:
+                record_conversation_lifecycle(lifecycle_event)
+            if new_status in TERMINAL_RUN_STATUSES:
+                record_conversation_duration(
+                    terminal_status=new_status.value,
+                    duration_seconds=(now - run.created_at).total_seconds(),
+                )
+        except Exception as telemetry_error:
+            logger.debug(
+                "Conversation metric recording unavailable: %s",
+                type(telemetry_error).__name__,
+            )
+
+    @staticmethod
+    def _record_terminal_metric(*, status: str, category: str) -> None:
+        """Record terminal classification without affecting durable state transitions."""
+        try:
+            record_conversation_terminal(status=status, category=category)
+        except Exception as telemetry_error:
+            logger.debug(
+                "Conversation terminal metric unavailable: %s",
+                type(telemetry_error).__name__,
+            )
 
     @staticmethod
     async def _lock_conversation(

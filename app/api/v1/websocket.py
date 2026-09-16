@@ -8,7 +8,7 @@ import logging
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from opentelemetry import trace
 
-from app.core.logging import generate_correlation_id, set_correlation_id
+from app.core.logging import correlation_scope, normalize_correlation_id
 from app.core.redis import get_redis_client
 from app.core.security import get_admin_user_id_ws, get_current_user_id_ws, get_websocket_auth_token
 from app.core.utils import build_thread_id
@@ -30,11 +30,11 @@ async def websocket_endpoint(
     Query Params:
         token: JWT Token
     """
-    with tracer.start_as_current_span("websocket_user") as span:
+    with (
+        tracer.start_as_current_span("websocket_user") as span,
+        correlation_scope(normalize_correlation_id(websocket.headers.get("x-correlation-id"))),
+    ):
         span.set_attribute("websocket.type", "user")
-
-        cid = websocket.headers.get("x-correlation-id") or generate_correlation_id()
-        set_correlation_id(cid)
 
         try:
             token = get_websocket_auth_token(websocket)
@@ -46,7 +46,14 @@ async def websocket_endpoint(
             if exc.status_code in (401, 403):
                 logger.warning(" [WS] 认证失败")
             else:
-                logger.warning(" [WS] 连接错误: %s", exc)
+                logger.warning(
+                    " [WS] 连接错误",
+                    extra={
+                        "event": "websocket_authentication_error",
+                        "status_code": exc.status_code,
+                        "error_category": "authentication",
+                    },
+                )
             await websocket.close(code=1008, reason="Authentication failed")
             return
 
@@ -72,8 +79,15 @@ async def websocket_endpoint(
                     await websocket.send_text("pong")
         except WebSocketDisconnect:
             ...
-        except RuntimeError as e:
-            logger.warning(" [WS] 连接错误: %s", e)
+        except RuntimeError as exc:
+            logger.warning(
+                " [WS] 连接错误",
+                extra={
+                    "event": "websocket_receive_error",
+                    "error_type": type(exc).__name__,
+                    "error_category": "connection",
+                },
+            )
         finally:
             await websocket.app.state.manager.disconnect_user(user_id, scoped_thread_id)
 
@@ -89,12 +103,12 @@ async def admin_websocket_endpoint(
     Query Params:
         token: JWT Token (需验证管理员权限)
     """
-    with tracer.start_as_current_span("websocket_admin") as span:
+    with (
+        tracer.start_as_current_span("websocket_admin") as span,
+        correlation_scope(normalize_correlation_id(websocket.headers.get("x-correlation-id"))),
+    ):
         span.set_attribute("websocket.type", "admin")
         span.set_attribute("websocket.admin_id", admin_id)
-
-        cid = websocket.headers.get("x-correlation-id") or generate_correlation_id()
-        set_correlation_id(cid)
 
         try:
             token = get_websocket_auth_token(websocket)
@@ -126,7 +140,14 @@ async def admin_websocket_endpoint(
                     await websocket.send_text("pong")
         except WebSocketDisconnect:
             ...
-        except RuntimeError as e:
-            logger.warning(" [WS] 管理员连接错误: %s", e)
+        except RuntimeError as exc:
+            logger.warning(
+                " [WS] 管理员连接错误",
+                extra={
+                    "event": "admin_websocket_receive_error",
+                    "error_type": type(exc).__name__,
+                    "error_category": "connection",
+                },
+            )
         finally:
             await websocket.app.state.manager.disconnect_admin(admin_id)

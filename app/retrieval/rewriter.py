@@ -140,7 +140,7 @@ class QueryRewriter:
         )
         cached = await self._get_cached(cache_key)
         if cached is not None:
-            logger.debug("Query rewrite cache hit for %r", query)
+            logger.debug("Query rewrite cache hit", extra={"event": "query_rewrite_cache_hit"})
             return cached
 
         prompt = self._build_rewrite_prompt(query, conversation_history, memory_context)
@@ -157,9 +157,12 @@ class QueryRewriter:
                 return rewritten
         except (LangChainException, json.JSONDecodeError, ValueError) as exc:
             logger.warning(
-                "Query rewrite failed for %r: %s, falling back to original query",
-                query,
-                exc,
+                "Query rewrite failed; falling back to original query",
+                extra={
+                    "event": "query_rewrite_failure",
+                    "error_type": type(exc).__name__,
+                    "error_category": "model_gateway",
+                },
             )
         return query
 
@@ -178,7 +181,9 @@ class QueryRewriter:
         )
         cached = await self._get_cached(cache_key)
         if cached is not None:
-            logger.debug("Multi-query rewrite cache hit for %r", query)
+            logger.debug(
+                "Multi-query rewrite cache hit", extra={"event": "query_rewrite_cache_hit"}
+            )
             try:
                 parsed = json.loads(cached)
                 if isinstance(parsed, list) and parsed:

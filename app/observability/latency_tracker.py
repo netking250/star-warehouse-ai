@@ -68,8 +68,11 @@ async def compute_node_latency_stats(
     try:
         result = await session.exec(stmt)  # type: ignore - SQLModel async exec typing issue with ty
         rows = result.all()
-    except (SQLAlchemyError, OperationalError, Exception) as e:
-        logger.warning("Database query failed during latency tracking: %s", e)
+    except (SQLAlchemyError, OperationalError, Exception) as exc:
+        logger.warning(
+            "Database query failed during latency tracking",
+            extra={"event": "latency_tracking_query_failure", "error_type": type(exc).__name__},
+        )
         return {}
 
     if not rows:

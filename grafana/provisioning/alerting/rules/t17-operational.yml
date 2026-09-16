@@ -1,0 +1,306 @@
+apiVersion: 1
+
+# T17 operational alerts use only metrics emitted by the application or standard scrape targets.
+# They intentionally use a sustained window so a single transient failure is not a page.
+groups:
+  - orgId: 1
+    name: star-warehouse-ai-t17-operational
+    folder: Observability
+    interval: 1m
+    rules:
+      - uid: t17-api-high-5xx-rate
+        title: API 5xx Rate High
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange: {from: 600, to: 0}
+            datasourceUid: mimir
+            model:
+              expr: sum(rate(http_errors_total{error_category="server_error"}[5m])) / clamp_min(sum(rate(http_requests_total[5m])), 0.001)
+              intervalMs: 1000
+              maxDataPoints: 1000
+              refId: A
+              type: math
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "Application HTTP 5xx rate is elevated"
+          impact: "Users may receive failed API responses."
+          subsystem: "api"
+          description: "Normalized application 5xx responses exceed 5% of traffic for 5 minutes."
+          runbook_url: "docs/runbooks/observability.md#api-error-rate-or-latency"
+        labels:
+          severity: warning
+          team: observability
+          service: star-warehouse-ai
+
+      - uid: t17-api-high-p95-latency
+        title: API p95 Latency High
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange: {from: 600, to: 0}
+            datasourceUid: mimir
+            model:
+              expr: histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[5m])))
+              intervalMs: 1000
+              maxDataPoints: 1000
+              refId: A
+              type: math
+        noDataState: NoData
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: "Application HTTP p95 latency is elevated"
+          impact: "Interactive requests may feel slow."
+          subsystem: "api"
+          description: "Application p95 request duration exceeds 2 seconds for 10 minutes."
+          runbook_url: "docs/runbooks/observability.md#api-error-rate-or-latency"
+        labels:
+          severity: warning
+          team: observability
+          service: star-warehouse-ai
+
+      - uid: t17-async-task-failure-spike
+        title: Async Task Failure Spike
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange: {from: 600, to: 0}
+            datasourceUid: mimir
+            model:
+              expr: sum(rate(celery_task_events_total{outcome="failed"}[5m]))
+              intervalMs: 1000
+              maxDataPoints: 1000
+              refId: A
+              type: math
+        noDataState: NoData
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: "Celery task failures are elevated"
+          impact: "Background work may be delayed or require bounded retries."
+          subsystem: "worker"
+          description: "Failed Celery task events exceed 0.1 per second for 10 minutes."
+          runbook_url: "docs/runbooks/observability.md#worker-async-or-outbox-delivery"
+        labels:
+          severity: warning
+          team: observability
+          service: star-warehouse-ai
+
+      - uid: t17-outbox-backlog-high
+        title: Outbox Backlog High
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange: {from: 900, to: 0}
+            datasourceUid: mimir
+            model:
+              expr: outbox_events_pending
+              intervalMs: 1000
+              maxDataPoints: 1000
+              refId: A
+              type: math
+        noDataState: NoData
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: "Transactional outbox backlog is high"
+          impact: "Required asynchronous side effects may be waiting for delivery."
+          subsystem: "outbox"
+          description: "The relay has observed more than 100 eligible outbox events for 10 minutes."
+          runbook_url: "docs/runbooks/observability.md#worker-async-or-outbox-delivery"
+        labels:
+          severity: warning
+          team: observability
+          service: star-warehouse-ai
+
+      - uid: t17-outbox-oldest-event-stale
+        title: Outbox Oldest Event Stale
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange: {from: 900, to: 0}
+            datasourceUid: mimir
+            model:
+              expr: outbox_event_oldest_age_seconds
+              intervalMs: 1000
+              maxDataPoints: 1000
+              refId: A
+              type: math
+        noDataState: NoData
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: "The oldest outbox event is stale"
+          impact: "At-least-once delivery is not draining on its expected schedule."
+          subsystem: "outbox"
+          description: "The oldest eligible outbox event is older than 5 minutes."
+          runbook_url: "docs/runbooks/observability.md#worker-async-or-outbox-delivery"
+        labels:
+          severity: critical
+          team: observability
+          service: star-warehouse-ai
+
+      - uid: t17-outbox-publish-failure-spike
+        title: Outbox Publish Failure Spike
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange: {from: 600, to: 0}
+            datasourceUid: mimir
+            model:
+              expr: rate(outbox_publish_failure_total[5m])
+              intervalMs: 1000
+              maxDataPoints: 1000
+              refId: A
+              type: math
+        noDataState: NoData
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: "Outbox publication failures are persistent"
+          impact: "Broker delivery or publication-state updates are failing."
+          subsystem: "outbox"
+          description: "Outbox publication failures exceed 0.1 per second for 10 minutes."
+          runbook_url: "docs/runbooks/observability.md#worker-async-or-outbox-delivery"
+        labels:
+          severity: critical
+          team: observability
+          service: star-warehouse-ai
+
+      - uid: t17-model-provider-failure-spike
+        title: Model Provider Failure Spike
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange: {from: 600, to: 0}
+            datasourceUid: mimir
+            model:
+              expr: sum(rate(model_provider_attempts_total{outcome="failure"}[5m])) / clamp_min(sum(rate(model_provider_attempts_total[5m])), 0.001)
+              intervalMs: 1000
+              maxDataPoints: 1000
+              refId: A
+              type: math
+        noDataState: NoData
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: "Model provider attempt failures are elevated"
+          impact: "AI requests may retry, fall back, or fail after bounded policy limits."
+          subsystem: "model_gateway"
+          description: "More than half of provider attempts fail for 10 minutes."
+          runbook_url: "docs/runbooks/observability.md#model-provider-fallback-or-circuit"
+        labels:
+          severity: warning
+          team: observability
+          service: star-warehouse-ai
+
+      - uid: t17-model-fallback-spike
+        title: Model Fallback Spike
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange: {from: 600, to: 0}
+            datasourceUid: mimir
+            model:
+              expr: sum(rate(model_fallbacks_total[5m])) / clamp_min(sum(rate(model_logical_requests_total[5m])), 0.001)
+              intervalMs: 1000
+              maxDataPoints: 1000
+              refId: A
+              type: math
+        noDataState: NoData
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: "Model fallback traffic is elevated"
+          impact: "Responses may use a lower-priority provider or degraded behavior."
+          subsystem: "failure_policy"
+          description: "Fallback events exceed 10% of logical model traffic for 10 minutes."
+          runbook_url: "docs/runbooks/observability.md#model-provider-fallback-or-circuit"
+        labels:
+          severity: warning
+          team: observability
+          service: star-warehouse-ai
+
+      - uid: t17-model-circuit-open
+        title: Model Circuit Open
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange: {from: 900, to: 0}
+            datasourceUid: mimir
+            model:
+              expr: max(model_circuit_state{state="open"})
+              intervalMs: 1000
+              maxDataPoints: 1000
+              refId: A
+              type: math
+        noDataState: NoData
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: "A model provider circuit remains open"
+          impact: "Requests to the affected provider are being rejected by policy."
+          subsystem: "failure_policy"
+          description: "A provider circuit has remained OPEN for 10 minutes."
+          runbook_url: "docs/runbooks/observability.md#model-provider-fallback-or-circuit"
+        labels:
+          severity: critical
+          team: observability
+          service: star-warehouse-ai
+
+      - uid: t17-conversation-failure-spike
+        title: Conversation Failure Spike
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange: {from: 600, to: 0}
+            datasourceUid: mimir
+            model:
+              expr: sum(rate(conversation_terminals_total{status="failed"}[5m])) / clamp_min(sum(rate(conversation_terminals_total[5m])), 0.001)
+              intervalMs: 1000
+              maxDataPoints: 1000
+              refId: A
+              type: math
+        noDataState: NoData
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: "Conversation terminal failures are elevated"
+          impact: "Users may receive failed or incomplete conversation runs."
+          subsystem: "conversation_runtime"
+          description: "Failed terminal runs exceed 20% of terminal runs for 10 minutes."
+          runbook_url: "docs/runbooks/observability.md#conversation-runtime-failure"
+        labels:
+          severity: warning
+          team: observability
+          service: star-warehouse-ai
+
+      - uid: t17-core-dependency-unavailable
+        title: Core Dependency Unavailable
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange: {from: 600, to: 0}
+            datasourceUid: mimir
+            model:
+              expr: min(app_dependency_health == 0)
+              intervalMs: 1000
+              maxDataPoints: 1000
+              refId: A
+              type: math
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "An application dependency is unavailable"
+          impact: "One or more application capabilities may be degraded."
+          subsystem: "infrastructure"
+          description: "A database, Redis, RabbitMQ, or Qdrant health gauge is zero."
+          runbook_url: "docs/runbooks/observability.md#api-error-rate-or-latency"
+        labels:
+          severity: critical
+          team: observability
+          service: star-warehouse-ai

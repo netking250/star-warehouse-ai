@@ -31,8 +31,8 @@ Codex may set a completed implementation to `AWAITING_ACCEPTANCE` only. `PASS` a
 | T13 | Model Gateway | PASS |
 | T14 | AI Failure Policy | PASS_WITH_NOTES |
 | T15 | Frontend Transport | PASS |
-| T16 | Enterprise Console | AWAITING_ACCEPTANCE |
-| T17 | Observability | NOT_STARTED |
+| T16 | Enterprise Console | PASS |
+| T17 | Observability | IN_PROGRESS |
 | T18 | CI/CD + Supply Chain | NOT_STARTED |
 | T19 | Helm + k3s + AWS Reference | NOT_STARTED |
 | T20 | Performance + Failure + DR | NOT_STARTED |
@@ -104,7 +104,8 @@ test-hardening work is scheduled. They are not resolved by T14 and do not block 
 - Status: `IN_PROGRESS`.
 - Execution stage: `IMPLEMENT`.
 - Branch: `feat/t14-t21-enterprise-hardening`.
-- T14 remains externally accepted `PASS_WITH_NOTES`; T16 remains `NOT_STARTED`.
+- T14 remains externally accepted `PASS_WITH_NOTES`; T16 is externally accepted `PASS` by explicit
+  user instruction.
 - The two deferred protected-main baseline debts remain unresolved and are not in T15 scope.
 - T15 adds no backend route, database migration, or schema change.
 
@@ -141,8 +142,8 @@ test-hardening work is scheduled. They are not resolved by T14 and do not block 
 - The OpenAI SDK cold-start and Celery fresh-process import deadline sensitivities remain
   `DEFERRED_BASELINE_TEST_DEBT` and do not block T15.
 
-T14 remains `PASS_WITH_NOTES`; T16 remains `NOT_STARTED`. External acceptance is required before
-T15 may move to `PASS` or T16 may begin.
+T14 remains `PASS_WITH_NOTES`; T15 and T16 are externally accepted `PASS` by explicit user
+instruction. T17 is the active implementation stage.
 
 ## Gate rules
 
@@ -203,3 +204,33 @@ The sequence is the default gate order. A user may issue a documented change req
   job/outbox, provider, circuit, tenant-switch, or T17-T20 controls.
 - Route inventory remains at zero unclassified HTTP/WS routes. Alembic remains at the single head
   `e9f0a1b2c3d4`; no migration or historical migration modification was added.
+
+## T17 Implementation Start
+
+- Status: `IN_PROGRESS`.
+- Execution stage: `VERIFY_PENDING`.
+- Branch: `feat/t14-t21-enterprise-hardening`.
+- T14 remains `PASS_WITH_NOTES`; T15 and T16 are `PASS` by explicit user instruction; T18-T20
+  remain `NOT_STARTED`.
+- The repository has no narrower T17 plan. The active scope is the explicit production
+  observability hardening instruction: safe structured logs, bounded application metrics,
+  W3C/OTel request and async correlation, worker/outbox/conversation/model signals, validated
+  local observability provisioning, useful dashboards/alerts/runbooks, and focused evidence.
+- No T02/T03/T04 context or delivery redesign, T16 UI expansion, database migration, public
+  business route, CI/CD/SBOM/signing, deployment architecture, load/DR work, or baseline timing
+  debt repair is in scope.
+- The active plan is [`docs/exec-plans/active/T17.md`](../exec-plans/active/T17.md).
+
+## T17 Implementation Closeout
+
+- T17 remains `IN_PROGRESS / VERIFY_PENDING`; Codex does not mark the task `PASS`.
+- The accepted observability stack was reused across API, worker, scheduler, outbox, conversation,
+  model-policy, and database paths. Bounded metrics (including aggregate database query/pool/error
+  signals), sanitized structured logs, W3C/TaskEnvelope tracing, dashboards, alerts, runbooks, and
+  focused tests/config validation are implemented.
+- Local stack readiness passed for Prometheus, Mimir, Grafana, Loki, Tempo, Alertmanager, and the
+  OTel Collector. A deterministic synthetic failure was visible in Loki and Tempo with correlated
+  safe identifiers. No route, migration, frontend change, T18/T19/T20 work, or baseline timing-debt
+  repair was added.
+- Focused verification and static checks passed. Existing DB/client fixture failures were isolated
+  as test-infrastructure limitations; full backend regression remains intentionally out of scope.

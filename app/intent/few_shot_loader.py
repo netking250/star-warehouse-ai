@@ -41,7 +41,9 @@ def _token_overlap_score(query: str, example_query: str) -> float:
 def _load_examples_from_dir(directory: Path) -> list[dict[str, Any]]:
     examples: list[dict[str, Any]] = []
     if not directory.exists():
-        logger.warning("Examples directory not found: %s", directory)
+        logger.warning(
+            "Examples directory not found", extra={"event": "few_shot_directory_missing"}
+        )
         return examples
 
     for file_path in directory.glob("*.jsonl"):
@@ -54,9 +56,15 @@ def _load_examples_from_dir(directory: Path) -> list[dict[str, Any]]:
                     try:
                         examples.append(json.loads(line))
                     except json.JSONDecodeError:
-                        logger.warning("Invalid JSON line in %s: %s", file_path, line)
+                        logger.warning(
+                            "Invalid JSON line in few-shot examples",
+                            extra={"event": "few_shot_invalid_json"},
+                        )
         except OSError:
-            logger.warning("Failed to read examples file: %s", file_path)
+            logger.warning(
+                "Failed to read few-shot examples file",
+                extra={"event": "few_shot_file_read_failure"},
+            )
     return examples
 
 
@@ -118,7 +126,10 @@ async def _semantic_select_top_k(
 
         embedding_model = create_embedding_model()
     except Exception as exc:
-        logger.warning("Failed to create embedding model: %s", exc)
+        logger.warning(
+            "Failed to create embedding model",
+            extra={"event": "few_shot_embedding_model_failure", "error_type": type(exc).__name__},
+        )
         return select_top_k_examples(query, examples, k=k)
 
     try:
@@ -134,7 +145,13 @@ async def _semantic_select_top_k(
         scored.sort(key=lambda x: x[0], reverse=True)
         return [ex for score, ex in scored[:k] if score > 0]
     except Exception as exc:
-        logger.warning("Semantic selection failed, falling back to token overlap: %s", exc)
+        logger.warning(
+            "Semantic selection failed; falling back to token overlap",
+            extra={
+                "event": "few_shot_semantic_selection_failure",
+                "error_type": type(exc).__name__,
+            },
+        )
         return select_top_k_examples(query, examples, k=k)
 
 

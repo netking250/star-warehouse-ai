@@ -1,52 +1,29 @@
 global:
-  smtp_smarthost: '${SMTP_HOST}'
-  smtp_from: '${ALERT_EMAIL_FROM}'
+  resolve_timeout: 5m
 
+# The local/demo profile deliberately has no external notification credentials. A loopback sink
+# keeps Alertmanager routing syntactically complete without sending alerts outside the machine.
 route:
-  group_by: ['alertname', 'severity']
+  group_by: [alertname, severity, service]
   group_wait: 30s
   group_interval: 5m
   repeat_interval: 4h
-  receiver: 'default'
+  receiver: local-noop
   routes:
-    - match:
-        severity: critical
-      receiver: 'pagerduty-critical'
+    - matchers: [severity="critical"]
+      receiver: local-noop
       continue: true
-    - match:
-        severity: warning
-      receiver: 'email-team'
-      continue: true
-    - match:
-        channel: webhook
-      receiver: 'webhook-default'
+    - matchers: [severity="warning"]
+      receiver: local-noop
       continue: true
 
 receivers:
-  - name: 'default'
-    email_configs:
-      - to: '${ALERT_ADMIN_EMAILS}'
-        send_resolved: true
-
-  - name: 'email-team'
-    email_configs:
-      - to: '${ALERT_ADMIN_EMAILS}'
-        send_resolved: true
-
-  - name: 'pagerduty-critical'
-    pagerduty_configs:
-      - service_key: '${PAGERDUTY_INTEGRATION_KEY}'
-        severity: critical
-        send_resolved: true
-
-  - name: 'webhook-default'
+  - name: local-noop
     webhook_configs:
-      - url: '${ALERT_WEBHOOK_URL}'
+      - url: http://127.0.0.1:65535/observability/alertmanager
         send_resolved: true
 
 inhibit_rules:
-  - source_match:
-      severity: 'critical'
-    target_match:
-      severity: 'warning'
-    equal: ['alertname']
+  - source_matchers: [severity="critical"]
+    target_matchers: [severity="warning"]
+    equal: [alertname, service]

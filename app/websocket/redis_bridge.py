@@ -23,8 +23,14 @@ class RedisBroadcastBridge:
         payload = json.dumps({"event": event, "data": data, "room": room})
         try:
             await self._redis.publish(channel, payload)
-        except (RedisError, ConnectionError, OSError):
-            logger.exception("Failed to publish WebSocket message to Redis channel %s", channel)
+        except (RedisError, ConnectionError, OSError) as exc:
+            logger.error(
+                "Failed to publish WebSocket message to Redis",
+                extra={
+                    "event": "websocket_redis_publish_failure",
+                    "error_type": type(exc).__name__,
+                },
+            )
 
     async def subscribe(self, room: str) -> AsyncGenerator[dict[str, Any], None]:
         """Async generator that listens to the Redis channel for the given room."""
@@ -32,8 +38,14 @@ class RedisBroadcastBridge:
         try:
             pubsub = self._redis.pubsub()
             await pubsub.subscribe(channel)
-        except (RedisError, ConnectionError, OSError):
-            logger.exception("Failed to subscribe to Redis channel %s", channel)
+        except (RedisError, ConnectionError, OSError) as exc:
+            logger.error(
+                "Failed to subscribe to Redis",
+                extra={
+                    "event": "websocket_redis_subscribe_failure",
+                    "error_type": type(exc).__name__,
+                },
+            )
             return
 
         try:
@@ -42,21 +54,42 @@ class RedisBroadcastBridge:
                     try:
                         payload = json.loads(message["data"])
                     except json.JSONDecodeError:
-                        logger.warning("Invalid JSON in Redis pubsub message on %s", channel)
+                        logger.warning(
+                            "Invalid JSON in Redis pubsub message",
+                            extra={"event": "websocket_redis_invalid_message"},
+                        )
                         continue
                     yield payload
-        except (RedisError, ConnectionError, OSError):
-            logger.exception("Error in Redis pubsub listener for channel %s", channel)
+        except (RedisError, ConnectionError, OSError) as exc:
+            logger.error(
+                "Error in Redis pubsub listener",
+                extra={
+                    "event": "websocket_redis_listener_failure",
+                    "error_type": type(exc).__name__,
+                },
+            )
         finally:
             try:
                 await pubsub.unsubscribe(channel)
                 await pubsub.aclose()
-            except (RedisError, OSError):
-                logger.exception("Error closing Redis pubsub for channel %s", channel)
+            except (RedisError, OSError) as exc:
+                logger.error(
+                    "Error closing Redis pubsub",
+                    extra={
+                        "event": "websocket_redis_close_failure",
+                        "error_type": type(exc).__name__,
+                    },
+                )
 
     async def close(self) -> None:
         """Close the underlying Redis client."""
         try:
             await self._redis.aclose()
-        except (RedisError, OSError):
-            logger.exception("Error closing Redis client")
+        except (RedisError, OSError) as exc:
+            logger.error(
+                "Error closing Redis client",
+                extra={
+                    "event": "websocket_redis_client_close_failure",
+                    "error_type": type(exc).__name__,
+                },
+            )

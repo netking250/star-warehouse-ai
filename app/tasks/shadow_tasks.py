@@ -199,12 +199,19 @@ async def _run_shadow_test(query: str, thread_id: str | None = None) -> dict:
                 "latency_regression": report.latency_regression,
             },
         }
-    except Exception as e:
-        logger.exception("Shadow test failed for query: %s", query)
+    except Exception as exc:
+        logger.error(
+            "Shadow test failed",
+            extra={
+                "event": "shadow_test_failure",
+                "error_type": type(exc).__name__,
+                "error_category": "evaluation",
+            },
+        )
         return {
             "sampled": True,
             "query": query,
-            "error": str(e),
+            "error": str(exc),
             "message": "Shadow test failed during execution.",
         }
 

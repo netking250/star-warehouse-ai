@@ -247,6 +247,10 @@ class Settings(BaseSettings):
     LANGSMITH_OTEL_ENABLED: bool = False
     LANGSMITH_CELERY_TRACING: bool = True
 
+    # OpenTelemetry resource/export settings. The endpoint is optional and the service name may
+    # be overridden per deployment boundary (API, worker, scheduler, or outbox).
+    OTEL_SERVICE_NAME: str = ""
+
     # Retriever
     RETRIEVER_DENSE_TOPK: int = 15
     RETRIEVER_SPARSE_TOPK: int = 15
@@ -435,7 +439,7 @@ class Settings(BaseSettings):
     ALERT_LATENCY_MS_THRESHOLD: float = 5000.0
     SERVICE_HEALTH_URL: str = "http://localhost:8000/health"
 
-    LOG_FORMAT: str = "text"
+    LOG_FORMAT: str = "json"
 
     KNOWLEDGE_UPLOAD_DIR: str = "uploads/knowledge"
     OTEL_EXPORTER_OTLP_ENDPOINT: str = ""

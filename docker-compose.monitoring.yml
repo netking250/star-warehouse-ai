@@ -87,6 +87,22 @@ services:
     networks:
       - monitoring
     restart: unless-stopped
+    depends_on:
+      tempo-init:
+        condition: service_completed_successfully
+
+  tempo-init:
+    image: alpine:3.20
+    user: "0:0"
+    entrypoint:
+      - /bin/sh
+      - -c
+    command:
+      - mkdir -p /tmp/tempo/wal /tmp/tempo/blocks && chown -R 10001:10001 /tmp/tempo
+    volumes:
+      - tempo_data:/tmp/tempo
+    networks:
+      - monitoring
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.120.0

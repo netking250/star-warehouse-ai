@@ -1,0 +1,93 @@
+{
+  "id": null,
+  "uid": "t17-ai-runtime",
+  "title": "AI / Conversation Runtime",
+  "tags": ["star-warehouse-ai", "t17", "model", "conversation"],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {"from": "now-6h", "to": "now"},
+  "panels": [
+    {
+      "id": 1,
+      "title": "Logical model requests",
+      "type": "timeseries",
+      "description": "One event per logical request after retries and fallback policy complete.",
+      "datasource": {"type": "prometheus", "uid": "mimir"},
+      "targets": [{"refId": "A", "expr": "sum by (outcome) (rate(model_logical_requests_total[5m]))", "legendFormat": "{{outcome}}"}],
+      "fieldConfig": {"defaults": {"unit": "ops", "decimals": 2}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+    },
+    {
+      "id": 2,
+      "title": "Provider attempt outcomes",
+      "type": "timeseries",
+      "description": "Terminal events for individual provider attempts; retries are visible without inflating logical traffic.",
+      "datasource": {"type": "prometheus", "uid": "mimir"},
+      "targets": [{"refId": "A", "expr": "sum by (provider, outcome, category) (rate(model_provider_attempts_total[5m]))", "legendFormat": "{{provider}} {{outcome}} {{category}}"}],
+      "fieldConfig": {"defaults": {"unit": "ops", "decimals": 2}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+    },
+    {
+      "id": 3,
+      "title": "Fallback rate",
+      "type": "stat",
+      "description": "Fallback events divided by logical model requests in the same window.",
+      "datasource": {"type": "prometheus", "uid": "mimir"},
+      "targets": [{"refId": "A", "expr": "sum(rate(model_fallbacks_total[5m])) / clamp_min(sum(rate(model_logical_requests_total[5m])), 0.001)", "legendFormat": "fallback"}],
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1, "decimals": 3, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.1}, {"color": "red", "value": 0.3}]}}, "overrides": []},
+      "gridPos": {"h": 8, "w": 6, "x": 0, "y": 8}
+    },
+    {
+      "id": 4,
+      "title": "Provider circuit state",
+      "type": "table",
+      "description": "One-hot observed breaker state. Monitoring cannot mutate the breaker.",
+      "datasource": {"type": "prometheus", "uid": "mimir"},
+      "targets": [{"refId": "A", "expr": "model_circuit_state", "legendFormat": "{{provider}} {{state}}", "instant": true, "format": "table"}],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}}, "overrides": []},
+      "gridPos": {"h": 8, "w": 6, "x": 6, "y": 8}
+    },
+    {
+      "id": 5,
+      "title": "Conversation terminal outcomes",
+      "type": "timeseries",
+      "description": "Terminal outcomes and normalized categories without conversation or run identifiers.",
+      "datasource": {"type": "prometheus", "uid": "mimir"},
+      "targets": [{"refId": "A", "expr": "sum by (status, category) (rate(conversation_terminals_total[5m]))", "legendFormat": "{{status}} {{category}}"}],
+      "fieldConfig": {"defaults": {"unit": "ops", "decimals": 2}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+    },
+    {
+      "id": 6,
+      "title": "Conversation failure ratio",
+      "type": "stat",
+      "description": "Failed terminal runs divided by all terminal runs in the same window.",
+      "datasource": {"type": "prometheus", "uid": "mimir"},
+      "targets": [{"refId": "A", "expr": "sum(rate(conversation_terminals_total{status=\"failed\"}[5m])) / clamp_min(sum(rate(conversation_terminals_total[5m])), 0.001)", "legendFormat": "failed"}],
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1, "decimals": 3, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.1}, {"color": "red", "value": 0.2}]}}, "overrides": []},
+      "gridPos": {"h": 8, "w": 6, "x": 0, "y": 16}
+    },
+    {
+      "id": 7,
+      "title": "Conversation duration p95",
+      "type": "timeseries",
+      "description": "95th percentile duration of terminal durable runs.",
+      "datasource": {"type": "prometheus", "uid": "mimir"},
+      "targets": [{"refId": "A", "expr": "histogram_quantile(0.95, sum by (le, terminal_status) (rate(conversation_run_duration_seconds_bucket[5m])))", "legendFormat": "{{terminal_status}}"}],
+      "fieldConfig": {"defaults": {"unit": "s", "decimals": 2}, "overrides": []},
+      "gridPos": {"h": 8, "w": 18, "x": 6, "y": 16}
+    },
+    {
+      "id": 8,
+      "title": "Logical model request duration p95",
+      "type": "timeseries",
+      "description": "End-to-end logical model latency including bounded retries and fallback.",
+      "datasource": {"type": "prometheus", "uid": "mimir"},
+      "targets": [{"refId": "A", "expr": "histogram_quantile(0.95, sum by (le, outcome) (rate(model_logical_request_duration_seconds_bucket[5m])))", "legendFormat": "{{outcome}}"}],
+      "fieldConfig": {"defaults": {"unit": "s", "decimals": 2}, "overrides": []},
+      "gridPos": {"h": 8, "w": 18, "x": 0, "y": 24}
+    }
+  ]
+}

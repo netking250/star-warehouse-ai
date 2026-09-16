@@ -5,20 +5,22 @@ contactPoints:
     name: email-default
     receivers:
       - uid: email-default-uid
-        type: email
+        type: webhook
         settings:
-          addresses: "admin@example.com"
-          singleEmail: false
+          url: "http://127.0.0.1:65535/observability/email"
+          httpMethod: POST
+          maxAlerts: 0
         disableResolveMessage: false
 
   - orgId: 1
     name: pagerduty-critical
     receivers:
       - uid: pagerduty-critical-uid
-        type: pagerduty
+        type: webhook
         settings:
-          integrationKey: "${PAGERDUTY_INTEGRATION_KEY}"
-          severity: critical
+          url: "http://127.0.0.1:65535/observability/critical"
+          httpMethod: POST
+          maxAlerts: 0
         disableResolveMessage: false
 
   - orgId: 1
@@ -30,19 +32,21 @@ contactPoints:
           url: http://localhost:8000/api/v1/admin/alerts/webhook
           httpMethod: POST
           maxAlerts: 0
-          title: '{{ .Status | toUpper }}: {{ .GroupLabels.alertname }}'
-          message: '{{ .CommonAnnotations.description }}'
+          title: 'LOCAL DEMO: {{ .Status | toUpper }}: {{ .GroupLabels.alertname }}'
+          message: 'Local no-op receiver; configure deployment secrets outside this repository.'
         disableResolveMessage: false
 
   - orgId: 1
     name: slack-alerts
     receivers:
       - uid: slack-alerts-uid
-        type: slack
+        type: webhook
         settings:
-          url: "${SLACK_WEBHOOK_URL}"
+          url: "http://127.0.0.1:65535/observability/slack"
+          httpMethod: POST
+          maxAlerts: 0
           title: '{{ .Status | toUpper }}: {{ .GroupLabels.alertname }}'
-          text: '{{ .CommonAnnotations.description }}'
+          message: 'Local no-op receiver; configure deployment secrets outside this repository.'
         disableResolveMessage: false
 
 deleteContactPoints: []

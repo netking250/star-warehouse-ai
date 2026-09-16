@@ -4,6 +4,8 @@ datasources:
     type: tempo
     access: proxy
     url: http://tempo:3200
+    uid: tempo
+    editable: false
     jsonData:
       tracesToLogs:
         datasourceUid: loki

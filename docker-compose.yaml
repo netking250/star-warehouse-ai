@@ -97,6 +97,9 @@ services:
       QDRANT_URL: http://qdrant:6333
       SERVICE_HEALTH_URL: http://app:8000/health
       CELERY_BROKER_URL: amqp://${RABBITMQ_USER:-star_warehouse_ai}:${RABBITMQ_PASSWORD:-dev-rabbitmq-password}@rabbitmq:5672//
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-star-warehouse-ai-worker}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
     volumes:
       - ./app:/app/app
     restart: unless-stopped
@@ -123,6 +126,9 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD:-devpassword}
       QDRANT_URL: http://qdrant:6333
       CELERY_BROKER_URL: amqp://${RABBITMQ_USER:-star_warehouse_ai}:${RABBITMQ_PASSWORD:-dev-rabbitmq-password}@rabbitmq:5672//
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-star-warehouse-ai-scheduler}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
     volumes:
       - ./app:/app/app
     restart: unless-stopped
@@ -142,6 +148,9 @@ services:
       POSTGRES_SERVER: db
       DB_CAPABILITY: maintenance
       CELERY_BROKER_URL: amqp://${RABBITMQ_USER:-star_warehouse_ai}:${RABBITMQ_PASSWORD:-dev-rabbitmq-password}@rabbitmq:5672//
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-star-warehouse-ai-outbox}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
     volumes:
       - ./app:/app/app
     restart: unless-stopped
@@ -169,6 +178,9 @@ services:
       QDRANT_URL: http://qdrant:6333
       SERVICE_HEALTH_URL: http://app:8000/health
       CELERY_BROKER_URL: amqp://${RABBITMQ_USER:-star_warehouse_ai}:${RABBITMQ_PASSWORD:-dev-rabbitmq-password}@rabbitmq:5672//
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-star-warehouse-ai-maintenance}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
     volumes:
       - ./app:/app/app
     restart: unless-stopped
@@ -218,6 +230,9 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD:-devpassword}
       QDRANT_URL: http://qdrant:6333
       CELERY_BROKER_URL: amqp://${RABBITMQ_USER:-star_warehouse_ai}:${RABBITMQ_PASSWORD:-dev-rabbitmq-password}@rabbitmq:5672//
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-star-warehouse-ai-api}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
     volumes:
       - ./app:/app/app
     healthcheck:

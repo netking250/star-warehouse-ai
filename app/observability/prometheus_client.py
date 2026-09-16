@@ -29,11 +29,14 @@ async def query_prometheus(promql: str, timeout: float = 10.0) -> list[dict[str,
             response.raise_for_status()
             data = response.json()
     except Exception as exc:
-        logger.warning("Prometheus query failed: %s", exc)
+        logger.warning(
+            "Prometheus query failed",
+            extra={"event": "prometheus_query_failure", "error_type": type(exc).__name__},
+        )
         return []
 
     if data.get("status") != "success":
-        logger.warning("Prometheus query error: %s", data.get("error", "unknown"))
+        logger.warning("Prometheus query error", extra={"event": "prometheus_query_error"})
         return []
 
     result = data.get("data", {}).get("result", [])
@@ -70,11 +73,17 @@ async def query_prometheus_range(
             response.raise_for_status()
             data = response.json()
     except Exception as exc:
-        logger.warning("Prometheus range query failed: %s", exc)
+        logger.warning(
+            "Prometheus range query failed",
+            extra={"event": "prometheus_range_query_failure", "error_type": type(exc).__name__},
+        )
         return []
 
     if data.get("status") != "success":
-        logger.warning("Prometheus range query error: %s", data.get("error", "unknown"))
+        logger.warning(
+            "Prometheus range query error",
+            extra={"event": "prometheus_range_query_error"},
+        )
         return []
 
     result = data.get("data", {}).get("result", [])

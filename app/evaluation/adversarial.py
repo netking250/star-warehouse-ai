@@ -168,8 +168,15 @@ class AdversarialRunner:
                 "risk_level": result.risk_level,
                 "risk_type": result.risk_type,
             }
-        except (ImportError, RuntimeError):
-            logger.exception("Safety filter check failed for query: %s", query)
+        except (ImportError, RuntimeError) as exc:
+            logger.error(
+                "Safety filter check failed",
+                extra={
+                    "event": "adversarial_safety_check_failure",
+                    "error_type": type(exc).__name__,
+                    "error_category": "evaluation",
+                },
+            )
             return {"is_safe": True, "risk_level": "low", "risk_type": None}
 
     @classmethod

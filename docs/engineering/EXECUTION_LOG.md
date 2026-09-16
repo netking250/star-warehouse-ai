@@ -2541,6 +2541,69 @@ State transition:
 - T16 moves from `NOT_STARTED` to `IN_PROGRESS / IMPLEMENT`.
 - T17 remains `NOT_STARTED`.
 
+## T17-IMPLEMENT - Production observability hardening
+
+Completed: 2026-09-16
+
+Status: `IN_PROGRESS`
+
+Execution Stage: `IMPLEMENT`
+
+- Recovered the frozen T17 scope from the explicit stage instruction because the repository ledgers
+  had no narrower T17-specific plan. The existing OpenTelemetry, Prometheus/Mimir, Grafana,
+  Loki/Promtail, Tempo, and Alertmanager architecture remains the source of truth.
+- Confirmed the implementation boundaries before editing: T02 trusted request/task context, T03/T04
+  outbox/RabbitMQ/Celery delivery, T12 conversation transitions, T13/T14 model policy, and T11 audit
+  storage remain authoritative. T18 CI/CD, T19 deployment, T20 performance/DR, T16 UI expansion,
+  migrations, and deferred OpenAI/Celery timing debt remain out of scope.
+
+State transition:
+
+- T14 remains externally accepted `PASS_WITH_NOTES`.
+- T15 and T16 remain `PASS` by explicit user instruction.
+- T17 moves from `NOT_STARTED` to `IN_PROGRESS / IMPLEMENT`.
+- T18 remains `NOT_STARTED`.
+
+## T17-IMPLEMENT-CLOSEOUT - Production observability hardening
+
+Completed: 2026-09-16
+
+Status: `IN_PROGRESS`
+
+Execution Stage: `VERIFY_PENDING`
+
+- Implemented bounded HTTP, Celery/async-job, outbox, conversation, model gateway/failure-policy,
+  circuit, dependency-health, and aggregate database query/pool/error metrics. Logical model
+  requests remain distinct from provider attempts, and no tenant/user/request/conversation/run/
+  prompt/URL/exception-message metric labels were introduced.
+- Hardened JSON application logging and WebSocket/error paths with safe correlation/trace fields,
+  recursive redaction, and no default credential, token, prompt, completion, RAG, or sensitive body
+  emission. Added bounded OTel resources/limits/batching and safe W3C/TaskEnvelope async context
+  propagation without changing task ACK/retry, outbox, or conversation state semantics.
+- Added three real-metric Grafana dashboards, eleven T17 direct-provisioned alert rules, local
+  no-op Alertmanager routing, validated datasource provisioning, and concise observability runbooks.
+  Corrected only pinned-image-compatible Mimir/Tempo/Promtail local Compose configuration issues;
+  the stack topology and security boundaries were preserved.
+- Focused T17 instrumentation/provisioning, structured logging, model policy, monitoring regression,
+  intent subset, and context subset tests passed (`273` tests total after the database telemetry
+  check was added). Ruff format/check, ty, route inventory, compile/import, Prometheus/
+  Alertmanager/OTel/Compose validation, Grafana provisioning, and Alembic head checks passed. The
+  existing observability DB/client fixture cases and cache suite's unavailable `db` host setup
+  remain unexecutable and were not counted as T17 implementation failures.
+- Local stack smoke passed for Prometheus, Mimir, Grafana, Loki, Tempo, Alertmanager, Collector, and
+  Promtail. A deterministic synthetic backend failure produced a valid Loki JSON event and ERROR
+  Tempo trace correlated by `t17-correlation-valid` with trace ID
+  `9c58ee24122fb45fd341c6bf1bf889bc`; the live repository API scrape was not started because an
+  unrelated container occupied host port 8000, while metric-registry assertions passed.
+
+State transition:
+
+- T14 remains externally accepted `PASS_WITH_NOTES`.
+- T15 and T16 remain `PASS` by explicit user instruction.
+- T17 moves from `IN_PROGRESS / IMPLEMENT` to `IN_PROGRESS / VERIFY_PENDING`; external verification
+  and acceptance are pending.
+- T18 remains `NOT_STARTED`.
+
 ## T16-IMPLEMENT-CLOSEOUT - Enterprise console
 
 Completed: 2026-09-15

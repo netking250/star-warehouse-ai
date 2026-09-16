@@ -21,6 +21,8 @@ from secrets import token_hex
 from typing import Protocol, cast
 
 import redis.asyncio as aioredis
+from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
 
 from app.core.tenancy import namespaced_system_key
 from app.model_gateway.contracts import (
@@ -37,14 +39,20 @@ from app.model_gateway.errors import (
     ModelGatewayError,
 )
 from app.observability.metrics import (
+    normalize_metric_label,
     record_model_attempt,
+    record_model_circuit_rejection,
     record_model_circuit_transition,
     record_model_degraded,
     record_model_fallback,
+    record_model_logical_request,
+    record_model_provider_attempt,
     record_model_retry,
+    set_model_circuit_state,
 )
 
 logger = logging.getLogger(__name__)
+tracer = trace.get_tracer(__name__)
 
 
 class DegradationMode(StrEnum):
@@ -618,6 +626,52 @@ class ModelFailurePolicy:
         *,
         candidates: Sequence[ModelCandidate] | None = None,
     ) -> ModelResponse:
+        """Invoke one logical request and record its terminal policy outcome once."""
+        started = time.perf_counter()
+        outcome = "failure"
+        category = "unknown"
+        with tracer.start_as_current_span(
+            "model.invoke",
+            attributes={"model.route": normalize_metric_label(request.route)},
+        ) as span:
+            try:
+                response = await self._invoke_with_policy(gateway, request, candidates=candidates)
+                outcome = "degraded" if response.degraded else "success"
+                category = "none"
+                return response
+            except asyncio.CancelledError:
+                outcome = "cancelled"
+                category = "none"
+                span.set_status(Status(StatusCode.ERROR, "model request cancelled"))
+                raise
+            except ModelGatewayError as error:
+                category = error.category.value
+                span.set_attribute("error.type", type(error).__name__)
+                span.set_attribute("model.error_category", category)
+                span.set_status(Status(StatusCode.ERROR, "model request failed"))
+                raise
+            finally:
+                try:
+                    record_model_logical_request(
+                        route=request.route,
+                        outcome=outcome,
+                        category=category,
+                        duration_seconds=time.perf_counter() - started,
+                    )
+                except Exception as telemetry_error:
+                    logger.debug(
+                        "Model logical-request metric unavailable after %.3fs: %s",
+                        time.perf_counter() - started,
+                        type(telemetry_error).__name__,
+                    )
+
+    async def _invoke_with_policy(
+        self,
+        gateway: ModelGatewayLike,
+        request: ModelRequest,
+        *,
+        candidates: Sequence[ModelCandidate] | None = None,
+    ) -> ModelResponse:
         """Invoke candidates with bounded retries and return exactly one response."""
         resolved = self._resolve_candidates(gateway, request, candidates)
         deadline = self.clock() + self.config.total_deadline_seconds
@@ -641,10 +695,17 @@ class ModelFailurePolicy:
                     last_error = candidate_error
                     break
                 total_attempts += 1
+                attempt_started = time.perf_counter()
                 record_model_attempt(provider=candidate.provider, outcome="started")
                 try:
                     response = await self._invoke_once(gateway, candidate, request, remaining)
                 except asyncio.CancelledError:
+                    self._record_provider_attempt(
+                        provider=candidate.provider,
+                        route=request.route,
+                        outcome="cancelled",
+                        duration_seconds=time.perf_counter() - attempt_started,
+                    )
                     raise
                 except ModelConfigurationError:
                     # Invalid trusted route/provider configuration is not a provider failure and
@@ -656,6 +717,13 @@ class ModelFailurePolicy:
                     last_error = error
                     state = await self._record_failure(candidate, permit, error)
                     record_model_attempt(provider=candidate.provider, outcome="failed")
+                    self._record_provider_attempt(
+                        provider=candidate.provider,
+                        route=request.route,
+                        outcome="failure",
+                        category=error.category.value,
+                        duration_seconds=time.perf_counter() - attempt_started,
+                    )
                     if not self._retry_allowed(error) or state is CircuitState.OPEN:
                         break
                     if attempt >= self.config.max_attempts_per_candidate:
@@ -667,6 +735,12 @@ class ModelFailurePolicy:
                 else:
                     await self._record_success(candidate, permit)
                     record_model_attempt(provider=candidate.provider, outcome="succeeded")
+                    self._record_provider_attempt(
+                        provider=candidate.provider,
+                        route=request.route,
+                        outcome="success",
+                        duration_seconds=time.perf_counter() - attempt_started,
+                    )
                     return response
 
             if candidate_error is None:
@@ -687,6 +761,61 @@ class ModelFailurePolicy:
         )
 
     async def stream(
+        self,
+        gateway: ModelGatewayLike,
+        request: ModelRequest,
+        *,
+        candidates: Sequence[ModelCandidate] | None = None,
+    ) -> AsyncIterator[ModelStreamEvent]:
+        """Stream one logical request and record its terminal policy outcome once."""
+        started = time.perf_counter()
+        outcome = "failure"
+        category = "unknown"
+        with tracer.start_as_current_span(
+            "model.stream",
+            attributes={"model.route": normalize_metric_label(request.route)},
+        ) as span:
+            try:
+                async for event in self._stream_with_policy(
+                    gateway, request, candidates=candidates
+                ):
+                    if event.degraded:
+                        outcome = "degraded"
+                    yield event
+                if outcome != "degraded":
+                    outcome = "success"
+                category = "none"
+            except asyncio.CancelledError:
+                outcome = "cancelled"
+                category = "none"
+                span.set_status(Status(StatusCode.ERROR, "model stream cancelled"))
+                raise
+            except GeneratorExit:
+                outcome = "cancelled"
+                category = "none"
+                span.set_status(Status(StatusCode.ERROR, "model stream closed"))
+                raise
+            except ModelGatewayError as error:
+                category = error.category.value
+                span.set_attribute("error.type", type(error).__name__)
+                span.set_attribute("model.error_category", category)
+                span.set_status(Status(StatusCode.ERROR, "model stream failed"))
+                raise
+            finally:
+                try:
+                    record_model_logical_request(
+                        route=request.route,
+                        outcome=outcome,
+                        category=category,
+                        duration_seconds=time.perf_counter() - started,
+                    )
+                except Exception as telemetry_error:
+                    logger.debug(
+                        "Model logical-request metric unavailable: %s",
+                        type(telemetry_error).__name__,
+                    )
+
+    async def _stream_with_policy(
         self,
         gateway: ModelGatewayLike,
         request: ModelRequest,
@@ -718,6 +847,7 @@ class ModelFailurePolicy:
                 total_attempts += 1
                 visible = False
                 completed = False
+                attempt_started = time.perf_counter()
                 record_model_attempt(provider=candidate.provider, outcome="started")
                 try:
                     async with asyncio.timeout(remaining):
@@ -735,6 +865,12 @@ class ModelFailurePolicy:
                             model=candidate.model,
                         )
                 except asyncio.CancelledError:
+                    self._record_provider_attempt(
+                        provider=candidate.provider,
+                        route=request.route,
+                        outcome="cancelled",
+                        duration_seconds=time.perf_counter() - attempt_started,
+                    )
                     raise
                 except ModelConfigurationError:
                     raise
@@ -744,6 +880,13 @@ class ModelFailurePolicy:
                     last_error = error
                     state = await self._record_failure(candidate, permit, error)
                     record_model_attempt(provider=candidate.provider, outcome="failed")
+                    self._record_provider_attempt(
+                        provider=candidate.provider,
+                        route=request.route,
+                        outcome="failure",
+                        category=error.category.value,
+                        duration_seconds=time.perf_counter() - attempt_started,
+                    )
                     if visible:
                         # Once any text or tool delta has escaped, switching providers would
                         # duplicate or splice two answers into one client-visible response.
@@ -759,6 +902,12 @@ class ModelFailurePolicy:
                 else:
                     await self._record_success(candidate, permit)
                     record_model_attempt(provider=candidate.provider, outcome="succeeded")
+                    self._record_provider_attempt(
+                        provider=candidate.provider,
+                        route=request.route,
+                        outcome="success",
+                        duration_seconds=time.perf_counter() - attempt_started,
+                    )
                     return
 
             if candidate_error is None:
@@ -785,6 +934,30 @@ class ModelFailurePolicy:
             ModelErrorCategory.PROVIDER_UNAVAILABLE,
             "No configured model candidate was available",
         )
+
+    @staticmethod
+    def _record_provider_attempt(
+        *,
+        provider: str,
+        route: str,
+        outcome: str,
+        category: str = "none",
+        duration_seconds: float,
+    ) -> None:
+        """Record provider-attempt telemetry without changing policy behavior."""
+        try:
+            record_model_provider_attempt(
+                provider=provider,
+                route=route,
+                outcome=outcome,
+                category=category,
+                duration_seconds=duration_seconds,
+            )
+        except Exception as telemetry_error:
+            logger.debug(
+                "Model provider-attempt metric unavailable: %s",
+                type(telemetry_error).__name__,
+            )
 
     @staticmethod
     def _resolve_candidates(
@@ -865,10 +1038,21 @@ class ModelFailurePolicy:
         except Exception as error:
             # A breaker outage must not deadlock or silently create unbounded retries.  Local
             # attempt/deadline limits remain active while this one decision fails open.
-            logger.warning("Model circuit storage unavailable; allowing bounded attempt: %s", error)
+            logger.warning(
+                "Model circuit storage unavailable; allowing bounded attempt",
+                extra={
+                    "event": "model_circuit_storage_unavailable",
+                    "provider": candidate.provider,
+                    "error_type": type(error).__name__,
+                },
+            )
+            self._set_circuit_state(candidate.provider, CircuitState.CLOSED.value)
             return CircuitPermit(True, CircuitState.CLOSED)
+        self._set_circuit_state(candidate.provider, permit.state.value)
+        if not permit.allowed:
+            self._record_circuit_rejection(candidate.provider)
         if permit.transition_from is not None:
-            record_model_circuit_transition(
+            self._record_circuit_transition(
                 provider=candidate.provider,
                 from_state=permit.transition_from.value,
                 to_state=permit.state.value,
@@ -883,10 +1067,19 @@ class ModelFailurePolicy:
         except asyncio.CancelledError:
             raise
         except Exception as error:
-            logger.warning("Model circuit success update unavailable: %s", error)
+            logger.warning(
+                "Model circuit success update unavailable",
+                extra={
+                    "event": "model_circuit_success_update_unavailable",
+                    "provider": candidate.provider,
+                    "error_type": type(error).__name__,
+                },
+            )
+            self._set_circuit_state(candidate.provider, permit.state.value)
             return
+        self._set_circuit_state(candidate.provider, state.value)
         if permit.state is not state:
-            record_model_circuit_transition(
+            self._record_circuit_transition(
                 provider=candidate.provider,
                 from_state=permit.state.value,
                 to_state=state.value,
@@ -912,15 +1105,59 @@ class ModelFailurePolicy:
         except asyncio.CancelledError:
             raise
         except Exception as storage_error:
-            logger.warning("Model circuit failure update unavailable: %s", storage_error)
+            logger.warning(
+                "Model circuit failure update unavailable",
+                extra={
+                    "event": "model_circuit_failure_update_unavailable",
+                    "provider": candidate.provider,
+                    "error_type": type(storage_error).__name__,
+                },
+            )
+            self._set_circuit_state(candidate.provider, permit.state.value)
             return permit.state
+        self._set_circuit_state(candidate.provider, state.value)
         if permit.state is not state:
-            record_model_circuit_transition(
+            self._record_circuit_transition(
                 provider=candidate.provider,
                 from_state=permit.state.value,
                 to_state=state.value,
             )
         return state
+
+    @staticmethod
+    def _record_circuit_rejection(provider: str) -> None:
+        """Record a breaker rejection without affecting the policy decision."""
+        try:
+            record_model_circuit_rejection(provider=provider)
+        except Exception as telemetry_error:
+            logger.debug(
+                "Model circuit rejection metric unavailable: %s", type(telemetry_error).__name__
+            )
+
+    @staticmethod
+    def _record_circuit_transition(*, provider: str, from_state: str, to_state: str) -> None:
+        """Record a breaker transition without affecting the policy decision."""
+        try:
+            record_model_circuit_transition(
+                provider=provider,
+                from_state=from_state,
+                to_state=to_state,
+            )
+        except Exception as telemetry_error:
+            logger.debug(
+                "Model circuit transition metric unavailable: %s",
+                type(telemetry_error).__name__,
+            )
+
+    @staticmethod
+    def _set_circuit_state(provider: str, state: str) -> None:
+        """Publish breaker state defensively so telemetry cannot affect model policy."""
+        try:
+            set_model_circuit_state(provider=provider, state=state)
+        except Exception as telemetry_error:
+            logger.debug(
+                "Model circuit state metric unavailable: %s", type(telemetry_error).__name__
+            )
 
     @staticmethod
     def _visible_event(event: ModelStreamEvent) -> bool:
