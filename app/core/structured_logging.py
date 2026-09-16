@@ -121,6 +121,7 @@ def configure_logging(*, log_format: str = "text") -> None:
 
     handler = logging.StreamHandler()
     handler.setFormatter(formatter)
+    handler.addFilter(CorrelationIdFilter())
     handler.addFilter(SensitiveQueryFilter())
 
     root_logger = logging.getLogger()

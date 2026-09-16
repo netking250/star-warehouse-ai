@@ -247,3 +247,18 @@ The sequence is the default gate order. A user may issue a documented change req
   trace-correlation gate.
 - Classification: `TRACE_PROPAGATION_FAILURE`. T17 remains `IN_PROGRESS / VERIFY_PENDING`; no code
   correction was made during VERIFY, and external acceptance is not ready.
+
+## T17 API Trace Fix
+
+- Status remains `IN_PROGRESS`; execution stage remains `VERIFY_PENDING`.
+- Reproduced the missing API trace for five of five sampled requests while the scheduler control
+  continued exporting through the same Collector. The first broken edge was FastAPI instrumentation:
+  lifespan installed it after Starlette cached the ASGI middleware stack.
+- Moved the existing API telemetry bootstrap before the first ASGI call and attached the existing
+  correlation filter to the shared structured-log handler. No second provider, tracing abstraction,
+  response header, Collector path, public route, migration, or trusted-context change was added.
+- Post-fix real-stack proof passed `5/5` API traces in Tempo under `star-warehouse-ai-api`. One
+  synthetic request correlated a normalized HTTP metric, Loki JSON record, and Tempo trace by the
+  existing correlation/trace fields; scheduler traces remained available.
+- Focused tests passed `17`; Ruff, format, ty, route inventory (`0` unclassified), Compose overlay
+  validation, and Alembic head `e9f0a1b2c3d4` passed. T17 is ready to resume VERIFY, not acceptance.
