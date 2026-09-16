@@ -108,8 +108,15 @@ class EvaluationPipeline:
             config = {**config, "configurable": {"thread_id": session_id}}
             try:
                 final_state = await self.graph.ainvoke(initial_state, config=config)
-            except Exception:
-                logger.exception("Graph invocation failed for query: %s", query)
+            except Exception as exc:
+                logger.error(
+                    "Graph invocation failed",
+                    extra={
+                        "event": "evaluation_graph_failure",
+                        "error_type": type(exc).__name__,
+                        "error_category": "evaluation",
+                    },
+                )
                 final_state = {}
 
             actual_answer = final_state.get("answer", "")

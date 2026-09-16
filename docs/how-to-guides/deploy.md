@@ -37,6 +37,16 @@ docker compose -f docker-compose.monitoring.yml config
 ```
 
 This separate Compose file is intentional because the monitoring stack has its own lifecycle.
+It provisions Prometheus/Mimir, Grafana, Loki/Promtail, Tempo, the OpenTelemetry Collector, and
+Alertmanager with loopback-only host ports. Set `OTEL_EXPORTER_OTLP_ENDPOINT` to
+`http://host.docker.internal:4317` in the application `.env` before starting API/worker roles if
+you want container traces to reach the Collector. Prometheus scrapes the API `/metrics` endpoint;
+logs are collected from container stdout. The local alert receivers are no-op sinks and contain no
+external notification credentials.
+
+The canonical Grafana dashboards are **Platform / API Health**, **Async / Outbox / Worker**, and
+**AI / Conversation Runtime**. Use the T17 [observability runbook](../runbooks/observability.md)
+for alert triage and metrics → logs → traces correlation.
 
 ## Demo and production reference (planned)
 

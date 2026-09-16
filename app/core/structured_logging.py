@@ -13,7 +13,7 @@ from typing import Any
 
 from opentelemetry import trace
 
-from app.core.logging import CorrelationIdFilter, SensitiveQueryFilter
+from app.core.logging import CorrelationIdFilter, SensitiveQueryFilter, redact_log_value
 
 
 class JsonFormatter(logging.Formatter):
@@ -41,7 +41,7 @@ class JsonFormatter(logging.Formatter):
             "timestamp": datetime.fromtimestamp(record.created, tz=UTC).isoformat(),
             "level": record.levelname,
             "logger": record.name,
-            "message": record.getMessage(),
+            "message": redact_log_value(record.getMessage()),
             "source_file": record.pathname,
             "line_number": record.lineno,
         }
@@ -59,9 +59,9 @@ class JsonFormatter(logging.Formatter):
             log_obj["span_id"] = format(span_context.span_id, "016x")
 
         if record.exc_info and record.exc_info[0] is not None:
-            log_obj["stack_trace"] = self.formatException(record.exc_info)
+            log_obj["stack_trace"] = redact_log_value(self.formatException(record.exc_info))
         elif record.levelno >= logging.WARNING and record.stack_info:
-            log_obj["stack_trace"] = self.formatStack(record.stack_info)
+            log_obj["stack_trace"] = redact_log_value(self.formatStack(record.stack_info))
 
         # Extra fields added by application code
         for key, value in record.__dict__.items():
@@ -91,7 +91,7 @@ class JsonFormatter(logging.Formatter):
                 "span_id",
                 "message",
             }:
-                log_obj[key] = value
+                log_obj[key] = redact_log_value(value, key=key)
 
         return json.dumps(log_obj, ensure_ascii=False, default=str)
 

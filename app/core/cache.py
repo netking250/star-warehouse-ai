@@ -86,7 +86,10 @@ class CacheManager:
         except aioredis.RedisError as exc:
             record_redis_operation_latency("get", time.perf_counter() - start)
             record_redis_connection_error(type(exc).__name__.lower())
-            logger.warning("Redis GET failed for %s: %s", key, exc)
+            logger.warning(
+                "Redis GET failed",
+                extra={"event": "redis_get_failure", "error_type": type(exc).__name__},
+            )
             return None
 
     async def _redis_set(
@@ -103,7 +106,10 @@ class CacheManager:
         except aioredis.RedisError as exc:
             record_redis_operation_latency("set", time.perf_counter() - start)
             record_redis_connection_error(type(exc).__name__.lower())
-            logger.warning("Redis SET failed for %s: %s", key, exc)
+            logger.warning(
+                "Redis SET failed",
+                extra={"event": "redis_set_failure", "error_type": type(exc).__name__},
+            )
 
     async def _redis_delete(self, key: str) -> None:
         key = namespaced_key(key)
@@ -114,7 +120,10 @@ class CacheManager:
         except aioredis.RedisError as exc:
             record_redis_operation_latency("delete", time.perf_counter() - start)
             record_redis_connection_error(type(exc).__name__.lower())
-            logger.warning("Redis DELETE failed for %s: %s", key, exc)
+            logger.warning(
+                "Redis DELETE failed",
+                extra={"event": "redis_delete_failure", "error_type": type(exc).__name__},
+            )
 
     async def _redis_delete_pattern(self, pattern: str) -> None:
         pattern = namespaced_key(pattern)
@@ -129,7 +138,10 @@ class CacheManager:
         except aioredis.RedisError as exc:
             record_redis_operation_latency("delete_pattern", time.perf_counter() - start)
             record_redis_connection_error(type(exc).__name__.lower())
-            logger.warning("Redis DELETE pattern failed for %s: %s", pattern, exc)
+            logger.warning(
+                "Redis DELETE pattern failed",
+                extra={"event": "redis_delete_pattern_failure", "error_type": type(exc).__name__},
+            )
 
     # ------------------------------------------------------------------ #
     # Intent cache
@@ -152,7 +164,10 @@ class CacheManager:
                 self._record_hit("intent")
                 return json.loads(data)
             except json.JSONDecodeError:
-                logger.warning("Corrupted intent cache for key %s", key)
+                logger.warning(
+                    "Corrupted intent cache",
+                    extra={"event": "cache_corruption", "cache_name": "intent"},
+                )
         self._record_miss("intent")
         return None
 
@@ -181,7 +196,10 @@ class CacheManager:
                 self._record_hit("profile")
                 return json.loads(data)
             except json.JSONDecodeError:
-                logger.warning("Corrupted profile cache for key %s", key)
+                logger.warning(
+                    "Corrupted profile cache",
+                    extra={"event": "cache_corruption", "cache_name": "profile"},
+                )
         self._record_miss("profile")
         return None
 
@@ -214,7 +232,10 @@ class CacheManager:
                 self._record_hit("retrieval")
                 return json.loads(data)
             except json.JSONDecodeError:
-                logger.warning("Corrupted retrieval cache for key %s", key)
+                logger.warning(
+                    "Corrupted retrieval cache",
+                    extra={"event": "cache_corruption", "cache_name": "retrieval"},
+                )
         self._record_miss("retrieval")
         return None
 
@@ -250,7 +271,10 @@ class CacheManager:
                 self._record_hit("facts")
                 return json.loads(data)
             except json.JSONDecodeError:
-                logger.warning("Corrupted facts cache for key %s", key)
+                logger.warning(
+                    "Corrupted facts cache",
+                    extra={"event": "cache_corruption", "cache_name": "facts"},
+                )
         self._record_miss("facts")
         return None
 
@@ -285,7 +309,10 @@ class CacheManager:
                 self._record_hit("preferences")
                 return json.loads(data)
             except json.JSONDecodeError:
-                logger.warning("Corrupted preferences cache for key %s", key)
+                logger.warning(
+                    "Corrupted preferences cache",
+                    extra={"event": "cache_corruption", "cache_name": "preferences"},
+                )
         self._record_miss("preferences")
         return None
 
@@ -314,7 +341,10 @@ class CacheManager:
                 self._record_hit("summaries")
                 return json.loads(data)
             except json.JSONDecodeError:
-                logger.warning("Corrupted summaries cache for key %s", key)
+                logger.warning(
+                    "Corrupted summaries cache",
+                    extra={"event": "cache_corruption", "cache_name": "summaries"},
+                )
         self._record_miss("summaries")
         return None
 
@@ -347,7 +377,10 @@ class CacheManager:
                 self._record_hit("vector_search")
                 return json.loads(data)
             except json.JSONDecodeError:
-                logger.warning("Corrupted vector search cache for key %s", key)
+                logger.warning(
+                    "Corrupted vector search cache",
+                    extra={"event": "cache_corruption", "cache_name": "vector_search"},
+                )
         self._record_miss("vector_search")
         return None
 
@@ -382,7 +415,10 @@ class CacheManager:
                 self._record_hit("db_config")
                 return json.loads(data)
             except json.JSONDecodeError:
-                logger.warning("Corrupted db_config cache for key %s", key)
+                logger.warning(
+                    "Corrupted db_config cache",
+                    extra={"event": "cache_corruption", "cache_name": "db_config"},
+                )
         self._record_miss("db_config")
         return None
 

@@ -9,7 +9,8 @@ from kombu import Exchange, Queue
 from app.celery_tracing import setup_celery_langsmith_tracing
 from app.core.branding import CELERY_APP_NAME
 from app.core.config import settings
-from app.observability.otel_setup import setup_celery_tracing
+from app.observability.celery import setup_celery_observability
+from app.observability.otel_setup import setup_celery_tracing, setup_otel_tracing
 from app.task_runtime.context import build_system_task_context
 from app.task_runtime.envelope import SystemTaskEnvelope
 
@@ -226,4 +227,6 @@ setup_celery_langsmith_tracing()
 celery_app.autodiscover_tasks(["app.tasks"])
 
 # Instrument Celery with OpenTelemetry tracing
+setup_otel_tracing(service_name=settings.OTEL_SERVICE_NAME or f"{settings.SERVICE_NAME}-worker")
 setup_celery_tracing()
+setup_celery_observability()

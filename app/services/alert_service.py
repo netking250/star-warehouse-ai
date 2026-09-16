@@ -303,7 +303,14 @@ class AlertService:
         await session.refresh(event)
 
         await self._notify(session, event, rule)
-        logger.warning("Alert fired: [%s] %s - %s", rule.severity.value, rule.name, message)
+        logger.warning(
+            "Alert fired",
+            extra={
+                "event": "alert_fired",
+                "severity": rule.severity.value,
+                "alert_rule": rule.name,
+            },
+        )
         return event
 
     async def acknowledge_alert(
@@ -619,7 +626,14 @@ class AlertService:
         session.refresh(event)
 
         self._notify_sync(session, event, rule)
-        logger.warning("Alert fired: [%s] %s - %s", rule.severity.value, rule.name, message)
+        logger.warning(
+            "Alert fired",
+            extra={
+                "event": "alert_fired",
+                "severity": rule.severity.value,
+                "alert_rule": rule.name,
+            },
+        )
         return event
 
     def _notify_sync(

@@ -8,6 +8,7 @@ from types import FrameType
 
 from app.celery_app import celery_app
 from app.core.config import settings
+from app.core.structured_logging import configure_logging
 from app.outbox.publisher import CeleryTaskPublisher
 from app.outbox.relay import OutboxRelay
 
@@ -38,6 +39,7 @@ async def _run() -> None:
 
 def main() -> None:
     """Run the relay until SIGINT or SIGTERM requests graceful shutdown."""
+    configure_logging(log_format=settings.LOG_FORMAT)
     asyncio.run(_run())
 
 

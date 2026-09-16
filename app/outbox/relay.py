@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 import uuid
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import cast
 
 from opentelemetry import trace
-from sqlalchemy import and_, or_
+from opentelemetry.trace import Status, StatusCode
+from sqlalchemy import and_, func, or_
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -19,7 +21,13 @@ from app.context.pii_filter import pii_filter
 from app.core.database import async_session_maker
 from app.core.utils import utc_now
 from app.models.outbox import OutboxEvent, OutboxStatus
-from app.observability.metrics import record_outbox_publish
+from app.observability.metrics import (
+    record_outbox_delivery_attempt,
+    record_outbox_delivery_latency,
+    record_outbox_publish,
+    set_dependency_health,
+    set_outbox_backlog,
+)
 from app.outbox.publisher import TaskPublisher
 from app.task_runtime.binding import bind_task_context
 from app.task_runtime.envelope import TaskEnvelope
@@ -80,6 +88,7 @@ class OutboxRelay:
     async def run_once(self) -> RelayBatchResult:
         """Claim and process at most one bounded batch."""
         claimed = await self._claim_batch()
+        await self._observe_backlog()
         published = 0
         failed = 0
         for event in claimed:
@@ -88,6 +97,35 @@ class OutboxRelay:
             else:
                 failed += 1
         return RelayBatchResult(claimed=len(claimed), published=published, failed=failed)
+
+    async def _observe_backlog(self) -> None:
+        """Refresh aggregate backlog gauges without participating in delivery semantics."""
+        now = utc_now()
+        eligible = or_(
+            and_(
+                col(OutboxEvent.status) == OutboxStatus.PENDING,
+                col(OutboxEvent.available_at) <= now,
+            ),
+            and_(
+                col(OutboxEvent.status) == OutboxStatus.PUBLISHING,
+                col(OutboxEvent.claim_expires_at).is_not(None),
+                col(OutboxEvent.claim_expires_at) <= now,
+            ),
+        )
+        try:
+            async with self._session_factory() as session:
+                count, oldest = (
+                    await session.exec(
+                        select(func.count(), func.min(OutboxEvent.created_at)).where(eligible)
+                    )
+                ).one()
+            oldest_age = (now - oldest).total_seconds() if oldest is not None else 0.0
+            set_outbox_backlog(pending=int(count or 0), oldest_age_seconds=oldest_age)
+        except Exception as telemetry_error:
+            logger.debug(
+                "Outbox backlog metric unavailable: %s",
+                type(telemetry_error).__name__,
+            )
 
     async def run_forever(self, stop_event: asyncio.Event) -> None:
         """Poll until graceful shutdown is requested."""
@@ -153,6 +191,23 @@ class OutboxRelay:
             return claimed
 
     async def _publish_claimed(self, event: _ClaimedEvent) -> bool:
+        """Observe one publication attempt around the existing relay behavior."""
+        started = time.perf_counter()
+        try:
+            record_outbox_delivery_attempt()
+        except Exception as telemetry_error:
+            logger.debug("Outbox attempt metric unavailable: %s", type(telemetry_error).__name__)
+        try:
+            return await self._publish_claimed_once(event)
+        finally:
+            try:
+                record_outbox_delivery_latency(time.perf_counter() - started)
+            except Exception as telemetry_error:
+                logger.debug(
+                    "Outbox latency metric unavailable: %s", type(telemetry_error).__name__
+                )
+
+    async def _publish_claimed_once(self, event: _ClaimedEvent) -> bool:
         try:
             envelope = TaskEnvelope.from_message(event.envelope)
             if envelope.task_context.tenant_id != event.tenant_id:
@@ -161,7 +216,7 @@ class OutboxRelay:
                 raise ValueError("Outbox idempotency key does not match the task envelope")
         except Exception as error:
             await self._mark_failed(event, error)
-            record_outbox_publish(success=False)
+            self._record_publish_metric(success=False)
             logger.warning(
                 "Outbox envelope validation failed",
                 extra={
@@ -183,7 +238,7 @@ class OutboxRelay:
             attributes["trace.id"] = envelope.task_context.trace_id
         with (
             bind_task_context(envelope.task_context),
-            tracer.start_as_current_span("outbox.publish", attributes=attributes),
+            tracer.start_as_current_span("outbox.publish", attributes=attributes) as span,
         ):
             try:
                 await self._publisher.publish(
@@ -192,8 +247,11 @@ class OutboxRelay:
                     task_id=event.event_id,
                 )
             except Exception as error:
+                span.set_status(Status(StatusCode.ERROR, "outbox publication failed"))
+                span.set_attribute("error.type", type(error).__name__)
                 await self._mark_failed(event, error)
-                record_outbox_publish(success=False)
+                self._record_publish_metric(success=False)
+                self._set_dependency_health(healthy=False)
                 logger.warning(
                     "Outbox publication failed",
                     extra={
@@ -205,20 +263,45 @@ class OutboxRelay:
 
             try:
                 await self._mark_published(event)
-            except Exception:
-                record_outbox_publish(success=False)
-                logger.exception(
+            except Exception as error:
+                span.set_attribute("outbox.state_update_failed", True)
+                span.set_attribute("error.type", type(error).__name__)
+                span.set_status(Status(StatusCode.ERROR, "outbox state update failed"))
+                self._record_publish_metric(success=False)
+                logger.error(
                     "Outbox publication succeeded but state update failed; retry may duplicate",
-                    extra=self._log_fields(event, publish_result="mark_failure"),
+                    extra={
+                        **self._log_fields(event, publish_result="mark_failure"),
+                        "error_type": type(error).__name__,
+                    },
                 )
                 return False
 
-            record_outbox_publish(success=True)
+            self._record_publish_metric(success=True)
+            self._set_dependency_health(healthy=True)
             logger.info(
                 "Outbox event published",
                 extra=self._log_fields(event, publish_result="success"),
             )
             return True
+
+    @staticmethod
+    def _record_publish_metric(*, success: bool) -> None:
+        """Record publication status without allowing telemetry to affect delivery."""
+        try:
+            record_outbox_publish(success=success)
+        except Exception as telemetry_error:
+            logger.debug(
+                "Outbox publication metric unavailable: %s", type(telemetry_error).__name__
+            )
+
+    @staticmethod
+    def _set_dependency_health(*, healthy: bool) -> None:
+        """Record broker health without allowing telemetry to affect delivery."""
+        try:
+            set_dependency_health(component="rabbitmq", healthy=healthy)
+        except Exception as telemetry_error:
+            logger.debug("RabbitMQ health metric unavailable: %s", type(telemetry_error).__name__)
 
     async def _mark_published(self, claimed: _ClaimedEvent) -> None:
         async with self._session_factory() as session, session.begin():

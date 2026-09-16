@@ -3,6 +3,7 @@ import asyncio
 import contextlib
 import logging
 import os
+import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -26,7 +27,11 @@ from app.authorization.route_inventory import assert_routes_classified
 from app.core.branding import APP_VERSION, HEALTH_VERSION, PRODUCT_NAME_EN
 from app.core.config import settings
 from app.core.limiter import limiter
-from app.core.logging import generate_correlation_id, set_correlation_id
+from app.core.logging import (
+    normalize_correlation_id,
+    reset_correlation_id,
+    set_correlation_id,
+)
 from app.core.structured_logging import configure_logging
 from app.core.tenancy import (
     TenantAccessError,
@@ -35,6 +40,11 @@ from app.core.tenancy import (
     reset_current_tenant,
 )
 from app.core.tracing import is_langsmith_tracing_enabled
+from app.observability.http import observe_http_request
+from app.observability.metrics import (
+    record_dependency_check_duration,
+    set_dependency_health,
+)
 from app.observability.otel_setup import instrument_fastapi, setup_otel_tracing
 from app.websocket.manager import get_manager
 from app.websocket.redis_bridge import RedisBroadcastBridge
@@ -49,7 +59,7 @@ async def lifespan(app: FastAPI):
     _setup_langsmith_tracing()
     logger.info("Starting %s v%s", PRODUCT_NAME_EN, APP_VERSION)
 
-    setup_otel_tracing()
+    setup_otel_tracing(service_name=settings.OTEL_SERVICE_NAME or f"{settings.SERVICE_NAME}-api")
     instrument_fastapi(app)
 
     if "*" in settings.CORS_ORIGINS:
@@ -251,13 +261,9 @@ def _setup_langsmith_tracing() -> None:
     os.environ.setdefault("LANGCHAIN_API_KEY", settings.LANGSMITH_API_KEY.get_secret_value())
     os.environ.setdefault("LANGCHAIN_PROJECT", settings.LANGSMITH_PROJECT)
 
-    # Log tracing status (avoid logging the full API key)
-    secret_key = settings.LANGSMITH_API_KEY.get_secret_value()
-    masked_key = f"{secret_key[:8]}..." if len(secret_key) > 8 else "***"
     logger.info(
-        "LangSmith tracing enabled (project=%s, api_key=%s)",
-        settings.LANGSMITH_PROJECT,
-        masked_key,
+        "LangSmith tracing enabled",
+        extra={"event": "langsmith_tracing_enabled", "project": settings.LANGSMITH_PROJECT},
     )
 
 
@@ -309,11 +315,14 @@ async def tenant_context_middleware(request: Request, call_next):
 
 @app.middleware("http")
 async def correlation_id_middleware(request: Request, call_next):
-    cid = request.headers.get("x-correlation-id") or generate_correlation_id()
-    set_correlation_id(cid)
-    response = await call_next(request)
-    response.headers["X-Correlation-ID"] = cid
-    return response
+    cid = normalize_correlation_id(request.headers.get("x-correlation-id"))
+    token = set_correlation_id(cid)
+    try:
+        response = await call_next(request)
+        response.headers["X-Correlation-ID"] = cid
+        return response
+    finally:
+        reset_correlation_id(token)
 
 
 # 1. 配置跨域
@@ -336,6 +345,12 @@ async def trace_id_middleware(request: Request, call_next):
         trace_id = format(span_context.trace_id, "032x")
         response.headers["X-Trace-ID"] = trace_id
     return response
+
+
+@app.middleware("http")
+async def http_observability_middleware(request: Request, call_next):
+    """Record normalized application HTTP RED metrics around the request pipeline."""
+    return await observe_http_request(request, call_next)
 
 
 # 3. Rate limiting middleware
@@ -458,28 +473,52 @@ async def health_check():
         "dependencies": {},
     }
 
+    def _record_dependency(component: str, healthy: bool, started: float) -> None:
+        """Record dependency health without changing the health response contract."""
+        try:
+            set_dependency_health(component=component, healthy=healthy)
+            record_dependency_check_duration(
+                component=component,
+                duration_seconds=time.perf_counter() - started,
+            )
+        except Exception as telemetry_error:
+            logger.debug(
+                "Dependency metric recording unavailable: %s",
+                type(telemetry_error).__name__,
+            )
+
+    started = time.perf_counter()
     try:
         async with async_engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
             await conn.commit()
         health_status["dependencies"]["database"] = "connected"
+        _record_dependency("database", True, started)
     except Exception as exc:
-        health_status["dependencies"]["database"] = f"unavailable: {exc}"
+        del exc
+        health_status["dependencies"]["database"] = "unavailable"
+        _record_dependency("database", False, started)
         health_status["status"] = "degraded"
 
+    started = time.perf_counter()
     try:
         redis_client = create_redis_client()
         health_check = RedisHealthCheck(redis_client)
         redis_healthy = await health_check.check()
         if redis_healthy:
             health_status["dependencies"]["redis"] = "connected"
+            _record_dependency("redis", True, started)
         else:
             health_status["dependencies"]["redis"] = "unavailable"
+            _record_dependency("redis", False, started)
             health_status["status"] = "degraded"
     except Exception as exc:
-        health_status["dependencies"]["redis"] = f"unavailable: {exc}"
+        del exc
+        health_status["dependencies"]["redis"] = "unavailable"
+        _record_dependency("redis", False, started)
         health_status["status"] = "degraded"
 
+    started = time.perf_counter()
     try:
         from qdrant_client import AsyncQdrantClient
 
@@ -493,8 +532,11 @@ async def health_check():
         await qdrant.get_collections()
         await qdrant.close()
         health_status["dependencies"]["qdrant"] = "connected"
+        _record_dependency("qdrant", True, started)
     except Exception as exc:
-        health_status["dependencies"]["qdrant"] = f"unavailable: {exc}"
+        del exc
+        health_status["dependencies"]["qdrant"] = "unavailable"
+        _record_dependency("qdrant", False, started)
         health_status["status"] = "degraded"
 
     return health_status

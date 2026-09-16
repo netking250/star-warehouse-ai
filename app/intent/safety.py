@@ -553,7 +553,14 @@ class SafetyFilter:
             sanitized_query = self._sanitizer.sanitize(query)
             if sanitized_query != query:
                 self.metrics.record_sanitized()
-                logger.debug("Input sanitized: %r -> %r", query, sanitized_query)
+                logger.debug(
+                    "Input sanitized",
+                    extra={
+                        "event": "input_sanitized",
+                        "input_length": len(query),
+                        "sanitized_length": len(sanitized_query),
+                    },
+                )
 
         # 所有安全检查均在原始输入上执行，确保检出率
         # 1. 关键词过滤（PII检测，最高优先级）
@@ -750,8 +757,11 @@ class SafetyFilter:
                 return result
             if isinstance(result, dict):
                 return SafetyCheckResult.model_validate(result)
-        except (LangChainException, ConnectionError, ValidationError, Exception) as e:
-            logger.error("Semantic check failed: %s", e)
+        except (LangChainException, ConnectionError, ValidationError, Exception) as exc:
+            logger.error(
+                "Semantic check failed",
+                extra={"event": "semantic_safety_check_failure", "error_type": type(exc).__name__},
+            )
             return SafetyCheckResult(
                 is_safe=True,
                 risk_level="low",

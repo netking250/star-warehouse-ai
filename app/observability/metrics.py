@@ -6,6 +6,7 @@ All metric recording functions are async-safe and non-blocking.
 
 from __future__ import annotations
 
+import re
 from typing import cast
 
 from prometheus_client import (  # type: ignore[import-not-found] - prometheus-client is installed but lacks stubs
@@ -35,14 +36,16 @@ def _get_or_create_counter(name: str, description: str, labels: list[str] | None
 
 
 def _get_or_create_histogram(
-    name: str, description: str, labels: list[str] | None = None, buckets: tuple | None = None
+    name: str,
+    description: str,
+    labels: list[str] | None = None,
+    buckets: tuple[float, ...] | None = None,
 ) -> Histogram:
     """Return an existing Histogram or create a new one."""
     try:
-        kwargs: dict = {}
-        if buckets is not None:
-            kwargs["buckets"] = buckets
-        return Histogram(name, description, labels or [], **kwargs)
+        if buckets is None:
+            return Histogram(name, description, labels or [])
+        return Histogram(name, description, labels or [], buckets=buckets)
     except ValueError:
         return cast(Histogram, REGISTRY._names_to_collectors[name])
 
@@ -368,6 +371,343 @@ TASK_CONSUMER_TOTAL = _get_or_create_counter(
     ["task_type", "outcome"],
 )
 
+# T17 canonical operational metrics. Labels are intentionally limited to route templates and
+# configured lifecycle categories. Identity values belong in safe log/span fields, never here.
+HTTP_REQUESTS_TOTAL = _get_or_create_counter(
+    "http_requests_total",
+    "Total HTTP requests for application routes excluding telemetry and static asset probes.",
+    ["route", "method", "status_class"],
+)
+
+HTTP_REQUEST_DURATION_SECONDS = _get_or_create_histogram(
+    "http_request_duration_seconds",
+    "HTTP request duration for normalized application routes.",
+    ["route", "method", "status_class"],
+    buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0),
+)
+
+HTTP_REQUESTS_IN_FLIGHT = _get_or_create_gauge(
+    "http_requests_in_flight",
+    "Current number of application HTTP requests in flight.",
+)
+
+HTTP_ERRORS_TOTAL = _get_or_create_counter(
+    "http_errors_total",
+    "HTTP responses classified as client or server errors.",
+    ["route", "method", "error_category"],
+)
+
+CELERY_TASK_EVENTS_TOTAL = _get_or_create_counter(
+    "celery_task_events_total",
+    "Celery task lifecycle events by bounded task type, queue, and outcome.",
+    ["task_type", "queue", "outcome"],
+)
+
+CELERY_TASKS_IN_FLIGHT = _get_or_create_gauge(
+    "celery_tasks_in_flight",
+    "Current number of started Celery tasks in flight by bounded task type.",
+    ["task_type"],
+)
+
+CELERY_TASK_DURATION_SECONDS = _get_or_create_histogram(
+    "celery_task_duration_seconds",
+    "Celery task execution duration by bounded task type and terminal outcome.",
+    ["task_type", "outcome"],
+    buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 300.0),
+)
+
+ASYNC_JOBS_TOTAL = _get_or_create_counter(
+    "async_jobs_total",
+    "Asynchronous job lifecycle events represented by the Celery execution boundary.",
+    ["job_type", "status"],
+)
+
+ASYNC_JOB_DURATION_SECONDS = _get_or_create_histogram(
+    "async_job_duration_seconds",
+    "Asynchronous job execution duration by bounded job type and terminal status.",
+    ["job_type", "status"],
+    buckets=(0.01, 0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 300.0),
+)
+
+OUTBOX_EVENTS_PENDING = _get_or_create_gauge(
+    "outbox_events_pending",
+    "Current number of pending or expired-claim outbox events observed by the relay.",
+)
+
+OUTBOX_EVENT_OLDEST_AGE_SECONDS = _get_or_create_gauge(
+    "outbox_event_oldest_age_seconds",
+    "Age of the oldest pending or expired-claim outbox event observed by the relay.",
+)
+
+OUTBOX_DELIVERY_ATTEMPTS_TOTAL = _get_or_create_counter(
+    "outbox_delivery_attempts_total",
+    "Outbox publication attempts, including retry attempts.",
+)
+
+OUTBOX_DELIVERY_LATENCY_SECONDS = _get_or_create_histogram(
+    "outbox_delivery_latency_seconds",
+    "Outbox publication and state-update latency.",
+    buckets=(0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0),
+)
+
+CONVERSATION_RUN_LIFECYCLE_TOTAL = _get_or_create_counter(
+    "conversation_run_lifecycle_total",
+    "Conversation run lifecycle events from the durable state machine.",
+    ["event"],
+)
+
+CONVERSATION_RUN_TRANSITIONS_TOTAL = _get_or_create_counter(
+    "conversation_run_transitions_total",
+    "Durable conversation run status transitions.",
+    ["from_status", "to_status"],
+)
+
+CONVERSATION_RUN_DURATION_SECONDS = _get_or_create_histogram(
+    "conversation_run_duration_seconds",
+    "Duration of terminal durable conversation runs.",
+    ["terminal_status"],
+    buckets=(0.01, 0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 300.0, 900.0),
+)
+
+CONVERSATION_TERMINALS_TOTAL = _get_or_create_counter(
+    "conversation_terminals_total",
+    "Terminal conversation run outcomes by normalized category.",
+    ["status", "category"],
+)
+
+MODEL_LOGICAL_REQUESTS_TOTAL = _get_or_create_counter(
+    "model_logical_requests_total",
+    "One event per logical model request after policy retries and fallback complete.",
+    ["route", "outcome", "category"],
+)
+
+MODEL_LOGICAL_REQUEST_DURATION_SECONDS = _get_or_create_histogram(
+    "model_logical_request_duration_seconds",
+    "End-to-end duration of one logical model request after policy retries and fallback.",
+    ["route", "outcome"],
+    buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0),
+)
+
+MODEL_PROVIDER_ATTEMPTS_TOTAL = _get_or_create_counter(
+    "model_provider_attempts_total",
+    "One terminal event per selected provider attempt.",
+    ["provider", "route", "outcome", "category"],
+)
+
+MODEL_PROVIDER_ATTEMPT_DURATION_SECONDS = _get_or_create_histogram(
+    "model_provider_attempt_duration_seconds",
+    "Duration of one selected provider attempt.",
+    ["provider", "route", "outcome"],
+    buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0),
+)
+
+MODEL_CIRCUIT_STATE = _get_or_create_gauge(
+    "model_circuit_state",
+    "Current observed model provider circuit state (one-hot by state).",
+    ["provider", "state"],
+)
+
+MODEL_CIRCUIT_REJECTIONS_TOTAL = _get_or_create_counter(
+    "model_circuit_rejections_total",
+    "Model attempts rejected because the provider circuit was open or probing.",
+    ["provider"],
+)
+
+DEPENDENCY_HEALTH = _get_or_create_gauge(
+    "app_dependency_health",
+    "Last observed application dependency health, one for healthy and zero otherwise.",
+    ["component"],
+)
+
+DEPENDENCY_CHECK_DURATION_SECONDS = _get_or_create_histogram(
+    "app_dependency_check_duration_seconds",
+    "Duration of application dependency health checks.",
+    ["component"],
+    buckets=(0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0),
+)
+
+DB_QUERY_DURATION_SECONDS = _get_or_create_histogram(
+    "db_query_duration_seconds",
+    "Aggregate database statement duration without query text or bind values.",
+    ["engine", "operation"],
+    buckets=(0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0),
+)
+
+DB_CONNECTIONS_IN_USE = _get_or_create_gauge(
+    "db_connections_in_use",
+    "Current checked-out database connections by engine role.",
+    ["engine"],
+)
+
+DB_CONNECTION_ERRORS_TOTAL = _get_or_create_counter(
+    "db_connection_errors_total",
+    "Database connection or statement errors by bounded category and engine role.",
+    ["engine", "category"],
+)
+
+_SAFE_LABEL_PATTERN = re.compile(r"^[a-zA-Z0-9/][a-zA-Z0-9_.:/{}-]{0,127}$")
+_HTTP_METHODS = frozenset({"GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"})
+_HTTP_STATUS_CLASSES = frozenset({"1xx", "2xx", "3xx", "4xx", "5xx"})
+_TASK_QUEUES = frozenset({"critical", "default", "maintenance"})
+_TASK_PREFIXES = frozenset(
+    {
+        "alerting",
+        "autoheal",
+        "checkpoint",
+        "compliance",
+        "continuous_improvement",
+        "evaluation",
+        "knowledge",
+        "memory",
+        "notifications",
+        "observability",
+        "prompt_effect",
+        "refund",
+        "shadow",
+    }
+)
+_TASK_OUTCOMES = frozenset(
+    {"accepted", "started", "succeeded", "failed", "retried", "rejected", "cancelled"}
+)
+_TASK_CONSUMER_OUTCOMES = frozenset(
+    {"received", "succeeded", "duplicate", "retry", "terminal", "dead_lettered"}
+)
+_TASK_TYPES = frozenset(
+    {
+        "alerting.evaluate_rules",
+        "alerting.check_service_health",
+        "autoheal.check_celery_workers",
+        "autoheal.clear_redis_cache",
+        "autoheal.restart_stuck_workers",
+        "autoheal.clear_expired_redis_keys",
+        "autoheal.check_db_pool_health",
+        "checkpoint.cleanup_old_checkpoints",
+        "compliance.run_retention_daily",
+        "continuous_improvement.run_weekly_audit",
+        "evaluation.run_few_shot_evaluation",
+        "evaluation.run_adversarial_suite",
+        "knowledge.sync_document",
+        "memory.extract_and_save_facts",
+        "memory.prune_vector_memory",
+        "memory.sync_vector",
+        "notifications.send_complaint_alert",
+        "notifications.send_status_update",
+        "notifications.check_quality_alerts",
+        "observability.log_chat_observability",
+        "prompt_effect.generate_monthly_report",
+        "refund.send_sms",
+        "refund.process_payment",
+        "refund.notify_admin",
+        "shadow.run_shadow_test",
+    }
+)
+_MODEL_OUTCOMES = frozenset({"success", "failure", "degraded", "cancelled"})
+_MODEL_ATTEMPT_OUTCOMES = frozenset({"success", "failure", "cancelled"})
+_FAILURE_CATEGORIES = frozenset(
+    {
+        "authentication",
+        "rate_limit",
+        "timeout",
+        "connection",
+        "bad_request",
+        "unsupported_capability",
+        "provider_unavailable",
+        "invalid_response",
+        "unknown",
+        "none",
+    }
+)
+_CONVERSATION_CATEGORIES = frozenset(
+    {
+        "completed",
+        "cancelled",
+        "executor_error",
+        "orphaned_run",
+        "tool_failed",
+        "stale_run",
+        "unknown",
+    }
+)
+_DEPENDENCY_COMPONENTS = frozenset({"database", "redis", "rabbitmq", "qdrant"})
+_DB_ENGINES = frozenset({"async", "sync", "unknown"})
+_DB_OPERATIONS = frozenset({"SELECT", "INSERT", "UPDATE", "DELETE", "COMMIT", "OTHER"})
+_DB_ERROR_CATEGORIES = frozenset({"connection", "timeout", "query", "unknown"})
+
+
+def normalize_metric_label(value: object, *, fallback: str = "unknown") -> str:
+    """Return a bounded label value without accepting arbitrary free text."""
+    candidate = value.strip() if isinstance(value, str) else ""
+    if not candidate or not _SAFE_LABEL_PATTERN.fullmatch(candidate):
+        return fallback
+    return candidate
+
+
+def normalize_route_label(route: object | None) -> str:
+    """Return a route template, never a request URL or path instance."""
+    candidate = getattr(route, "path", None)
+    if not isinstance(candidate, str) or not candidate.startswith("/"):
+        return "unmatched"
+    # A Starlette route object supplies a template. Reject common raw path values if a caller
+    # accidentally passes a string-like route object from outside the routing layer.
+    if re.search(r"/(?:\d{2,}|[0-9a-f]{8}-[0-9a-f-]{27,})(?:/|$)", candidate, re.IGNORECASE):
+        return "unmatched"
+    return normalize_metric_label(candidate, fallback="unmatched")
+
+
+def normalize_http_method(method: object) -> str:
+    """Return a bounded HTTP method label."""
+    candidate = str(method).upper() if method is not None else ""
+    return candidate if candidate in _HTTP_METHODS else "OTHER"
+
+
+def http_status_class(status_code: int) -> str:
+    """Return the low-cardinality class for an HTTP status code."""
+    candidate = f"{status_code // 100}xx"
+    return candidate if candidate in _HTTP_STATUS_CLASSES else "unknown"
+
+
+def normalize_task_type(task_type: object) -> str:
+    """Return a bounded task type derived from a registered task name."""
+    candidate = task_type.strip() if isinstance(task_type, str) else ""
+    if not candidate or len(candidate) > 128 or not _SAFE_LABEL_PATTERN.fullmatch(candidate):
+        return "unknown"
+    prefix = candidate.split(".", 1)[0]
+    if prefix not in _TASK_PREFIXES:
+        return "other"
+    # Keep exact names for the finite task registry, while collapsing a future or untrusted
+    # task name to its bounded subsystem instead of accepting arbitrary suffixes as labels.
+    return candidate if candidate in _TASK_TYPES else prefix
+
+
+def normalize_queue(queue: object) -> str:
+    """Return a configured Celery queue label."""
+    candidate = queue.strip() if isinstance(queue, str) else ""
+    return candidate if candidate in _TASK_QUEUES else "unknown"
+
+
+def normalize_model_identity(identity: object) -> str:
+    """Return a bounded configured provider/model identity label."""
+    return normalize_metric_label(identity, fallback="unknown")
+
+
+def normalize_failure_category(category: object) -> str:
+    """Return one accepted normalized failure category."""
+    candidate = category.value if hasattr(category, "value") else category
+    candidate_text = candidate.strip() if isinstance(candidate, str) else ""
+    return candidate_text if candidate_text in _FAILURE_CATEGORIES else "unknown"
+
+
+def normalize_model_outcome(outcome: object) -> str:
+    """Return one logical model outcome label."""
+    candidate = outcome.strip() if isinstance(outcome, str) else ""
+    return candidate if candidate in _MODEL_OUTCOMES else "failure"
+
+
+def normalize_model_attempt_outcome(outcome: object) -> str:
+    """Return one terminal provider attempt outcome label."""
+    candidate = outcome.strip() if isinstance(outcome, str) else ""
+    return candidate if candidate in _MODEL_ATTEMPT_OUTCOMES else "failure"
+
 
 def record_checkpoint_metrics(compressed_size: int, uncompressed_size: int, is_base: bool) -> None:
     """Record checkpoint storage metrics."""
@@ -385,9 +725,258 @@ def record_outbox_publish(*, success: bool) -> None:
         OUTBOX_PUBLISH_FAILURE_TOTAL.inc()
 
 
+def record_outbox_delivery_attempt() -> None:
+    """Record one outbox publication attempt, including a retry."""
+    OUTBOX_DELIVERY_ATTEMPTS_TOTAL.inc()
+
+
+def set_outbox_backlog(*, pending: int, oldest_age_seconds: float) -> None:
+    """Set aggregate outbox backlog and oldest-event age gauges."""
+    OUTBOX_EVENTS_PENDING.set(max(0, pending))
+    OUTBOX_EVENT_OLDEST_AGE_SECONDS.set(max(0.0, oldest_age_seconds))
+
+
+def record_outbox_delivery_latency(duration_seconds: float) -> None:
+    """Observe one outbox publication and state-update duration."""
+    OUTBOX_DELIVERY_LATENCY_SECONDS.observe(max(0.0, duration_seconds))
+
+
 def record_task_consumer(*, task_type: str, outcome: str) -> None:
     """Record a low-cardinality protected-consumer outcome."""
-    TASK_CONSUMER_TOTAL.labels(task_type=task_type, outcome=outcome).inc()
+    normalized_outcome = outcome if outcome in _TASK_CONSUMER_OUTCOMES else "unknown"
+    TASK_CONSUMER_TOTAL.labels(
+        task_type=normalize_task_type(task_type),
+        outcome=normalized_outcome,
+    ).inc()
+
+
+def record_celery_task_event(*, task_type: str, queue: str, outcome: str) -> None:
+    """Record one bounded Celery task lifecycle event."""
+    normalized_task = normalize_task_type(task_type)
+    normalized_queue = normalize_queue(queue)
+    normalized_outcome = outcome if outcome in _TASK_OUTCOMES else "failed"
+    CELERY_TASK_EVENTS_TOTAL.labels(
+        task_type=normalized_task,
+        queue=normalized_queue,
+        outcome=normalized_outcome,
+    ).inc()
+    ASYNC_JOBS_TOTAL.labels(
+        job_type=normalized_task,
+        status={
+            "accepted": "pending",
+            "started": "running",
+            "succeeded": "completed",
+            "retried": "retrying",
+        }.get(normalized_outcome, normalized_outcome),
+    ).inc()
+
+
+def set_celery_task_in_flight(*, task_type: str, delta: int) -> None:
+    """Adjust the started-task gauge without accepting task identifiers as labels."""
+    CELERY_TASKS_IN_FLIGHT.labels(task_type=normalize_task_type(task_type)).inc(delta)
+
+
+def record_celery_task_duration(*, task_type: str, outcome: str, duration_seconds: float) -> None:
+    """Observe one bounded Celery task duration."""
+    normalized_task = normalize_task_type(task_type)
+    normalized_outcome = outcome if outcome in _TASK_OUTCOMES else "failed"
+    duration = max(0.0, duration_seconds)
+    CELERY_TASK_DURATION_SECONDS.labels(
+        task_type=normalized_task,
+        outcome=normalized_outcome,
+    ).observe(duration)
+    ASYNC_JOB_DURATION_SECONDS.labels(
+        job_type=normalized_task,
+        status={"succeeded": "completed", "retried": "retrying"}.get(
+            normalized_outcome, normalized_outcome
+        ),
+    ).observe(duration)
+
+
+def record_conversation_transition(*, from_status: str, to_status: str) -> None:
+    """Record one existing durable conversation state transition."""
+    CONVERSATION_RUN_TRANSITIONS_TOTAL.labels(
+        from_status=normalize_metric_label(from_status.upper(), fallback="unknown"),
+        to_status=normalize_metric_label(to_status.upper(), fallback="unknown"),
+    ).inc()
+
+
+def record_conversation_lifecycle(event: str) -> None:
+    """Record a bounded conversation lifecycle event."""
+    normalized = event.lower()
+    allowed = {"started", "waiting_tool", "waiting_human", "completed", "failed", "cancelled"}
+    CONVERSATION_RUN_LIFECYCLE_TOTAL.labels(
+        event=normalized if normalized in allowed else "unknown"
+    ).inc()
+
+
+def record_conversation_duration(*, terminal_status: str, duration_seconds: float) -> None:
+    """Observe the duration of one terminal conversation run."""
+    normalized_status = terminal_status.upper()
+    if normalized_status not in {"COMPLETED", "FAILED", "CANCELLED"}:
+        normalized_status = "UNKNOWN"
+    CONVERSATION_RUN_DURATION_SECONDS.labels(terminal_status=normalized_status).observe(
+        max(0.0, duration_seconds)
+    )
+
+
+def record_conversation_terminal(*, status: str, category: str) -> None:
+    """Record one terminal conversation outcome with a normalized category."""
+    normalized_status = status.lower()
+    if normalized_status not in {"completed", "failed", "cancelled"}:
+        normalized_status = "unknown"
+    normalized_category = (
+        category.lower() if category.lower() in _CONVERSATION_CATEGORIES else "unknown"
+    )
+    CONVERSATION_TERMINALS_TOTAL.labels(
+        status=normalized_status,
+        category=normalized_category,
+    ).inc()
+
+
+def record_model_logical_request(
+    *,
+    route: str,
+    outcome: str,
+    category: str = "none",
+    duration_seconds: float | None = None,
+) -> None:
+    """Record one logical model request, after policy retries and fallback resolve."""
+    normalized_outcome = normalize_model_outcome(outcome)
+    normalized_category = normalize_failure_category(category)
+    normalized_route = normalize_metric_label(route, fallback="unknown")
+    MODEL_LOGICAL_REQUESTS_TOTAL.labels(
+        route=normalized_route,
+        outcome=normalized_outcome,
+        category=normalized_category if normalized_outcome == "failure" else "none",
+    ).inc()
+    if duration_seconds is not None:
+        MODEL_LOGICAL_REQUEST_DURATION_SECONDS.labels(
+            route=normalized_route,
+            outcome=normalized_outcome,
+        ).observe(max(0.0, duration_seconds))
+
+
+def record_model_provider_attempt(
+    *,
+    provider: str,
+    route: str,
+    outcome: str,
+    category: str = "none",
+    duration_seconds: float | None = None,
+) -> None:
+    """Record one terminal selected-provider attempt with normalized failure taxonomy."""
+    normalized_outcome = normalize_model_attempt_outcome(outcome)
+    MODEL_PROVIDER_ATTEMPTS_TOTAL.labels(
+        provider=normalize_model_identity(provider),
+        route=normalize_metric_label(route, fallback="unknown"),
+        outcome=normalized_outcome,
+        category=normalize_failure_category(category),
+    ).inc()
+    if duration_seconds is not None:
+        MODEL_PROVIDER_ATTEMPT_DURATION_SECONDS.labels(
+            provider=normalize_model_identity(provider),
+            route=normalize_metric_label(route, fallback="unknown"),
+            outcome=normalized_outcome,
+        ).observe(max(0.0, duration_seconds))
+
+
+def set_model_circuit_state(*, provider: str, state: str) -> None:
+    """Set a one-hot observed state for a configured model provider circuit."""
+    normalized_provider = normalize_model_identity(provider)
+    normalized_state = state.lower()
+    if normalized_state not in {"closed", "open", "half_open"}:
+        normalized_state = "unknown"
+    for candidate_state in ("closed", "open", "half_open", "unknown"):
+        MODEL_CIRCUIT_STATE.labels(
+            provider=normalized_provider,
+            state=candidate_state,
+        ).set(1 if candidate_state == normalized_state else 0)
+
+
+def record_model_circuit_rejection(*, provider: str) -> None:
+    """Record one policy rejection caused by a provider circuit."""
+    MODEL_CIRCUIT_REJECTIONS_TOTAL.labels(provider=normalize_model_identity(provider)).inc()
+
+
+def set_dependency_health(*, component: str, healthy: bool) -> None:
+    """Set the last observed health state for a bounded application dependency."""
+    normalized = component.lower()
+    if normalized not in _DEPENDENCY_COMPONENTS:
+        normalized = "unknown"
+    DEPENDENCY_HEALTH.labels(component=normalized).set(1 if healthy else 0)
+
+
+def record_dependency_check_duration(*, component: str, duration_seconds: float) -> None:
+    """Observe one dependency health check duration."""
+    normalized = component.lower()
+    if normalized not in _DEPENDENCY_COMPONENTS:
+        normalized = "unknown"
+    DEPENDENCY_CHECK_DURATION_SECONDS.labels(component=normalized).observe(
+        max(0.0, duration_seconds)
+    )
+
+
+def normalize_database_engine(engine: object) -> str:
+    """Return a bounded SQLAlchemy engine-role label."""
+    candidate = engine.strip().lower() if isinstance(engine, str) else ""
+    return candidate if candidate in _DB_ENGINES else "unknown"
+
+
+def normalize_database_operation(operation: object) -> str:
+    """Return a bounded SQL operation label without retaining query text."""
+    candidate = operation.strip().upper() if isinstance(operation, str) else ""
+    return candidate if candidate in _DB_OPERATIONS else "OTHER"
+
+
+def record_database_query_duration(*, engine: str, operation: str, duration_seconds: float) -> None:
+    """Observe aggregate database statement duration."""
+    DB_QUERY_DURATION_SECONDS.labels(
+        engine=normalize_database_engine(engine),
+        operation=normalize_database_operation(operation),
+    ).observe(max(0.0, duration_seconds))
+
+
+def adjust_database_connections_in_use(*, engine: str, delta: int) -> None:
+    """Adjust checked-out database connection count for one bounded engine role."""
+    DB_CONNECTIONS_IN_USE.labels(engine=normalize_database_engine(engine)).inc(delta)
+
+
+def record_database_connection_error(*, engine: str, category: str) -> None:
+    """Record a database error without statement text, parameters, or exception messages."""
+    normalized_category = category.strip().lower() if isinstance(category, str) else ""
+    DB_CONNECTION_ERRORS_TOTAL.labels(
+        engine=normalize_database_engine(engine),
+        category=(
+            normalized_category if normalized_category in _DB_ERROR_CATEGORIES else "unknown"
+        ),
+    ).inc()
+
+
+def record_http_request(
+    *, route: object | None, method: object, status_code: int, duration_seconds: float
+) -> None:
+    """Record one application HTTP request using only normalized route metadata."""
+    normalized_route = normalize_route_label(route)
+    normalized_method = normalize_http_method(method)
+    status_class = http_status_class(status_code)
+    HTTP_REQUESTS_TOTAL.labels(
+        route=normalized_route,
+        method=normalized_method,
+        status_class=status_class,
+    ).inc()
+    HTTP_REQUEST_DURATION_SECONDS.labels(
+        route=normalized_route,
+        method=normalized_method,
+        status_class=status_class,
+    ).observe(max(0.0, duration_seconds))
+    if status_code >= 400:
+        error_category = "server_error" if status_code >= 500 else "client_error"
+        HTTP_ERRORS_TOTAL.labels(
+            route=normalized_route,
+            method=normalized_method,
+            error_category=error_category,
+        ).inc()
 
 
 def record_checkpoint_cleanup(count: int) -> None:

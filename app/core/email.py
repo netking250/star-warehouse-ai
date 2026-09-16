@@ -26,7 +26,7 @@ async def send_email(to_emails: list[str], subject: str, body: str) -> dict:
                 server.starttls()
             server.login(settings.SMTP_USER, settings.SMTP_PASSWORD.get_secret_value())
             server.sendmail(msg["From"], to_emails, msg.as_string())
-        logger.info("邮件已发送至 %s", to_emails)
+        logger.info("邮件已发送", extra={"event": "email_sent", "recipient_count": len(to_emails)})
         return {"sent": True, "recipients": to_emails}
     except (smtplib.SMTPException, OSError, ConnectionError, Exception):
         logger.exception("邮件发送失败")

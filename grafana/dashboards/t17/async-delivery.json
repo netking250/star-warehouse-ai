@@ -1,0 +1,86 @@
+{
+  "id": null,
+  "uid": "t17-async-delivery",
+  "title": "Async / Outbox / Worker",
+  "tags": ["star-warehouse-ai", "t17", "async", "outbox"],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {"from": "now-6h", "to": "now"},
+  "panels": [
+    {
+      "id": 1,
+      "title": "Task lifecycle throughput",
+      "type": "timeseries",
+      "description": "Accepted, started, completed, failed, retried, rejected, and cancelled task events.",
+      "datasource": {"type": "prometheus", "uid": "mimir"},
+      "targets": [{"refId": "A", "expr": "sum by (outcome) (rate(celery_task_events_total[5m]))", "legendFormat": "{{outcome}}"}],
+      "fieldConfig": {"defaults": {"unit": "ops", "decimals": 2}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+    },
+    {
+      "id": 2,
+      "title": "Task failure ratio",
+      "type": "stat",
+      "description": "Failed task events divided by completed and failed task events.",
+      "datasource": {"type": "prometheus", "uid": "mimir"},
+      "targets": [{"refId": "A", "expr": "sum(rate(celery_task_events_total{outcome=\"failed\"}[5m])) / clamp_min(sum(rate(celery_task_events_total{outcome=~\"succeeded|failed\"}[5m])), 0.001)", "legendFormat": "failed"}],
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1, "decimals": 3, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.05}, {"color": "red", "value": 0.2}]}}, "overrides": []},
+      "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0}
+    },
+    {
+      "id": 3,
+      "title": "Tasks in flight",
+      "type": "timeseries",
+      "description": "Started tasks that have not reached their post-run signal in this process.",
+      "datasource": {"type": "prometheus", "uid": "mimir"},
+      "targets": [{"refId": "A", "expr": "sum by (task_type) (celery_tasks_in_flight)", "legendFormat": "{{task_type}}"}],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0}, "overrides": []},
+      "gridPos": {"h": 8, "w": 6, "x": 18, "y": 0}
+    },
+    {
+      "id": 4,
+      "title": "Outbox pending events",
+      "type": "stat",
+      "description": "Pending or expired-claim events observed by the relay.",
+      "datasource": {"type": "prometheus", "uid": "mimir"},
+      "targets": [{"refId": "A", "expr": "outbox_events_pending", "legendFormat": "pending"}],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 25}, {"color": "red", "value": 100}]}}, "overrides": []},
+      "gridPos": {"h": 8, "w": 6, "x": 0, "y": 8}
+    },
+    {
+      "id": 5,
+      "title": "Oldest outbox event age",
+      "type": "timeseries",
+      "description": "Age of the oldest eligible event; a rising line indicates delivery is not draining.",
+      "datasource": {"type": "prometheus", "uid": "mimir"},
+      "targets": [{"refId": "A", "expr": "outbox_event_oldest_age_seconds", "legendFormat": "oldest event"}],
+      "fieldConfig": {"defaults": {"unit": "s", "decimals": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 120}, {"color": "red", "value": 300}]}}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 6, "y": 8}
+    },
+    {
+      "id": 6,
+      "title": "Outbox delivery attempts and failures",
+      "type": "timeseries",
+      "description": "Publication attempts are distinct from successful publication outcomes.",
+      "datasource": {"type": "prometheus", "uid": "mimir"},
+      "targets": [
+        {"refId": "A", "expr": "rate(outbox_delivery_attempts_total[5m])", "legendFormat": "attempts"},
+        {"refId": "B", "expr": "rate(outbox_publish_failure_total[5m])", "legendFormat": "publish failures"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "ops", "decimals": 2}, "overrides": []},
+      "gridPos": {"h": 8, "w": 6, "x": 18, "y": 8}
+    },
+    {
+      "id": 7,
+      "title": "Task duration p95",
+      "type": "timeseries",
+      "description": "95th percentile task duration by bounded task type and terminal outcome.",
+      "datasource": {"type": "prometheus", "uid": "mimir"},
+      "targets": [{"refId": "A", "expr": "histogram_quantile(0.95, sum by (le, outcome) (rate(celery_task_duration_seconds_bucket[5m])))", "legendFormat": "{{outcome}}"}],
+      "fieldConfig": {"defaults": {"unit": "s", "decimals": 2}, "overrides": []},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16}
+    }
+  ]
+}

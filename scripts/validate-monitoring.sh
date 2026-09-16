@@ -45,7 +45,7 @@ info() {
 info "Validating Prometheus alert rules"
 
 if command -v promtool >/dev/null 2>&1; then
-    for f in prometheus/*.yml; do
+    for f in prometheus/recording_rules.yml prometheus/alert_rules.yml; do
         TOTAL=$((TOTAL + 1))
         if promtool check rules "$f" >/dev/null 2>&1; then
             pass "$(basename "$f")"
@@ -82,7 +82,7 @@ fi
 info "Validating Grafana dashboards"
 
 if command -v jq >/dev/null 2>&1; then
-    for f in grafana/dashboards/*.json; do
+    for f in grafana/dashboards/*.json grafana/dashboards/t17/*.json; do
         TOTAL=$((TOTAL + 1))
         BASENAME=$(basename "$f")
 
@@ -117,7 +117,7 @@ if command -v jq >/dev/null 2>&1; then
 
     # Check UIDs are unique
     TOTAL=$((TOTAL + 1))
-    UIDS=$(jq -r '.uid' grafana/dashboards/*.json | sort)
+    UIDS=$(jq -r '.uid' grafana/dashboards/*.json grafana/dashboards/t17/*.json | sort)
     DUPLICATES=$(echo "$UIDS" | uniq -d)
     if [ -n "$DUPLICATES" ]; then
         fail "Duplicate dashboard UIDs found: $DUPLICATES"
@@ -130,7 +130,31 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 4. Validate Grafana datasource YAML files
+# 4. Validate Compose and Collector configuration when container tooling exists
+# ---------------------------------------------------------------------------
+
+info "Validating Compose and OpenTelemetry Collector configuration"
+
+if command -v docker >/dev/null 2>&1; then
+    TOTAL=$((TOTAL + 1))
+    if docker compose -f docker-compose.monitoring.yml config -q >/dev/null 2>&1; then
+        pass "docker-compose.monitoring.yml"
+    else
+        fail "docker-compose.monitoring.yml - docker compose config failed"
+    fi
+
+    TOTAL=$((TOTAL + 1))
+    if docker run --rm -v "${PROJECT_ROOT}:/work:ro" otel/opentelemetry-collector-contrib:0.120.0 validate --config=/work/otel/otel-collector-config.yml >/dev/null 2>&1; then
+        pass "otel-collector-config.yml"
+    else
+        fail "otel-collector-config.yml - collector validation failed"
+    fi
+else
+    echo "  Docker not found, skipping Compose and Collector validation"
+fi
+
+# ---------------------------------------------------------------------------
+# 5. Validate Grafana datasource YAML files
 # ---------------------------------------------------------------------------
 
 info "Validating Grafana datasources"
@@ -160,7 +184,7 @@ if command -v python3 >/dev/null 2>&1; then
 
     # Check datasource names are unique
     TOTAL=$((TOTAL + 1))
-    python3 << 'PYEOF'
+    if python3 << 'PYEOF'
 import yaml, glob, sys
 
 names = []
@@ -181,7 +205,7 @@ if duplicates:
     print(f"Duplicate datasource names: {', '.join(sorted(duplicates))}")
     sys.exit(1)
 PYEOF
-    if [ $? -eq 0 ]; then
+    then
         pass "All datasource names are unique"
     else
         fail "Duplicate datasource names found"
@@ -191,7 +215,7 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 5. Validate alertmanager configuration
+# 6. Validate alertmanager configuration
 # ---------------------------------------------------------------------------
 
 info "Validating Alertmanager configuration"

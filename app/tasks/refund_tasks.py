@@ -36,7 +36,10 @@ def _process_refund_payment_body(
     if not refund:
         raise PermanentTaskError("REFUND_NOT_FOUND", f"Refund application {refund_id} not found")
 
-    logger.info(f"💰 [Payment] 退款 ¥{amount} 到 {payment_method}")
+    logger.info(
+        "Refund payment processed",
+        extra={"event": "refund_payment_processed", "refund_id": refund_id},
+    )
 
     refund.status = RefundStatus.COMPLETED
     refund.updated_at = utc_now()
@@ -65,7 +68,7 @@ def _send_refund_sms_body(refund_id: int, session: Session) -> dict[str, Any]:
         )
 
     # The delivery adapter receives the phone in memory; logs and task results do not.
-    logger.info("Sending refund SMS for refund_id=%s", refund_id)
+    logger.info("Sending refund SMS", extra={"event": "refund_sms_sending"})
     return {
         "status": "success",
         "refund_id": refund_id,
@@ -80,10 +83,10 @@ def _notify_admin_audit_body(audit_log_id: int, session: Session) -> dict[str, A
     if not audit_log:
         raise PermanentTaskError("AUDIT_NOT_FOUND", f"Audit log {audit_log_id} not found")
 
-    logger.info("  [Notify] 通知管理员审核任务:")
-    logger.info(f"  - 风险等级: {audit_log.risk_level}")
-    logger.info(f"  - 触发原因: {audit_log.trigger_reason}")
-    logger.info(f"  - 用户ID: {audit_log.user_id}")
+    logger.info(
+        "Admin review notification queued",
+        extra={"event": "admin_review_notification_queued"},
+    )
 
     message = MessageCard(
         thread_id=audit_log.thread_id,

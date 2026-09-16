@@ -20,7 +20,10 @@ Observability layer providing OpenTelemetry tracing, execution logging, and late
 
 | Role | File | Notes |
 |------|------|-------|
-| Prometheus metrics | `@app/observability/metrics.py` | Custom counters, histograms, gauges for chat latency, token usage, intent accuracy, hallucination rate, and 11 new dashboard metrics |
+| Prometheus metrics | `@app/observability/metrics.py` | Legacy product signals plus T17 HTTP, Celery, async-job, outbox, conversation, model-policy, circuit, dependency, and database signals |
+| HTTP instrumentation | `@app/observability/http.py` | Normalized route RED metrics; excludes telemetry, health, and static asset probes |
+| Celery instrumentation | `@app/observability/celery.py` | Safe JSON logging plus accepted/started/terminal task lifecycle signals without task payload inspection |
+| Database instrumentation | `@app/observability/database.py` | SQLAlchemy statement-verb latency, pool-in-use, and error metrics without SQL or bind-value logging |
 | Prometheus client | `@app/observability/prometheus_client.py` | Async Prometheus HTTP API client for querying metrics from dashboards |
 | Execution logger | `@app/observability/execution_logger.py` | Graph execution logging with structured events |
 | Latency tracker | `@app/observability/latency_tracker.py` | Per-node latency measurement and reporting |
@@ -41,6 +44,14 @@ General Python rules are defined in the root `AGENTS.md`. Observability-specific
 - **Type hints**: All logging and tracing functions must be fully typed.
 - **Structured logging**: Use structured JSON logs with correlation IDs for traceability.
 - **Async-safe**: All observability hooks must be async-safe and non-blocking.
+- **Cardinality**: New Prometheus labels must be bounded categories or normalized route templates;
+  never use tenant, user, request, conversation, run, task ID, prompt, exception-message, or raw
+  URL identities as labels. Task labels must come from the registered finite task set or a bounded
+  subsystem fallback.
+- **Privacy**: Keep credentials and request/response bodies out of logs and spans. Use safe error
+  categories/types for diagnostics and leave audit evidence in the T11 audit stores.
+- **Failure isolation**: Metrics and exporters are diagnostic. Recording or exporting telemetry
+  must not change request, task, outbox, or conversation semantics.
 
 ## Testing Patterns
 

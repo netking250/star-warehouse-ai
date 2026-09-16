@@ -22,7 +22,7 @@ distributor:
 
 # Store-gateway configuration
 store_gateway:
-  ring:
+  sharding_ring:
     kvstore:
       store: inmemory
 
@@ -30,7 +30,7 @@ store_gateway:
 compactor:
   compaction_interval: 1h
   data_dir: /data/mimir-compactor
-  ring:
+  sharding_ring:
     kvstore:
       store: inmemory
 
@@ -43,8 +43,6 @@ blocks_storage:
     dir: /data/mimir/tsdb
   bucket_store:
     sync_dir: /data/mimir/tsdb-sync
-  # 90-day retention for metrics blocks
-  retention_period: 90d
 
 # Ruler storage
 ruler_storage:

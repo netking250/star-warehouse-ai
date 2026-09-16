@@ -23,9 +23,6 @@ ingester:
         store: inmemory
       replication_factor: 1
     final_sleep: 0s
-  wal:
-    path: /tmp/tempo/wal
-    encoding: snappy
 
 compactor:
   compaction:
@@ -44,5 +41,7 @@ overrides:
   defaults:
     ingestion:
       max_traces_per_user: 100000
-      max_bytes_per_trace: 5000000
+    read:
       max_bytes_per_tag_values_query: 5000000
+    global:
+      max_bytes_per_trace: 5000000
