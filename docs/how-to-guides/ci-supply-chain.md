@@ -89,6 +89,20 @@ short-lived artifacts with 14-day retention. Reports are machine-readable and at
 workflow run. `.env`, provider credentials, database dumps, raw tenant data, and local runtime
 state are not uploaded.
 
+## Trusted image publication boundary
+
+T19 extends the trusted boundary without changing pull-request permissions. Only a push to
+`main` or a `v*` tag preserves the exact image archive that passed the image scan. A separate job
+with narrowly scoped `packages: write`, `id-token: write`, and `attestations: write` loads that
+archive, authenticates to GHCR with the ephemeral workflow token, and publishes
+`ghcr.io/netking250/star-warehouse-ai:sha-<commit>`. A version-tag run also publishes that version
+tag. The workflow never publishes `latest` and never accepts personal registry credentials.
+
+The job records `repository@sha256:digest`, attests that container digest, and exports the immutable
+reference as a short-retention artifact for Helm. k3s/EKS consume the digest; they never rebuild the
+source. Hosted publication and attestation execution are intentionally left for the trusted T21
+main/version-tag proof.
+
 ## Local reproduction
 
 Run the same deterministic checks from a clean checkout:
@@ -112,6 +126,6 @@ or changed by T18.
 The integration branch intentionally has no intermediate PR. Before the final T21 PR, verify in
 GitHub that the five existing checks plus the T18 security checks are green for an actual untrusted
 PR, that no PR job receives a secret or trusted write permission, that the Dependency Review and
-CodeQL platform features are available, and that a trusted `main`/version-tag run records the
-native SBOM attestation. Branch protection itself is not changed by T18; the final required-check
-set must be reviewed against the actual check names at T21.
+CodeQL platform features are available, and that a trusted `main`/version-tag run records both the
+native SBOM attestation and published-container digest attestation. Branch protection itself is not
+changed by T18; the final required-check set must be reviewed against the actual check names at T21.

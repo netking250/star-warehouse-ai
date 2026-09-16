@@ -209,6 +209,8 @@ introduction.
 - [Architecture explanations](docs/explanation/architecture/README.md)
 - [Local development guide](docs/tutorials/local-development.md)
 - [Deployment guide](docs/how-to-guides/deploy.md)
+- [k3s public-demo guide](docs/how-to-guides/k3s-deployment.md)
+- [Deployment architecture and AWS reference](docs/explanation/architecture/deployment.md)
 - [Environment reference](docs/reference/environment-variables.md)
 - [Operations runbooks](docs/runbooks/README.md)
 - [CI/CD and software supply chain](docs/how-to-guides/ci-supply-chain.md)

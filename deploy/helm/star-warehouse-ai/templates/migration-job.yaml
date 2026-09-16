@@ -1,0 +1,104 @@
+{{- if .Values.migration.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ printf "%s-migration-%d" (include "star-warehouse-ai.fullname" .) .Release.Revision | trunc 63 | trimSuffix "-" }}
+  labels:
+    {{- include "star-warehouse-ai.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migration
+spec:
+  activeDeadlineSeconds: {{ .Values.migration.activeDeadlineSeconds }}
+  backoffLimit: {{ .Values.migration.backoffLimit }}
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        {{- include "star-warehouse-ai.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: migration
+      annotations:
+        {{- include "star-warehouse-ai.podAnnotations" . | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "star-warehouse-ai.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- include "star-warehouse-ai.imagePullSecrets" . | nindent 6 }}
+      containers:
+        - name: migration
+          image: {{ include "star-warehouse-ai.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              alembic upgrade head
+              {{- if .Values.migration.runRoleProvisioning }}
+              python -m app.core.database_roles
+              {{- end }}
+              python - <<'PY'
+              import asyncio
+
+              from sqlalchemy import text
+              from sqlalchemy.ext.asyncio import create_async_engine
+
+              from app.core.config import settings
+
+
+              async def grant_migration_status_read() -> None:
+                  roles = (settings.POSTGRES_RUNTIME_USER, settings.POSTGRES_MAINTENANCE_USER)
+                  if any(role is None for role in roles):
+                      raise ValueError("Runtime and maintenance database users are required")
+                  engine = create_async_engine(settings.MIGRATION_DATABASE_URL)
+                  try:
+                      async with engine.begin() as connection:
+                          for role in roles:
+                              statement = await connection.scalar(
+                                  text(
+                                      "SELECT format("
+                                      "'GRANT SELECT ON TABLE alembic_version TO %I', "
+                                      "CAST(:role AS text))"
+                                  ),
+                                  {"role": role},
+                              )
+                              if not isinstance(statement, str):
+                                  raise RuntimeError("PostgreSQL did not produce migration grant DDL")
+                              await connection.exec_driver_sql(statement)
+                  finally:
+                      await engine.dispose()
+
+
+              asyncio.run(grant_migration_status_read())
+              PY
+          {{- include "star-warehouse-ai.runtimeEnvFrom" . | nindent 10 }}
+          env:
+            {{- include "star-warehouse-ai.runtimeEnv" . | nindent 12 }}
+            - name: POSTGRES_USER
+              value: {{ .Values.config.POSTGRES_USER | quote }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretRef.name }}
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_RUNTIME_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretRef.name }}
+                  key: POSTGRES_RUNTIME_PASSWORD
+            - name: POSTGRES_MAINTENANCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretRef.name }}
+                  key: POSTGRES_MAINTENANCE_PASSWORD
+            - name: DB_CAPABILITY
+              value: maintenance
+            - name: OTEL_SERVICE_NAME
+              value: star-warehouse-ai-migration
+          resources:
+            {{- toYaml .Values.migration.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          volumeMounts:
+            {{- include "star-warehouse-ai.volumeMounts" . | nindent 12 }}
+      volumes:
+        {{- include "star-warehouse-ai.volumes" . | nindent 8 }}
+{{- end }}

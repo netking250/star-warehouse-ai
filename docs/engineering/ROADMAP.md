@@ -33,8 +33,8 @@ Codex may set a completed implementation to `AWAITING_ACCEPTANCE` only. `PASS` a
 | T15 | Frontend Transport | PASS |
 | T16 | Enterprise Console | PASS |
 | T17 | Observability | PASS |
-| T18 | CI/CD + Supply Chain | AWAITING_ACCEPTANCE |
-| T19 | Helm + k3s + AWS Reference | NOT_STARTED |
+| T18 | CI/CD + Supply Chain | PASS_WITH_NOTES |
+| T19 | Helm + k3s + AWS Reference | IN_PROGRESS |
 | T20 | Performance + Failure + DR | NOT_STARTED |
 | T21 | Eval + Portfolio + Interview | NOT_STARTED |
 
@@ -159,6 +159,38 @@ instruction. T17 is the active implementation stage.
 `T-INIT → T00 → T01 → T02 → T03 → T04 → T05 → T06 → T07 → T08 → T09 → T10 → T11 → T12 → T13 → T14 → T15 → T16 → T17 → T18 → T19 → T20 → T21`
 
 The sequence is the default gate order. A user may issue a documented change request, but any dependency exception must be recorded in `PROJECT_STATE.md` and the active plan before implementation.
+
+## T19 Implementation Start
+
+- Status: `IN_PROGRESS`.
+- Execution stage: `IMPLEMENT`.
+- Branch: `feat/t14-t21-enterprise-hardening`.
+- T18 is externally accepted `PASS_WITH_NOTES` by the explicit T19 instruction. T20 and T21 remain
+  `NOT_STARTED`.
+- Frozen scope is ADR-015/ADR-016 plus the explicit T19 instruction: one understandable Helm chart,
+  a low-cost k3s demo profile, an AWS EKS production reference, immutable trusted-image
+  consumption, secret references, one release migration owner, TLS ingress, truthful probes and
+  security defaults, and reproducible deployment validation.
+- No application business-code change, migration, live AWS provisioning, production image
+  publication, T20 performance/DR work, or T21 hosted-gate work is in scope. Hosted registry proof
+  and real-VM k3s proof may be explicitly deferred when the local environment cannot provide them.
+- The active plan is [`docs/exec-plans/active/T19.md`](../exec-plans/active/T19.md).
+
+## T19 Implementation Closeout
+
+- Status remains `IN_PROGRESS`; execution stage is `VERIFY_PENDING`. External verification and
+  acceptance are still required.
+- One canonical chart now models the existing modular-monolith process boundaries, a
+  revision-scoped single migration owner, immutable digest-first images, Secret references, TLS
+  ingress, non-root pods, baseline resources/probes, the low-cost k3s demo dependencies, and the
+  production/AWS reference profile without creating AWS infrastructure.
+- Disposable k3s `v1.35.5+k3s1` via k3d passed install, upgrade, rollback, migration idempotency,
+  HTTPS health, workload readiness, and an explicit missing-Secret failure with atomic recovery.
+  Helm lint/template, schema use, strict Kubernetes validation, script/workflow static checks,
+  rendered security scan, the accepted Alembic head, and route inventory passed.
+- Hosted registry/attestation evidence remains deferred to T21. A real public VM/DNS/CA run remains
+  environment-specific VERIFY evidence. T20 performance, resilience, backup/restore, DR, and
+  capacity work remains `NOT_STARTED`.
 
 ## T16 Implementation Start
 

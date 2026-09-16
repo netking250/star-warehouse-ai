@@ -1,0 +1,230 @@
+# Default values describe a secure, externally backed deployment that is safe to render.
+# Use values-demo.yaml for k3s and values-production.yaml for the AWS reference.
+productionMode: false
+
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  repository: ghcr.io/netking250/star-warehouse-ai
+  tag: "5.0.0"
+  digest: ""
+  pullPolicy: IfNotPresent
+  allowMutableTag: false
+  pullSecrets: []
+  buildRevision: ""
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+  automountServiceAccountToken: false
+
+secretRef:
+  name: star-warehouse-ai-runtime
+
+config:
+  API_V1_STR: /api/v1
+  PROJECT_NAME: Star Warehouse AI
+  SERVICE_NAME: star-warehouse-ai
+  ENVIRONMENT: production
+  LOCAL_BOOTSTRAP_TENANT_ID: ""
+  POSTGRES_SERVER: postgres.example.internal
+  POSTGRES_PORT: "5432"
+  POSTGRES_USER: postgres
+  POSTGRES_RUNTIME_USER: star_warehouse_app
+  POSTGRES_MAINTENANCE_USER: star_warehouse_ops
+  POSTGRES_DB: star_warehouse_ai
+  REDIS_HOST: redis.example.internal
+  REDIS_PORT: "6379"
+  REDIS_DB: "0"
+  QDRANT_URL: http://qdrant.example.internal:6333
+  QDRANT_COLLECTION_NAME: knowledge_chunks
+  OPENAI_BASE_URL: https://api.openai.com/v1
+  MODEL_OPENAI_BASE_URL: https://api.openai.com/v1
+  MODEL_DASHSCOPE_BASE_URL: https://dashscope.aliyuncs.com/compatible-api/v1
+  RERANK_BASE_URL: https://dashscope.aliyuncs.com/compatible-api/v1
+  ALGORITHM: HS256
+  ACCESS_TOKEN_EXPIRE_MINUTES: "30"
+  JWT_ISSUER: star-warehouse-ai
+  JWT_AUDIENCE: star-warehouse-api
+  BROWSER_AUTH_COOKIE_NAME: star_warehouse_session
+  BROWSER_AUTH_COOKIE_SECURE: "true"
+  BROWSER_AUTH_COOKIE_SAMESITE: lax
+  BROWSER_POST_LOGIN_REDIRECT_PATH: /app
+  OIDC_ENABLED: "false"
+  OIDC_ISSUER: ""
+  OIDC_CLIENT_ID: ""
+  OIDC_REDIRECT_URI: https://app.example.com/api/v1/oidc/callback
+  OIDC_ALLOW_INSECURE_HTTP: "false"
+  CORS_ORIGINS: '["https://app.example.com"]'
+  ENABLE_OPENAPI_DOCS: "false"
+  BUSINESS_ADAPTER_MODE: local
+  BUSINESS_API_ALLOW_INSECURE_HTTP: "false"
+  SERVICE_HEALTH_URL: http://star-warehouse-ai:8000/health
+  KNOWLEDGE_UPLOAD_DIR: /app/uploads/knowledge
+  LOG_FORMAT: json
+  OTEL_EXPORTER_OTLP_ENDPOINT: ""
+  PROMETHEUS_ENABLED: "true"
+  LANGCHAIN_TRACING_V2: "false"
+  RUN_REAL_LLM_TESTS: "false"
+
+api:
+  replicas: 1
+  terminationGracePeriodSeconds: 45
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+  podAnnotations: {}
+
+worker:
+  replicas: 1
+  concurrency: 2
+  queues: critical,default
+  terminationGracePeriodSeconds: 300
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+
+maintenanceWorker:
+  enabled: true
+  replicas: 1
+  concurrency: 1
+  terminationGracePeriodSeconds: 300
+  resources:
+    requests:
+      cpu: 100m
+      memory: 384Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+scheduler:
+  enabled: true
+  replicas: 1
+  terminationGracePeriodSeconds: 30
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+outboxRelay:
+  enabled: true
+  replicas: 1
+  terminationGracePeriodSeconds: 30
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+migration:
+  enabled: true
+  activeDeadlineSeconds: 600
+  backoffLimit: 6
+  runRoleProvisioning: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+  annotations: {}
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  host: app.example.com
+  paths:
+    - path: /
+      pathType: Exact
+    - path: /health
+      pathType: Exact
+    - path: /api
+      pathType: Prefix
+    - path: /app
+      pathType: Prefix
+    - path: /admin
+      pathType: Prefix
+    - path: /customer
+      pathType: Prefix
+    - path: /shared
+      pathType: Prefix
+    - path: /assets
+      pathType: Prefix
+    - path: /favicon.svg
+      pathType: Exact
+    - path: /icons.svg
+      pathType: Exact
+    - path: /index.html
+      pathType: Exact
+    - path: /admin.html
+      pathType: Exact
+  tls:
+    enabled: true
+    secretName: star-warehouse-ai-tls
+
+pdb:
+  api:
+    enabled: false
+    minAvailable: 1
+
+networkPolicy:
+  enabled: false
+  ingressNamespaceSelector: {}
+  otel:
+    cidr: 10.0.0.0/8
+    port: 4317
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 999
+  runAsGroup: 999
+  fsGroup: 999
+  fsGroupChangePolicy: OnRootMismatch
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+demoInfrastructure:
+  enabled: false
+  secretRefName: ""
+  storageClassName: ""
+  postgres:
+    image: postgres:16
+    storage: 5Gi
+  redis:
+    image: redis/redis-stack-server:7.4.0-v8
+    storage: 2Gi
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    storage: 2Gi
+  qdrant:
+    image: qdrant/qdrant:v1.16.3
+    storage: 5Gi

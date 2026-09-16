@@ -121,6 +121,8 @@ For any other area, this root file applies.
 - `migrations/`: Alembic database migrations.
 - `data/`: Static seed data (policies, products).
 - `@docs/`: Project documentation.
+- `deploy/helm/star-warehouse-ai/`: Canonical application Helm chart with k3s demo and qualified
+  production-reference values. It consumes a prebuilt image and never builds source on the host.
 
 ## Quick Commands
 
@@ -130,6 +132,12 @@ For any other area, this root file applies.
 # Full Docker startup (recommended for WSL; migrates PostgreSQL, initializes tenant vector
 # data when missing, and recreates application containers to refresh bind mounts)
 ./start_docker.sh
+
+# Validate the canonical Helm chart (requires Helm and kubectl)
+./scripts/validate-helm.sh
+
+# Deploy a trusted digest to an existing operator-managed k3s cluster
+PUBLIC_HOST=app.example.com IMAGE_DIGEST=sha256:<digest> ./scripts/deploy-k3s.sh
 
 # Manual backend
 uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
@@ -219,6 +227,9 @@ pre-commit run --all-files
 - Supply-chain reports use the canonical T18 workflow and are short-retention, machine-readable
   artifacts. Never upload `.env`, credentials, database dumps, tenant data, or raw sensitive test
   data. Do not weaken a scanner gate with `|| true`, broad allowlists, or unreviewed suppressions.
+- Trusted `main`/version-tag runs may publish the exact scanned image to GHCR by immutable commit
+  tag and digest. Pull requests never publish; production Helm releases require the digest and must
+  never use `latest`.
 - The reproducible local supply-chain checks and release-boundary policy are documented in
   [`docs/how-to-guides/ci-supply-chain.md`](docs/how-to-guides/ci-supply-chain.md).
 

@@ -1,0 +1,66 @@
+{{- if .Values.scheduler.enabled }}
+{{- if ne (int .Values.scheduler.replicas) 1 }}
+{{- fail "scheduler.replicas must be exactly 1; Celery Beat has no leader election" }}
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "star-warehouse-ai.fullname" . }}-scheduler
+  labels:
+    {{- include "star-warehouse-ai.labels" . | nindent 4 }}
+    app.kubernetes.io/component: scheduler
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "star-warehouse-ai.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: scheduler
+  template:
+    metadata:
+      labels:
+        {{- include "star-warehouse-ai.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: scheduler
+      annotations:
+        {{- include "star-warehouse-ai.podAnnotations" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "star-warehouse-ai.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: {{ .Values.scheduler.terminationGracePeriodSeconds }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- include "star-warehouse-ai.imagePullSecrets" . | nindent 6 }}
+      {{- if .Values.migration.enabled }}
+      initContainers:
+        {{- include "star-warehouse-ai.migrationInitContainer" (dict "root" . "capability" "runtime") | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: scheduler
+          image: {{ include "star-warehouse-ai.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["celery"]
+          args: ["-A", "app.celery_app", "beat", "--loglevel=info", "--schedule=/tmp/celerybeat-schedule"]
+          {{- include "star-warehouse-ai.runtimeEnvFrom" . | nindent 10 }}
+          env:
+            {{- include "star-warehouse-ai.runtimeEnv" . | nindent 12 }}
+            {{- include "star-warehouse-ai.databaseEnv" (dict "root" . "capability" "runtime") | nindent 12 }}
+            - name: DB_CAPABILITY
+              value: runtime
+            - name: OTEL_SERVICE_NAME
+              value: star-warehouse-ai-scheduler
+          livenessProbe:
+            exec:
+              command: ["/bin/sh", "-ec", "kill -0 1"]
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 6
+          resources:
+            {{- toYaml .Values.scheduler.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          volumeMounts:
+            {{- include "star-warehouse-ai.volumeMounts" . | nindent 12 }}
+      volumes:
+        {{- include "star-warehouse-ai.volumes" . | nindent 8 }}
+{{- end }}

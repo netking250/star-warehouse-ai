@@ -2,11 +2,11 @@
 schema_version: 1
 project: Star Warehouse AI
 phase: ENTERPRISE_HARDENING
-current_task: T18
-current_status: AWAITING_ACCEPTANCE
-execution_stage: EXTERNAL_ACCEPTANCE_PENDING
-last_accepted_task: T17
-next_task: T19
+current_task: T19
+current_status: IN_PROGRESS
+execution_stage: VERIFY_PENDING
+last_accepted_task: T18
+next_task: T20
 acceptance_owner: external
 maintenance_task: M02
 maintenance_status: PASS
@@ -14,11 +14,55 @@ maintenance_status: PASS
 
 # Current Objective
 
+T18 CI/CD and Supply Chain is externally accepted `PASS_WITH_NOTES` by the explicit T19
+implementation instruction. T19 Production Deployment Baseline is now `IN_PROGRESS / VERIFY_PENDING`
+on `feat/t14-t21-enterprise-hardening`. Its frozen scope is one Helm chart for the existing API,
+worker, scheduler, and outbox-relay process boundaries; an immutable T18 image-consumption
+contract; a low-cost k3s demo profile; secure configuration, migration, ingress, and observability
+integration; and an AWS EKS reference architecture. T20 performance, failure, backup/restore, DR,
+and capacity work and T21 final hosted proof remain out of scope.
+
+## T19 Implementation Start
+
+- Recovery started from clean branch `feat/t14-t21-enterprise-hardening` at `8802702`; no existing
+  Helm, Kubernetes, Terraform, or competing application deployment system was found.
+- ADR-015 and ADR-016 match the explicit T19 instruction: Docker Compose remains local, k3s plus
+  Helm is the public-demo target, and AWS EKS with managed data/service boundaries is reference
+  architecture only. The active plan is
+  [`docs/exec-plans/active/T19.md`](../exec-plans/active/T19.md).
+- T18 is accepted `PASS_WITH_NOTES` by explicit user instruction. Hosted registry publication and
+  attestation proof remain deferred to T21; T19 configures the immutable GHCR consumption boundary
+  without publishing an image.
+- The implementation will not modify application business code or migrations. The accepted single
+  Alembic head remains `e9f0a1b2c3d4`.
+
+## T19 Implementation Closeout
+
+- T19 implementation is complete and remains `IN_PROGRESS`; execution advances to
+  `VERIFY_PENDING`. Codex does not mark T19 `PASS`.
+- Added one canonical Helm chart with default, low-cost k3s demo, and qualified production-reference
+  values; a values schema; explicit API, tenant worker, maintenance worker, singleton scheduler,
+  singleton outbox relay, and revision-scoped migration Job; TLS ingress; secret references;
+  non-root security; baseline resources/probes; and optional PVC-backed demo dependencies.
+- Trusted main/version-tag CI now publishes the exact scanned T18 image to GHCR by immutable commit
+  tag and digest and attests that subject. Pull requests remain read-only and never publish.
+- A disposable k3d cluster running k3s `v1.35.5+k3s1` passed install, migration, pod readiness,
+  HTTPS ingress health, service/endpoints, internal metrics/structured logging, benign upgrade,
+  application rollback without schema downgrade, and a missing-Secret failure with successful
+  atomic recovery. Strict kubeconform reported `38` valid resources and no errors.
+- Helm lint/template passed for default/demo/production-reference values. ShellCheck and actionlint
+  passed; rendered security/secret scans were clean; production missing-digest and default `latest`
+  negative cases failed as required. Alembic remains `e9f0a1b2c3d4`, and direct route inventory
+  reports `136` classified entries with `0` unclassified.
+- Hosted GHCR runtime/attestation proof remains T21 evidence. A real public VM/DNS/CA deployment and
+  live AWS resources were not created; AWS remains a documented reference. No T20 performance,
+  resilience, backup/restore, DR, or capacity work was performed.
+
 T13 Model Gateway is externally accepted `PASS`. T14 AI Failure Policy is externally accepted
 `PASS_WITH_NOTES` on the long-lived T14-T21 integration branch. T15 Frontend Transport, T16
 Enterprise Console, and T17 Production Observability Hardening are externally accepted `PASS` by
-the explicit T18 implementation instruction. T18 CI/CD and Supply Chain is now `AWAITING_ACCEPTANCE /
-EXTERNAL_ACCEPTANCE_PENDING` on that same branch. M02's protected-main consolidation is complete; the accepted
+the explicit T18 implementation instruction. T18 CI/CD and Supply Chain is externally accepted
+`PASS_WITH_NOTES` on that same branch. M02's protected-main consolidation is complete; the accepted
 baseline remains intact.
 
 The T14 implementation adds a bounded, provider-neutral policy seam for retries, ordered fallback,
@@ -36,15 +80,14 @@ The frozen product target is an **Enterprise Multi-tenant AI Customer Service Pl
 
 # Current Task
 
-- **Task:** T18 - Enterprise CI/CD and Software Supply Chain.
-- **Status:** `AWAITING_ACCEPTANCE`.
-- **Execution stage:** `EXTERNAL_ACCEPTANCE_PENDING`; the long-lived integration branch is
+- **Task:** T19 - Production Deployment Baseline.
+- **Status:** `IN_PROGRESS`.
+- **Execution stage:** `VERIFY_PENDING`; the long-lived integration branch is
   `feat/t14-t21-enterprise-hardening`.
-- **Scope:** Preserve the five accepted CI gate families while adding least-privilege workflow
-  controls, frozen dependency installation, secret/dependency/image scanning, CycloneDX SBOM
-  generation, safe artifact metadata, and a trusted-only provenance boundary. No T19 deployment,
-  T20 performance/DR work, branch-protection mutation, registry publication, image signing key, or
-  deferred OpenAI/Celery timing-debt repair is in scope.
+- **Scope:** Verify the canonical Helm/k3s deployment, immutable T18 image flow, secret boundary,
+  release migration ownership, TLS ingress/browser-security compatibility, probes/lifecycle,
+  observability configuration, and AWS reference architecture. T20 performance/DR and T21 final
+  hosted gates remain out of scope.
 
 ## T18 Implementation Start
 
