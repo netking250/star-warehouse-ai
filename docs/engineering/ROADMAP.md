@@ -33,7 +33,7 @@ Codex may set a completed implementation to `AWAITING_ACCEPTANCE` only. `PASS` a
 | T15 | Frontend Transport | PASS |
 | T16 | Enterprise Console | PASS |
 | T17 | Observability | PASS |
-| T18 | CI/CD + Supply Chain | IN_PROGRESS |
+| T18 | CI/CD + Supply Chain | AWAITING_ACCEPTANCE |
 | T19 | Helm + k3s + AWS Reference | NOT_STARTED |
 | T20 | Performance + Failure + DR | NOT_STARTED |
 | T21 | Eval + Portfolio + Interview | NOT_STARTED |
@@ -327,3 +327,27 @@ State transition:
 - The hosted protected-PR run and trusted main/tag attestation proof are intentionally deferred to
   T21/final PR. No branch protection, PR, merge, registry publication, image signing, T19, T20, or
   deferred OpenAI/Celery timing-debt work was performed.
+
+## T18 Verification Closeout
+
+- Status: `AWAITING_ACCEPTANCE`.
+- Execution stage: `EXTERNAL_ACCEPTANCE_PENDING`.
+- Local verification reconfirmed a clean, synchronized `feat/t14-t21-enterprise-hardening` at
+  implementation HEAD `940189b0d5db078d55c89147b27c2356a064bd89` before this documentation-only
+  closeout. All workflow defaults remain `contents: read`; untrusted PR code cannot access trusted
+  secrets, OIDC, attestation, package, release, or deployment writes. `pull_request_target` is
+  absent, and the only job-level writes are narrowly scoped CodeQL security events and trusted
+  main/tag attestation.
+- Actionlint passed. Python 3.12, Node 22, uv 0.6.5, npm 11.9.0, frozen uv/npm installs, clean
+  archive checks, lock mismatch failure fixtures, backend quality, frontend (`51` tests/build),
+  Docker build/smoke evidence, Gitleaks sentinel/current-checkout checks, SBOM parsing, image
+  metadata, and Trivy policy passed. Coverage remains `75%`; the full backend suite was not run.
+- Current findings are explicitly retained: npm `0` critical / `9` high, pip-audit `83` records
+  across `19` packages with no severity field, and Trivy `0` critical / `81` high / `37` high with
+  known fixes. The active T18 plan records grouped IDs, runtime/dev scope, fix information,
+  remediation recommendations, and dispositions. No broad lockfile update or suppression was
+  added; no critical npm/image finding is present locally.
+- Protected-PR execution and trusted hosted attestation are intentionally `NOT YET EXECUTED` and
+  remain the T21 final-PR/main-or-tag gates. Main protection is unchanged, human reviewers remain
+  `0`, and no PR, merge, registry publication, signing key, deployment, route, or migration work
+  was performed. T19 and T20 remain `NOT_STARTED`.

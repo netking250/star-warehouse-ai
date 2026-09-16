@@ -60,11 +60,14 @@ trusted execution:
   covered. The only allowlisted value is the exact non-secret `sk-test` provider placeholder used
   by CI fixtures.
 - `pip-audit` scans the exported uv lock graph (excluding only the local editable project itself)
-  and `npm audit` scans the frontend lockfile. The commands do not update either lockfile. Critical
-  findings block; existing non-critical findings remain visible as warnings and machine-readable
-  artifacts so they cannot be mistaken for a clean baseline. Registry/tool failures without a
-  valid report are scanner failures. The PR-only Dependency Review gate blocks new high/critical
-  dependency deltas.
+  and `npm audit` scans the frontend lockfile. The commands do not update either lockfile. npm
+  critical findings and image critical findings block. pip-audit 2.9.0's JSON output does not carry
+  severity, so its records are retained for advisory-specific review rather than being given a
+  fabricated severity; a clearly critical shipped-runtime advisory identified during review is a
+  release blocker. Existing high/non-critical findings remain visible as warnings and
+  machine-readable artifacts so they cannot be mistaken for a clean baseline. Registry/tool
+  failures without a valid report are scanner failures. The PR-only Dependency Review gate blocks
+  new high/critical dependency deltas.
 - The built application image is scanned by Trivy. Critical findings block. High findings, whether
   or not a fixed version is known, remain visible in the report as warnings while the existing
   lockfile/base-image baseline is remediated. No finding is silently suppressed. The runtime image
