@@ -59,9 +59,6 @@ async def lifespan(app: FastAPI):
     _setup_langsmith_tracing()
     logger.info("Starting %s v%s", PRODUCT_NAME_EN, APP_VERSION)
 
-    setup_otel_tracing(service_name=settings.OTEL_SERVICE_NAME or f"{settings.SERVICE_NAME}-api")
-    instrument_fastapi(app)
-
     if "*" in settings.CORS_ORIGINS:
         raise RuntimeError(
             "CORS allow_origins=['*'] combined with allow_credentials=True is not allowed. "
@@ -543,3 +540,5 @@ async def health_check():
 
 
 assert_routes_classified(app)
+setup_otel_tracing(service_name=settings.OTEL_SERVICE_NAME or f"{settings.SERVICE_NAME}-api")
+instrument_fastapi(app)

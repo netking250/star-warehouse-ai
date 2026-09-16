@@ -347,6 +347,14 @@ class TestConfigureLogging:
         filter_types = [type(f) for f in root.filters]
         assert CorrelationIdFilter in filter_types
 
+    def test_adds_correlation_id_filter_to_shared_handler(self):
+        """Propagated child records only execute filters attached to handlers."""
+        configure_logging(log_format="json")
+        root = logging.getLogger()
+        handler = root.handlers[-1]
+
+        assert any(isinstance(filter_, CorrelationIdFilter) for filter_ in handler.filters)
+
     def test_uvicorn_loggers_configured(self):
         configure_logging(log_format="json")
         for name in ("uvicorn", "uvicorn.access", "uvicorn.error"):

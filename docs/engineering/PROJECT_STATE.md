@@ -93,6 +93,29 @@ The frozen product target is an **Enterprise Multi-tenant AI Customer Service Pl
 - Primary classification: `TRACE_PROPAGATION_FAILURE`. No implementation change was made during
   VERIFY; T17 remains `IN_PROGRESS / VERIFY_PENDING` and is not ready for external acceptance.
 
+## T17 API Trace Fix
+
+- The focused fix started from synchronized head `a1a46cd7d7bc12d430def44dd3966b59dfbc198e`
+  and reproduced the API trace failure for five of five sampled HTTP requests while scheduler
+  traces continued to reach Tempo through the same Collector.
+- Root cause classification: `API_TELEMETRY_INITIALIZATION_ORDER`. FastAPI instrumentation was
+  installed from lifespan after Starlette had already built and cached its middleware stack, so
+  the request path never entered OpenTelemetry middleware. The existing provider/exporter and
+  Collector/Tempo path were not replaced.
+- The existing bootstrap now installs the SDK provider and instruments the completed FastAPI app
+  before its first ASGI call. The shared JSON handler also receives the existing correlation-ID
+  filter so propagated application records contain correlation, trace, and span IDs together.
+- Real-stack evidence passed: five of five requests returned the existing `X-Trace-ID` and were
+  queryable in Tempo as `star-warehouse-ai-api`; the normalized HTTP metric, Loki JSON event, and
+  Tempo trace correlated for one synthetic tenant-resolution failure. Scheduler traces remained
+  queryable. Synthetic password and username values had zero Loki matches.
+- Focused regressions passed `17`; changed-file Ruff, format, and ty checks passed. Route inventory
+  remained `136` classified entries with `0` unclassified routes, and Alembic remained at the
+  single head `e9f0a1b2c3d4`. No route, migration, Collector change, or T02/T03/T04 semantic change
+  was added. Disposable containers, volumes, and evidence files were removed.
+- T17 remains `IN_PROGRESS / VERIFY_PENDING`; the failed VERIFY gate must be resumed externally.
+  T18 remains `NOT_STARTED`.
+
 ## T16 Implementation Closeout
 
 - T16 implementation and final verification are complete; the task is now

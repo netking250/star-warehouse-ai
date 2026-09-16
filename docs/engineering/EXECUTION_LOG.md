@@ -2634,6 +2634,43 @@ State transition:
 - T17 remains `IN_PROGRESS / VERIFY_PENDING`; external acceptance is not ready.
 - T18 remains `NOT_STARTED`.
 
+## T17-FIX - Restore API HTTP trace export and correlation
+
+Completed: 2026-09-16
+
+Status: `IN_PROGRESS`
+
+Execution Stage: `VERIFY_PENDING`
+
+Primary root cause: `API_TELEMETRY_INITIALIZATION_ORDER`
+
+- Preflight confirmed clean, synchronized branch `feat/t14-t21-enterprise-hardening` at
+  `a1a46cd7d7bc12d430def44dd3966b59dfbc198e` before the focused correction.
+- The canonical API/dependency services ran in a disposable Compose project against the existing
+  Collector/Tempo stack. Five sampled API requests reproduced the failure (`5/5` Tempo `404`, no
+  `X-Trace-ID`) while scheduler traces remained queryable.
+- Installed source inspection proved FastAPI instrumentation replaced `build_middleware_stack`
+  only after Starlette had already cached the live stack on lifespan entry. The existing SDK
+  provider, batch processor, OTLP gRPC endpoint, Collector, Tempo, and scheduler path were valid.
+- Moved the existing API provider/instrumentation bootstrap after app assembly and before the first
+  ASGI call. Attached the existing correlation filter to the shared handler because propagated
+  child records do not execute root logger filters. No new tracing abstraction or header was added.
+- Post-fix evidence passed `5/5` Tempo API traces with matching existing `X-Trace-ID` values and
+  bounded service identity `star-warehouse-ai-api`. A synthetic tenant-resolution request linked
+  the normalized HTTP metric, Loki JSON log, and Tempo trace through correlation ID
+  `t17-fix-correlation-proof-205` and trace ID `17000000000000000000000000000205`.
+  Scheduler traces still reached Tempo. Synthetic password/username Loki searches returned zero.
+- Focused tests passed `17`; Ruff, format, ty, disposable Compose validation, route inventory
+  (`136` classified, `0` unclassified), and Alembic head `e9f0a1b2c3d4` passed. No migration,
+  route, Collector configuration, T02/T03/T04 semantics, deferred timing debt, or T18 work changed.
+  The disposable project, synthetic volumes, and temporary evidence files were removed.
+
+State transition:
+
+- T14 remains `PASS_WITH_NOTES`; T15 and T16 remain `PASS`.
+- T17 remains `IN_PROGRESS / VERIFY_PENDING` and is ready to resume VERIFY.
+- T18 remains `NOT_STARTED`.
+
 ## T16-IMPLEMENT-CLOSEOUT - Enterprise console
 
 Completed: 2026-09-15
