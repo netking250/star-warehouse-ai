@@ -234,3 +234,16 @@ The sequence is the default gate order. A user may issue a documented change req
   repair was added.
 - Focused verification and static checks passed. Existing DB/client fixture failures were isolated
   as test-infrastructure limitations; full backend regression remains intentionally out of scope.
+
+## T17 Verification Attempt
+
+- Attempted on 2026-09-16 with the canonical API, worker, scheduler, outbox relay, and disposable
+  dependency runtime. Monitoring services remained ready and temporary verification resources were
+  removed after the run.
+- The canonical API was scraped successfully and emitted the normalized `/api/v1/login` HTTP metric
+  with bounded labels. Its container had the active Collector endpoint configured.
+- A real request with valid W3C `traceparent` and correlation metadata returned without `X-Trace-ID`;
+  Tempo indexed scheduler traces but no `star-warehouse-ai-api` trace. This fails the real HTTP
+  trace-correlation gate.
+- Classification: `TRACE_PROPAGATION_FAILURE`. T17 remains `IN_PROGRESS / VERIFY_PENDING`; no code
+  correction was made during VERIFY, and external acceptance is not ready.

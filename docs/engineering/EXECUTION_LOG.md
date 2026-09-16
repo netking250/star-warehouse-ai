@@ -2604,6 +2604,36 @@ State transition:
   and acceptance are pending.
 - T18 remains `NOT_STARTED`.
 
+## T17-VERIFY - Production observability acceptance
+
+Attempted: 2026-09-16
+
+Status: `NOT_ACCEPTED`
+
+Primary classification: `TRACE_PROPAGATION_FAILURE`
+
+- Preflight confirmed the required branch, clean worktree, and synchronized local/origin HEAD
+  `5c89b5eb3ead887389c7941572921a1f1eeeb149`.
+- Started the canonical API, worker, scheduler, outbox relay, PostgreSQL, Redis, RabbitMQ, and
+  Qdrant services in a disposable isolated Compose project. The existing monitoring stack remained
+  ready; all disposable containers, volumes, and temporary override files were removed afterward.
+- Prometheus scraped the canonical API and observed `http_requests_total` for normalized route
+  `/api/v1/login` with bounded labels. The API container had
+  `OTEL_EXPORTER_OTLP_ENDPOINT` configured to the running Collector.
+- A real API request with valid W3C `traceparent` and `X-Correlation-ID` did not return `X-Trace-ID`.
+  Tempo contained `star-warehouse-ai-scheduler` traces from the same Collector but no
+  `star-warehouse-ai-api` trace. The HTTP trace-correlation acceptance gate therefore failed.
+- No code was changed during VERIFY. Canonical Prometheus configuration was restored and the
+  monitoring stack remained ready. T17 stays `IN_PROGRESS / VERIFY_PENDING` pending correction and
+  a fresh verification attempt.
+
+State transition:
+
+- T14 remains externally accepted `PASS_WITH_NOTES`.
+- T15 and T16 remain `PASS` by explicit user instruction.
+- T17 remains `IN_PROGRESS / VERIFY_PENDING`; external acceptance is not ready.
+- T18 remains `NOT_STARTED`.
+
 ## T16-IMPLEMENT-CLOSEOUT - Enterprise console
 
 Completed: 2026-09-15
