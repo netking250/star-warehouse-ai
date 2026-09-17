@@ -34,7 +34,7 @@ Codex may set a completed implementation to `AWAITING_ACCEPTANCE` only. `PASS` a
 | T16 | Enterprise Console | PASS |
 | T17 | Observability | PASS |
 | T18 | CI/CD + Supply Chain | PASS_WITH_NOTES |
-| T19 | Helm + k3s + AWS Reference | IN_PROGRESS |
+| T19 | Helm + k3s + AWS Reference | AWAITING_ACCEPTANCE |
 | T20 | Performance + Failure + DR | NOT_STARTED |
 | T21 | Eval + Portfolio + Interview | NOT_STARTED |
 
@@ -191,6 +191,34 @@ The sequence is the default gate order. A user may issue a documented change req
 - Hosted registry/attestation evidence remains deferred to T21. A real public VM/DNS/CA run remains
   environment-specific VERIFY evidence. T20 performance, resilience, backup/restore, DR, and
   capacity work remains `NOT_STARTED`.
+
+## T19 Verification Closeout
+
+- Status: `AWAITING_ACCEPTANCE`.
+- Execution stage: `EXTERNAL_ACCEPTANCE_PENDING`; Codex does not mark T19 `PASS`. T20 remains
+  `NOT_STARTED`.
+- Final verification used the synchronized `feat/t14-t21-enterprise-hardening` branch at
+  `31536460a808cffa3847261d4db681a2086b9eb9` with a clean worktree. Independent Helm lint/template,
+  strict kubeconform (`38` valid objects, `0` invalid/errors/skipped), ShellCheck deployment checks,
+  immutable digest/`latest` negative cases, rendered production security, migration ownership, and
+  route/Alembic checks passed.
+- A fresh disposable k3d `5.9.0` cluster with actual k3s `v1.35.5+k3s1` passed canonical install,
+  complete workload/dependency readiness, HTTPS ingress, 2-replica API upgrade, atomic migration
+  and missing-Secret failures, rollback without downgrade, graceful Pod replacement, and singleton
+  scheduler/relay checks. No production namespace/database/credential, cloud resource, or image
+  publication was touched.
+- Runtime security and browser contracts remained intact: effective app UID/GID `999`, non-root,
+  no privilege escalation/privileged/host access, no app API token, Secure HttpOnly cookies, CSRF,
+  exact Origin, no browser bearer/query token, valid WS cookie/origin upgrade, invalid WS Origin and
+  query-token rejection, HTTPS OIDC callback, and small authenticated upload. Public `/metrics` was
+  not routed. SSE completion was not claimed because no supported runtime Mock-provider fixture is
+  wired into the chart and no real provider was called; production stream/body annotations passed.
+- T17 Helm smoke passed the OTLP Collector/Tempo path, API JSON log, internal API metric, four-span
+  API trace, worker JSON log, worker trace lookup, and zero disposable Secret-sentinel matches.
+  Existing scheduled maintenance-task tenant-context errors in the reused T18 image are recorded as
+  non-blocking `PRE_EXISTING_BASELINE`; no application logic was changed during VERIFY.
+- AWS remains reference-only. Hosted GHCR runtime/attestation, public VM/DNS/CA, live AWS deployment,
+  T20 capacity/performance/DR work, and existing OpenAI/Celery timing debt remain deferred.
 
 ## T16 Implementation Start
 
