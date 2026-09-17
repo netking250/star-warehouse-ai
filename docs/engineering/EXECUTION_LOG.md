@@ -3069,3 +3069,81 @@ State transition:
   `PASS_WITH_NOTES` by the T20 instruction.
 - T20 remains `IN_PROGRESS` and advances to `VERIFY_PENDING`; Codex does not mark it `PASS`.
 - T21 remains `NOT_STARTED`; no PR or merge was created.
+
+## T20-VERIFY-CLOSEOUT - Resilience, Backup, Restore, and DR Final Verification
+
+Completed: 2026-09-17
+
+Status: `AWAITING_ACCEPTANCE`
+
+Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
+
+- Verification began from clean, synchronized implementation head `8c55131a16d81eed7521d8095ae96a43e66dece9`
+  on `feat/t14-t21-enterprise-hardening`. Only disposable k3d cluster `t20v-20260917` (`k3d 5.9.0`,
+  `k3s v1.35.5+k3s1`) and namespaces `t20-verify`/`t20-restore` were used. Synthetic credentials,
+  deterministic tenants, and the Mock/provider-free path were used; production, persistent developer
+  data, shared Redis/RabbitMQ/Qdrant, real providers, and object storage were not touched.
+- Harness safety passed: default profile is SMOKE (`1 VU/10s`), BASELINE requires explicit selection and
+  credentials, no real provider URL/key is present, and no destructive workflow is in the k6 script.
+  One SMOKE passed with 39 requests and 100% checks. One explicit BASELINE spot-check passed 587/587
+  checks at 15.355985 req/s, p50 94.176886 ms, p95 355.744690 ms, p99 840.389933 ms. API memory was
+  246->260 MiB, worker memory 207->205 MiB, and PostgreSQL activity was 9 connections. Throughput and
+  p95 were not worse than the implementation mean; the single-run p99 was an endpoint-tail variance.
+  No production capacity/SLA claim is made.
+- Async integrity spot-check passed 5/5 produced/completed effects, zero lost work, zero duplicate durable
+  effects, 5 unique receipts, zero pending Outbox rows, and drained RabbitMQ business queues. Worker
+  outage sample queued 3 published messages while the worker was stopped and completed all 3 after
+  restart with unique receipts. Relay pause sample left 3 committed rows pending and unpublished, then
+  drained all 3 after recovery. PostgreSQL outage returned HTTP 500 for a valid login rather than false
+  success, logged the connectivity failure, then recovered login/protected read and a 5-connection pool.
+- Backup reproduction used the canonical demo CronJob/manual Job procedure. The selected fresh artifact
+  was 296047 bytes with SHA-256
+  `b15649b212f6a4b903f021f50cd7b6ba4187a0a2f3453b38c1b5e4ae014187d7`. Metadata contained timestamp,
+  application `5.0.0`, image revision `8c55131a16d81eed7521d8095ae96a43e66dece9`, Alembic
+  `e9f0a1b2c3d4`, disposable database identifier, and `postgresql-logical-custom` type; no credentials
+  were present. `pg_restore --list` and non-empty/checksum checks passed.
+- Fresh database `t20_restore_verify` restored successfully, ran the normal migration/role mechanism,
+  retained Alembic `e9f0a1b2c3d4`, required `plpgsql`, fixed non-login/non-superuser/non-BYPASSRLS
+  capability roles, 49 RLS policies, application connectivity, and deterministic sentinels. Tenant A
+  saw 2 own orders and 0 tenant-B rows; tenant B saw 1 own order and 0 tenant-A rows. Orders/refunds,
+  Outbox/receipt, audit/compliance, and conversation/runtime invariants were preserved; duplicate receipt
+  groups were zero.
+- Restore-defect regressions were directly exercised. Moving the dump, metadata, checksum, and restore
+  script to a new directory passed basename checksum validation and full restore, proving the former
+  in-container absolute checksum path cannot recur. A control restore with former `pg_restore --no-acl`
+  behavior produced `permission denied for table orders` under `star_warehouse_runtime`; the corrected
+  ACL-preserving/policy-derived-grant restore read 2 orders successfully. Neither defect regressed.
+- The complete DR replay seeded and backed up the source, destroyed only the disposable source namespace/
+  PVCs, created a fresh target, restored, ran migration/role provisioning, started the application,
+  validated tenant isolation/invariants, and completed one new post-restore async operation with one
+  unique completed receipt and drained queues. From source-destroy initiation at `14:50:39.839 +08:00`
+  through async completion at approximately `15:01:45.234 +08:00`, measured local RTO was ~665 seconds
+  (11m05s). Tested RPO is the latest completed logical backup; PITR is `NOT IMPLEMENTED`.
+- Persistence classification was rechecked. PostgreSQL is `SOURCE_OF_TRUTH`; Qdrant is
+  `DERIVED_REBUILDABLE`, with the PostgreSQL/source-file reconciliation seam covered by the focused
+  memory consistency tests; Redis is `EPHEMERAL`; RabbitMQ is `DURABLE_SECONDARY` and never an exactly-
+  once business source. The active object-storage adapter is absent, T19 uploads use transient `emptyDir`,
+  and `OBJECT_STORAGE_RUNTIME_RECOVERY = NOT_EXERCISED`; PostgreSQL backup does not restore uploaded
+  source bytes. Production durable uploads require the accepted external S3-compatible contract and
+  provider/bucket/versioning/backup responsibility.
+- Observability during PostgreSQL outage provided Prometheus HTTP counters, structured JSON error logs,
+  trace/span IDs, and a preserved correlation-ID response header. No external OTLP sink was configured,
+  so no external trace backend was claimed. Runbook checks found explicit target/confirmation guards,
+  no destructive defaults, no downgrade, no `FLUSHALL`, and no silent error masking.
+- Focused tests passed 14/14 for disposable PostgreSQL RLS/database roles and 72/72 for T20 assets,
+  route/metrics, authorization, Outbox, task-runtime reliability, memory/Qdrant reconciliation,
+  migration chain, and selected Celery routing/context. Ruff, format, ty, ShellCheck `0.11.0`, Helm
+  lint, route inventory (`136` classified, `0` unclassified HTTP/WS), and single-head checks passed.
+  The full backend suite, three-run performance repetition, real providers, known OpenAI/Celery timing
+  debts, long soak, public-cloud DR, and frontend suite were not run.
+- Cleanup removed both disposable namespaces/PVCs, the named k3d cluster/network/volume, port-forwards,
+  temporary credentials, backup, k6 summaries, and the ignored raw verification directory. No PR, merge,
+  T21 work, or implementation repair was performed during VERIFY.
+
+State transition:
+
+- T14 remains `PASS_WITH_NOTES`; T15-T17 remain `PASS`; T18 and T19 remain `PASS_WITH_NOTES` by the
+  explicit current-state instruction.
+- T20 moves from `IN_PROGRESS / VERIFY_PENDING` to `AWAITING_ACCEPTANCE /
+  EXTERNAL_ACCEPTANCE_PENDING`; Codex does not mark T20 `PASS`.
+- T21 remains `NOT_STARTED`; no PR or merge was created.
