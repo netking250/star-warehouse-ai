@@ -226,7 +226,7 @@ jobs:
       - name: Verify image metadata and runtime user
         run: |
           test "$(docker image inspect star-warehouse-ai:local --format '{{.Config.User}}')" = "appuser"
-          test "$(docker image inspect star-warehouse-ai:local --format '{{index .Config.Labels \"org.opencontainers.image.revision\"}}')" = "${GITHUB_SHA}"
+          test "$(docker image inspect star-warehouse-ai:local --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')" = "${GITHUB_SHA}"
       - name: Inspect image for local credentials
         run: |
           docker run --rm --entrypoint /bin/sh star-warehouse-ai:local -c '
