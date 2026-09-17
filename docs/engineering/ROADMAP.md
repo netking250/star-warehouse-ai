@@ -41,7 +41,7 @@ Codex may set a completed implementation to `AWAITING_ACCEPTANCE` only. `PASS` a
 ## T21 Implementation Start
 
 - **Status:** `IN_PROGRESS`.
-- **Execution stage:** `IMPLEMENT`.
+- **Execution stage:** `VERIFY_PENDING`.
 - T20 is externally accepted `PASS_WITH_NOTES` by the explicit T21 instruction. T14 and T18-T20
   retain their accepted notes; T15-T17 remain `PASS`.
 - Frozen scope is final integration and evidence: one full backend regression, final frontend,
@@ -52,20 +52,27 @@ Codex may set a completed implementation to `AWAITING_ACCEPTANCE` only. `PASS` a
   cloud deployment, release, pull request, or merge. The active plan is
   [`docs/exec-plans/active/T21.md`](../exec-plans/active/T21.md).
 
-## T21 Implementation Blocker
+## T21 Final Local Gate Closeout
 
 - **Status:** `IN_PROGRESS`.
-- **Execution stage:** `IMPLEMENT_BLOCKED`.
+- **Execution stage:** `VERIFY_PENDING`.
 - The first full-suite attempt remains invalid/incomplete because `localhost` timed out; direct
   `127.0.0.1` connectivity passed. Its classification is `TEST_ENVIRONMENT`.
 - After 3/3 corrected DB preflight tests passed, the explicitly authorized replacement full run
   completed exactly once: 1,848 collected, 1,810 passed, 1 failed, 0 errors, 37 skipped, 81.93%
   coverage, 2,231.21 seconds.
 - The sole failure, `tests/test_chat_api.py::test_chat_timeout_after_answer_closes_without_error`,
-  reproduced in a focused diagnostic in 5.84 seconds. It is not either accepted timing debt and is
-  classified `FEATURE_REGRESSION`; T21 made no chat-runtime change and did not repair it.
-- Per instruction, final readiness stopped at this regression. T21 cannot move to `VERIFY_PENDING`;
-  no PR or merge exists.
+  is classified `NON_REPRODUCIBLE_PREVIOUS_FAILURE`: T21 focused control `5/5` passed, while the
+  accepted T20 head and protected `origin/main` each reproduced the same `4/5` result. No code in
+  the failing execution path changed. It is a separate historical chat-stream timing flake, not
+  the OpenAI or Celery timing debt; T21 feature regression is `NO`.
+- Final local gates passed: frozen frontend install and format/lint/typecheck/Vitest/build; browser
+  E2E `6/6`; clean-checkout Docker build/startup/health with no developer residue or real/provider
+  credentials; Helm lint/template/schema/kubeconform/ShellCheck with 42 valid rendered resources;
+  route inventory with 126 classified HTTP routes, 2 classified WebSocket routes, and 0 unclassified;
+  bounded security/CI review; and reused provider-free offline evaluation `12/12`.
+- T21 is ready for external acceptance of implementation evidence, but hosted PR checks, trusted
+  GHCR publication, attestation, and external cloud proof remain pending. No PR or merge exists.
 
 ## T20 Implementation Closeout
 

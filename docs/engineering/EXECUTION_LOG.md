@@ -3199,3 +3199,56 @@ State transition:
 - T20 moves from `IN_PROGRESS / VERIFY_PENDING` to `AWAITING_ACCEPTANCE /
   EXTERNAL_ACCEPTANCE_PENDING`; Codex does not mark T20 `PASS`.
 - T21 remains `NOT_STARTED`; no PR or merge was created.
+
+## T21-IMPLEMENT-RESUME - Final local readiness gates
+
+Recorded: 2026-09-17
+
+Status: `IN_PROGRESS`
+
+Execution Stage: `VERIFY_PENDING`
+
+- Resumed from the synchronized `feat/t14-t21-enterprise-hardening` branch at
+  `efa61acec373f88bc01d9d8e332fea3c7d5919b9`. The accepted T21 backend result was not rerun: the
+  completed full regression remains `1848` collected, `1810` passed, `1` historical nondeterministic
+  timing failure, `0` errors, `37` skipped, and `81.93%` coverage.
+- The failure `tests/test_chat_api.py::test_chat_timeout_after_answer_closes_without_error` was
+  recorded as `NON_REPRODUCIBLE_PREVIOUS_FAILURE` through the required A/B control: T21 focused
+  control `5/5` passed, accepted T20 `4/5` passed, and protected `origin/main` `4/5` passed with the
+  same test. No code in the failing execution path changed. This is a separate historical
+  chat-stream timing flake, not the OpenAI or Celery timing debt. Demonstrated T21 feature
+  regressions: `0`.
+- Frozen frontend gates passed: `npm ci`, format check, lint, explicit TypeScript typecheck, Vitest
+  (`12` files, `51` tests), and production build. The meaningful browser suite reported `6/6`
+  passing tests covering login/logout, 401/403, protected routes, T15 transport, and T16 console;
+  the Windows Vite runner required termination only after all tests completed during teardown.
+- A detached clean-checkout production-relevant Docker build passed. Disposable synthetic
+  configuration brought up dependencies, ran migration and role provisioning, started the API, and
+  passed `/health`. The image ran as `appuser`, had no embedded `.env` or developer credential
+  residue, and required neither real-provider nor production credentials; it was not published.
+- Helm lint, template, schema, strict kubeconform, and ShellCheck `0.11.0` passed for the final
+  chart checks. Kubeconform validated `42` resources. The migration Job is the sole `alembic upgrade
+  head` owner; API, worker, scheduler, and relay workloads use only `alembic current --check-heads`.
+- The canonical route inventory passed with `126` classified HTTP routes, `2` classified WebSocket
+  routes, and `0` unclassified HTTP/WS routes. The bounded final security spot check found no browser
+  Bearer transport, persisted auth token, WebSocket query token, wildcard production CORS, plaintext
+  Helm secret, privileged workload, cluster-admin, dangerous `pull_request_target`, untrusted PR
+  secret access, or untrusted PR publish/attestation path.
+- The CI graph still exposes the five protected gate families `Brand & docs`, `Backend quality`,
+  `Backend tests`, `Frontend`, and `Docker smoke`. PR defaults are read-only and trusted
+  main/version-tag publication and attestation jobs remain push-guarded. The provider-free offline
+  evaluation was reused at `12/12`; no evaluation rerun or real provider call was made.
+- Current README, state, roadmap, decisions, architecture, case study, evidence index, interview
+  guide, known limitations, T21 plan, and final PR body were reconciled. The PR body is prepared,
+  but no PR or merge exists. Hosted PR checks, trusted GHCR publication, attestation, public
+  VM/DNS/CA, object-storage recovery, PITR, live AWS, long soak, and production-capacity evidence
+  remain pending or unperformed as documented limitations.
+
+State transition:
+
+- T14 remains `PASS_WITH_NOTES`; T15-T17 remain `PASS`; T18-T20 remain `PASS_WITH_NOTES` by the
+  explicit current-state instruction.
+- T21 remains `IN_PROGRESS` and advances from `IMPLEMENT_BLOCKED` to `VERIFY_PENDING` for final
+  external hosted verification. Codex does not mark T21 `PASS` or `AWAITING_ACCEPTANCE`.
+- No PR was created, no merge was performed, and the branch remains the long-lived integration
+  branch.
