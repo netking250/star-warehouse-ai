@@ -13,6 +13,12 @@
 - [故障排查](./how-to-guides/troubleshoot.md)
 - [Operations runbooks](./runbooks/README.md)
 - [CI/CD and software supply chain](./how-to-guides/ci-supply-chain.md)
+- [Final system view](./explanation/architecture/final-system-view.md)
+- [Deterministic offline evaluation](./explanation/context-engineering/offline-evaluation.md)
+- [Portfolio case study](./portfolio/CASE_STUDY.md)
+- [Engineering evidence index](./portfolio/EVIDENCE_INDEX.md)
+- [Engineering interview guide](./interview/ENGINEERING_GUIDE.md)
+- [Known limitations](./engineering/KNOWN_LIMITATIONS.md)
 - [管理员后台操作指南](./how-to-guides/admin-operations.md)
 - [迁移到 v5](./how-to-guides/migrate-to-v5.md)
 

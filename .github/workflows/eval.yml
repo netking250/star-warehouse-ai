@@ -9,6 +9,7 @@ on:
       - "app/graph/**"
       - "app/intent/**"
       - "data/golden_dataset*.jsonl"
+      - "data/offline_workflow_eval*.jsonl"
       - "tests/evaluation/**"
       - ".github/workflows/eval.yml"
   schedule:
@@ -95,12 +96,19 @@ jobs:
       - name: Verify locked dependency graph
         run: uv lock --check
       - name: Run offline evaluation suite
-        run: mkdir -p reports && uv run pytest tests/evaluation -q --junitxml=reports/evaluation.xml
+        run: |
+          mkdir -p reports
+          uv run python -m app.evaluation.offline \
+            --dataset data/offline_workflow_eval_v1.jsonl \
+            --output reports/offline-workflow-evaluation.json
+          uv run pytest tests/evaluation -q --junitxml=reports/evaluation.xml
       - name: Upload evaluation report
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: evaluation-report-${{ github.run_id }}
-          path: reports/evaluation.xml
+          path: |
+            reports/evaluation.xml
+            reports/offline-workflow-evaluation.json
           if-no-files-found: error
           retention-days: 14

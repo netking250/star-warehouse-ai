@@ -20,6 +20,7 @@ Plans should cover:
 - Verification commands and real results.
 - Current findings, blockers, and handoff notes.
 
-The most recently accepted main-task plan is [`completed/T14.md`](completed/T14.md). T15 remains
-`NOT_STARTED` and will receive an active plan when its IMPLEMENT stage begins. The independent
-M01 and M02 maintenance plans are externally accepted and archived under [`completed/`](completed/).
+The most recently accepted main-task plan is [`completed/T20.md`](completed/T20.md). T14 and
+T18-T20 are accepted `PASS_WITH_NOTES`; T15-T17 are accepted `PASS`. T21 is active in
+[`active/T21.md`](active/T21.md). The independent M01 and M02 maintenance plans are externally
+accepted; M02 remains in `active/` only as the living maintenance record.

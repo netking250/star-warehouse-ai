@@ -191,11 +191,13 @@ Alertmanager, Loki, Promtail, Tempo, OpenTelemetry Collector, and Mimir configur
 - Enterprise-hardening milestones T-INIT through T13 are externally accepted `PASS`; T14 is
   externally accepted `PASS_WITH_NOTES` with two deferred protected-main baseline test debts.
 - T13 delivers the Dynamic Model Gateway with OpenAI, DashScope, and Mock adapters.
-- T14 (AI Failure Policy) is complete on the long-lived
-  `feat/t14-t21-enterprise-hardening` branch; T15 Frontend Transport is `IN_PROGRESS / VERIFY_PENDING`.
-- T15, T16, and T17 are accepted `PASS`; T18 CI/CD and Supply Chain is in implementation on the
-  same integration branch. T14-T21 use targeted stage verification and one final PR after T21;
-  see the [current project state](docs/engineering/PROJECT_STATE.md) for the workflow and debt policy.
+- T15, T16, and T17 are externally accepted `PASS`; T18, T19, and T20 are externally accepted
+  `PASS_WITH_NOTES` on the same long-lived `feat/t14-t21-enterprise-hardening` branch.
+- T21 final integration, deterministic evaluation, and portfolio/PR readiness is
+  `IN_PROGRESS / IMPLEMENT_BLOCKED` by a local `localhost`/Docker PostgreSQL test-environment
+  failure.
+  The final PR, hosted proof, and merge remain outside this implementation stage; see the
+  [current project state](docs/engineering/PROJECT_STATE.md).
 
 Detailed milestone evidence remains in the engineering state documents rather than this project
 introduction.
@@ -207,12 +209,21 @@ introduction.
 - [Enterprise-hardening roadmap](docs/engineering/ROADMAP.md)
 - [Accepted architecture decisions](docs/engineering/DECISIONS.md)
 - [Architecture explanations](docs/explanation/architecture/README.md)
+- [Final system view](docs/explanation/architecture/final-system-view.md)
 - [Local development guide](docs/tutorials/local-development.md)
+- [Testing requirements](tests/AGENTS.md)
+- [Deterministic offline evaluation](docs/explanation/context-engineering/offline-evaluation.md)
+- [Observability runbook](docs/runbooks/observability.md)
 - [Deployment guide](docs/how-to-guides/deploy.md)
 - [k3s public-demo guide](docs/how-to-guides/k3s-deployment.md)
 - [Deployment architecture and AWS reference](docs/explanation/architecture/deployment.md)
 - [Environment reference](docs/reference/environment-variables.md)
 - [Operations runbooks](docs/runbooks/README.md)
+- [Backup, restore, and disaster recovery](docs/runbooks/disaster-recovery.md)
 - [CI/CD and software supply chain](docs/how-to-guides/ci-supply-chain.md)
+- [Portfolio case study](docs/portfolio/CASE_STUDY.md)
+- [Engineering evidence index](docs/portfolio/EVIDENCE_INDEX.md)
+- [Interview guide](docs/interview/ENGINEERING_GUIDE.md)
+- [Known limitations](docs/engineering/KNOWN_LIMITATIONS.md)
 
 Contributors and coding agents should read [AGENTS.md](AGENTS.md) before changing the repository.

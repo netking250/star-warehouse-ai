@@ -2,17 +2,53 @@
 schema_version: 1
 project: Star Warehouse AI
 phase: ENTERPRISE_HARDENING
-current_task: T20
-current_status: AWAITING_ACCEPTANCE
-execution_stage: EXTERNAL_ACCEPTANCE_PENDING
-last_accepted_task: T19
-next_task: T21
+current_task: T21
+current_status: IN_PROGRESS
+execution_stage: IMPLEMENT_BLOCKED
+last_accepted_task: T20
+next_task: T21_IMPLEMENT_RESUME
 acceptance_owner: external
 maintenance_task: M02
 maintenance_status: PASS
 ---
 
 # Current Objective
+
+T14 and T18-T20 are externally accepted `PASS_WITH_NOTES`; T15-T17 are externally accepted
+`PASS`. T21 Final Integration, Evaluation, and Portfolio Readiness is
+`IN_PROGRESS / IMPLEMENT_BLOCKED`
+on `feat/t14-t21-enterprise-hardening`. It owns one final local integration pass, deterministic
+provider-free workflow evaluation, final architecture/portfolio/evidence/interview documentation,
+and preparation of the final PR body. It does not create the PR, merge `main`, publish a release,
+or claim deferred hosted/cloud/production evidence. The active plan is
+[`docs/exec-plans/active/T21.md`](../exec-plans/active/T21.md).
+
+## T21 Test-Environment Blocker
+
+- The one authorized full backend command collected `1848` tests but was stopped at 5% after a
+  broad connection-timeout pattern crossed admin API and agent tests. It did not produce valid
+  aggregate pass/fail/coverage counts and is not accepted as regression evidence.
+- A focused diagnostic reproduced `asyncpg` `TimeoutError` while connecting to PostgreSQL through
+  `localhost` (`1 failed in 79.87s`). A direct `asyncpg` probe to the same database through
+  `127.0.0.1` succeeded immediately, while the `localhost` probe timed out. PostgreSQL itself was
+  healthy and had no blocked transaction. Classification: `TEST_ENVIRONMENT`.
+- The suite was not rerun because the T21 instruction permits one full backend execution. T21
+  cannot advance to `VERIFY_PENDING` until an externally authorized resumed run uses the working
+  loopback address and produces complete counts and coverage.
+- Before the blocker, the new deterministic offline evaluation passed 12/12 scenarios and its
+  focused tests passed 3/3. Ruff and `ty` passed; Ruff normalized one line-ending-only package file.
+
+## T21 Implementation Start
+
+- Recovery began from a clean, synchronized branch at
+  `d7acd74d0fddc9b4b539c8c8300c37617660b1d4`.
+- The explicit T21 instruction accepts T20 as `PASS_WITH_NOTES`, satisfying the prerequisite.
+- Existing evaluation infrastructure will be extended. Deterministic workflow checks remain
+  distinct from optional live-model semantic quality evaluation.
+- The OpenAI cold-start and Celery import timing debts, visible vulnerability baseline, hosted
+  PR/GHCR/attestation proof, public VM/DNS/CA proof, object-store recovery, PITR, live AWS, long
+  soak, and production-capacity evidence remain explicit limitations.
+- The final PR and hosted proof remain later external-acceptance work; no PR or merge is authorized.
 
 T19 is externally accepted `PASS_WITH_NOTES` by the explicit T20 implementation instruction.
 T20 Performance, Failure, Backup, Restore, and Disaster Recovery is `AWAITING_ACCEPTANCE /
@@ -22,7 +58,7 @@ failure and backpressure evidence, demo PostgreSQL backup/restore validation, pe
 classification, measured disposable recovery evidence, and operator runbooks. Production and
 shared developer data are excluded. T21 final integration, hosted proof, PR, and closeout remain
 `NOT_STARTED` and out of scope. The active plan is
-[`docs/exec-plans/active/T20.md`](../exec-plans/active/T20.md).
+[`docs/exec-plans/completed/T20.md`](../exec-plans/completed/T20.md).
 
 ## T20 Implementation Start
 
@@ -210,7 +246,7 @@ aware Overview, AI, Operations, Security, and Compliance surfaces over already a
 
 The frozen product target is an **Enterprise Multi-tenant AI Customer Service Platform**: a runnable, testable, deployable portfolio and public demo that demonstrates enterprise controls truthfully. The primary Golden Path is tenant login → tenant context and authorization → PII filtering → intent and multi-agent routing → order adapter and hybrid RAG → model gateway → refund recommendation → human approval → refund transaction → transactional outbox → RabbitMQ/Celery → audit, memory, evaluation, notification, and observability.
 
-# Current Task
+# Historical T19 Task Snapshot
 
 - **Task:** T19 - Production Deployment Baseline.
 - **Status:** `AWAITING_ACCEPTANCE`.
@@ -225,7 +261,7 @@ The frozen product target is an **Enterprise Multi-tenant AI Customer Service Pl
 
 - The repository has no narrower tracked T18 plan; the explicit T18 implementation instruction and
   ADR-016 are the recovered frozen scope. The active plan is
-  [`docs/exec-plans/active/T18.md`](../exec-plans/active/T18.md).
+  [`docs/exec-plans/completed/T18.md`](../exec-plans/completed/T18.md).
 - Recovery confirmed a clean, synchronized `feat/t14-t21-enterprise-hardening` worktree at
   `5dd8bde`. The current CI retains Brand & docs, Backend quality, Backend tests, Frontend, and
   Docker smoke as separate attributable jobs; evaluation, monitoring, and performance workflows
@@ -284,7 +320,7 @@ The frozen product target is an **Enterprise Multi-tenant AI Customer Service Pl
   provisioning, but no canonical HTTP/worker/runtime metric contract, no bounded exporter-failure
   policy, stale dashboard/alert references, and a logging filter that did not cover sensitive
   structured fields. The active implementation plan is
-  [`docs/exec-plans/active/T17.md`](../exec-plans/active/T17.md).
+  [`docs/exec-plans/completed/T17.md`](../exec-plans/completed/T17.md).
 - The existing trusted `TaskContext`/`TaskEnvelope`, transactional outbox relay, RabbitMQ/Celery
   delivery, conversation state machine, and model gateway/failure-policy seam remain the owners
   of their semantics. Observability will consume those boundaries only.
@@ -443,7 +479,7 @@ Completed: 2026-09-16
 - **Plan:** [`docs/exec-plans/completed/M01.md`](../exec-plans/completed/M01.md).
 - **Evidence ledger:** [`REPOSITORY_CLEANUP.md`](REPOSITORY_CLEANUP.md).
 
-# Last Accepted Task
+# Historical Accepted-Task Snapshot
 
 `T15` - Frontend Transport, externally accepted `PASS` by explicit user acceptance instruction
 on 2026-09-15.
@@ -452,7 +488,7 @@ on 2026-09-15.
 
 `T14` – AI Failure Policy, externally accepted `PASS_WITH_NOTES` on 2026-09-15.
 
-# Next Task
+# Historical T16 Next-Task Snapshot
 
 `T16` - Enterprise Console is `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` on the
 long-lived integration branch; external acceptance is required before T17.

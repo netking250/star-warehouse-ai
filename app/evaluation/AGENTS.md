@@ -32,12 +32,16 @@ Offline evaluation framework for assessing agent response quality, hallucination
 | Containment | `@app/evaluation/containment.py` | Response containment validation |
 | Token efficiency | `@app/evaluation/token_efficiency.py` | Token usage optimization metrics |
 | Few-shot evaluation | `@app/evaluation/few_shot_eval.py` | Few-shot prompt evaluation |
+| Deterministic workflow evaluation | `@app/evaluation/offline.py` | Provider-free objective T21 contract evaluation |
 
 ## Commands
 
 ```bash
 # Run evaluation module tests
 uv run pytest tests/evaluation/
+
+# Run the canonical provider-free workflow evaluation
+uv run python -m app.evaluation.offline --dataset data/offline_workflow_eval_v1.jsonl
 ```
 
 ## Code Style
@@ -63,6 +67,9 @@ General Python rules are defined in the root `AGENTS.md`. Evaluation-specific co
 - **Dataset versioning**: Version evaluation datasets to track changes over time.
 - **Model routes**: Evaluation and shadow runners select configured `evaluation`, `safety`, or
   `shadow` route aliases; evaluation code must not construct provider clients or hard-code models.
+- **Evaluation boundary**: The deterministic workflow dataset measures objective routing, policy,
+  isolation, lifecycle, and failure behavior. It must not be presented as live-model linguistic
+  quality evidence.
 
 ## Anti-Patterns
 

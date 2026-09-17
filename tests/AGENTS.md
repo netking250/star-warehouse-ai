@@ -51,6 +51,7 @@ Backend test suite using pytest + pytest-asyncio with a flat directory structure
 | User tests | `@tests/test_users.py` | User model and endpoint tests |
 | Experiment tests | `@tests/test_experiment_assigner.py`, `@tests/test_experiment_service.py` | Experiment system tests |
 | Evaluation tests | `@tests/test_evaluation_tasks.py`, `@tests/test_online_eval_service.py` | Evaluation system tests |
+| Offline workflow evaluation | `@tests/evaluation/test_offline.py` | Provider-free T21 dataset, metrics, and fail-closed regression command |
 | Knowledge tests | `@tests/test_knowledge_tasks.py` | Knowledge base task tests |
 | Notification tests | `@tests/test_notifications_tasks.py` | Notification task tests |
 | Refund task tests | `@tests/test_refund_tasks.py` | Refund workflow task tests |
