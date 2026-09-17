@@ -69,8 +69,11 @@ Codex may set a completed implementation to `AWAITING_ACCEPTANCE` only. `PASS` a
 - Final local gates passed: frozen frontend install and format/lint/typecheck/Vitest/build; browser
   E2E `6/6`; clean-checkout Docker build/startup/health with no developer residue or real/provider
   credentials; Helm lint/template/schema/kubeconform/ShellCheck with 42 valid rendered resources;
-  route inventory with 126 classified HTTP routes, 2 classified WebSocket routes, and 0 unclassified;
-  bounded security/CI review; and reused provider-free offline evaluation `12/12`.
+  route inventory with 126 application HTTP policy routes, 2 classified WebSocket routes, and 0
+  unclassified. The complete inventory is 136 entries (130 HTTP including 4 framework routes, 2
+  WebSocket, and 4 mounts), so the earlier T19 total reflects a different reporting category and
+  no application route was removed. Bounded security/CI review and reused provider-free offline
+  evaluation `12/12` also passed.
 - T21 is ready for external acceptance of implementation evidence, but hosted PR checks, trusted
   GHCR publication, attestation, and external cloud proof remain pending. No PR or merge exists.
 

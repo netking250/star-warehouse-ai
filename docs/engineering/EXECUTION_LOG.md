@@ -3229,11 +3229,13 @@ Execution Stage: `VERIFY_PENDING`
 - Helm lint, template, schema, strict kubeconform, and ShellCheck `0.11.0` passed for the final
   chart checks. Kubeconform validated `42` resources. The migration Job is the sole `alembic upgrade
   head` owner; API, worker, scheduler, and relay workloads use only `alembic current --check-heads`.
-- The canonical route inventory passed with `126` classified HTTP routes, `2` classified WebSocket
-  routes, and `0` unclassified HTTP/WS routes. The bounded final security spot check found no browser
-  Bearer transport, persisted auth token, WebSocket query token, wildcard production CORS, plaintext
-  Helm secret, privileged workload, cluster-admin, dangerous `pull_request_target`, untrusted PR
-  secret access, or untrusted PR publish/attestation path.
+- The canonical route inventory passed with `126` application HTTP policy routes, `2` classified
+  WebSocket routes, and `0` unclassified HTTP/WS routes. Its complete inventory remains `136`
+  entries (`130` HTTP including `4` framework routes, `2` WebSocket, and `4` mounts), explaining the
+  earlier T19 total without application route removal. The bounded final security spot check found
+  no browser Bearer transport, persisted auth token, WebSocket query token, wildcard production CORS,
+  plaintext Helm secret, privileged workload, cluster-admin, dangerous `pull_request_target`,
+  untrusted PR secret access, or untrusted PR publish/attestation path.
 - The CI graph still exposes the five protected gate families `Brand & docs`, `Backend quality`,
   `Backend tests`, `Frontend`, and `Docker smoke`. PR defaults are read-only and trusted
   main/version-tag publication and attestation jobs remain push-guarded. The provider-free offline

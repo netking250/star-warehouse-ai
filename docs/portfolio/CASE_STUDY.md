@@ -47,7 +47,10 @@ scale claim.
   tests), a detached clean-checkout Docker build/startup/health smoke, Helm lint/template/schema/
   kubeconform/ShellCheck, and route/security/CI static checks. The full backend result was 1,848
   collected, 1,810 passed, one historical nondeterministic chat timeout failure, zero errors, 37
-  skipped, and 81.93% coverage; no T21 feature regression was demonstrated.
+  skipped, and 81.93% coverage; no T21 feature regression was demonstrated. The final inventory's
+  126 application HTTP policy routes reconcile to 136 complete entries when framework routes,
+  WebSockets, and mounts are included; no application route was removed. T20's intentional backup
+  ConfigMap/PVC/bootstrap Job/CronJob account for the final Helm render increasing from 38 to 42.
 
 ## Trade-offs and limits
 

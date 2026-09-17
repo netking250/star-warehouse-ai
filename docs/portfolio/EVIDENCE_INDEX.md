@@ -14,7 +14,7 @@
 | Performance and backpressure | T20 | Three bounded load runs plus 1,707-request two-minute run; explicit pool/backpressure policy | Not capacity planning, HA, or a long soak |
 | Backup and recovery | T20 | Guarded logical backup; independent fresh-target restore around 665 seconds; post-restore tenant and async checks | Latest-backup RPO only; no PITR or object-store runtime recovery |
 | Deterministic workflow evaluation | T21 | Versioned 12-scenario synthetic dataset and non-zero regression command | Objective contracts only; linguistic quality is optional/manual live-model work |
-| Final integration readiness | T21 | Backend aggregate evidence, locked frontend/browser gates, clean-checkout Docker smoke, route inventory, security spot check, and CI graph review | Hosted PR, trusted GHCR publication, attestation, and external cloud proof remain pending |
+| Final integration readiness | T21 | Backend aggregate evidence, locked frontend/browser gates, clean-checkout Docker smoke, 126 application HTTP policy routes with 0 unclassified, final 42-resource Helm render, security spot check, and CI graph review | Hosted PR, trusted GHCR publication, attestation, and external cloud proof remain pending |
 
 Stage-level commands and raw-result summaries remain in
 [PROJECT_STATE](../engineering/PROJECT_STATE.md), the

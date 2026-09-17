@@ -43,9 +43,11 @@ does not create the PR, merge `main`, or publish a release. The active plan is
 - Remaining local gates passed: frozen frontend install, format, lint, typecheck, Vitest (`12` files,
   `51` tests), build, and browser E2E (`6/6`); clean-checkout Docker build/startup/health with
   synthetic configuration; Helm lint/template/schema/kubeconform (`42` valid resources) and
-  ShellCheck; route inventory (`126` HTTP, `2` WebSocket, `0` unclassified HTTP/WS); and the bounded
-  final security/CI graph review. The Playwright runner reported all six tests passing before a
-  Windows Vite teardown hang required termination; no browser test failed.
+  ShellCheck; route inventory (`126` application HTTP policy routes, `2` WebSocket, `0` unclassified
+  HTTP/WS); and the bounded final security/CI graph review. The complete inventory remains `136`
+  entries (`130` HTTP including `4` framework routes, `2` WebSocket, and `4` mounts), which explains
+  the earlier T19 total without any application route removal. The Playwright runner reported all
+  six tests passing before a Windows Vite teardown hang required termination; no browser test failed.
 - The provider-free offline evaluation remains reused at `12/12` scenarios, with no real provider.
   Hosted PR checks, trusted GHCR publication, image/SBOM attestation, and any external cloud proof
   remain pending. T21 is `IN_PROGRESS / VERIFY_PENDING`; no PR or merge exists.

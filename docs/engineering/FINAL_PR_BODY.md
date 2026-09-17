@@ -91,7 +91,12 @@ live AWS recovery was not performed.
   The image ran as `appuser`, contained no developer residue or `.env`, and used only synthetic
   provider configuration.
 - Helm lint/template/schema, strict kubeconform (`42` valid resources), ShellCheck, route inventory
-  (`126` HTTP, `2` WebSocket, `0` unclassified), and the bounded final security review passed.
+  (`126` application HTTP policy routes, `2` WebSocket, `0` unclassified), and the bounded final
+  security review passed. The complete inventory is `136` entries (`130` HTTP including `4`
+  framework routes, `2` WebSocket, and `4` mounts), explaining the earlier T19 total with no route
+  removal. The four-resource increase from T19's 38-resource render is the intentional T20 backup
+  ConfigMap, PVC, bootstrap Job, and CronJob; no unexpected public service, privileged workload, or
+  secret object with values was added.
 - Provider-free offline evaluation is reused at `12/12` scenarios, with no real provider.
 
 ## Known baseline debt
