@@ -3026,3 +3026,46 @@ State transition:
 - T19 moves from `IN_PROGRESS / VERIFY_PENDING` to `AWAITING_ACCEPTANCE /
   EXTERNAL_ACCEPTANCE_PENDING`; Codex does not mark it `PASS`.
 - T20 remains `NOT_STARTED`; no PR or merge is created before T21.
+
+## T20-IMPLEMENT-CLOSEOUT - Performance, Failure, Backup, Restore, and DR
+
+Completed: 2026-09-17
+
+Status: `IN_PROGRESS`
+
+Execution Stage: `VERIFY_PENDING`
+
+- Recovered T20 from ADR-020 and accepted T03/T04/T06/T07/T11-T14/T17-T19 contracts. Existing
+  pytest microbenchmarks were retained; k6 `0.57.0` is the sole concurrent HTTP harness. Scripts
+  require explicit non-production targets and destructive confirmation.
+- In disposable k3d `5.9.0` / k3s `v1.35.5+k3s1`, three 35-second baselines completed 537/547/527
+  requests with zero failures and mean 14.46 requests/s, p50 112.39 ms, p95 412.85 ms, and p99
+  604.75 ms. A two-minute short soak completed 1,707 requests with zero failures and no obvious
+  bounded-memory runaway. No production capacity/SLA claim was made.
+- A real protected refund workflow demonstrated relay and worker backpressure, RabbitMQ publication
+  retry, backlog/queue drain, and durable receipt idempotency. Eighteen effects survived backup;
+  one more completed after restore. No committed data, Outbox intent, or tenant isolation was lost.
+- API/scheduler/worker/relay and PostgreSQL/Redis/RabbitMQ/Qdrant failures were injected one at a
+  time and recovered. Mock-provider retry/fallback/circuit/degradation and deterministic
+  conversation terminal/cancellation tests passed. T17 metrics and correlated JSON logs made load
+  and broker/dependency failures visible; the optional sink-absent smoke did not block business.
+- Added the Helm demo backup CronJob/bootstrap Job/dedicated PVC and guarded fresh-target restore.
+  The live drill found and fixed an absolute checksum-path defect and missing logical-backup ACL
+  restoration. The corrected restore preserved fixed least-privilege roles, RLS, Alembic
+  `e9f0a1b2c3d4`, application login, 100/25 tenant rows with zero cross-tenant visibility, audit
+  sentinels, 18 async effects, and post-restore processing. Restore took 6 seconds; service became
+  ready in approximately 80 seconds in this disposable environment.
+- PostgreSQL is authoritative; Qdrant is rebuildable; Redis is ephemeral; RabbitMQ is a durable
+  secondary behind Outbox. Active local uploads are not durable in T19 `emptyDir`, so object-store
+  recovery remains documented rather than claimed. Demo RPO is the latest completed backup and
+  PITR is not implemented. Single-node pod recovery is not node HA.
+- The exact source namespace/PVCs and final disposable cluster/network/volume/k6 containers were
+  removed. Production/shared developer persistence, public cloud, real providers, application
+  routes, and migrations were untouched.
+
+State transition:
+
+- T14 and T18 remain `PASS_WITH_NOTES`; T15-T17 remain `PASS`; T19 remains externally accepted
+  `PASS_WITH_NOTES` by the T20 instruction.
+- T20 remains `IN_PROGRESS` and advances to `VERIFY_PENDING`; Codex does not mark it `PASS`.
+- T21 remains `NOT_STARTED`; no PR or merge was created.

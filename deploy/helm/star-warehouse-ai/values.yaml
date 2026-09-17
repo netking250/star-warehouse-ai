@@ -131,6 +131,14 @@ outboxRelay:
       cpu: "1"
       memory: 1Gi
 
+backup:
+  enabled: false
+  schedule: "0 2 * * *"
+  retentionDays: 7
+  storage: 2Gi
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+
 migration:
   enabled: true
   activeDeadlineSeconds: 600

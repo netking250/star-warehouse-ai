@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "additionalProperties": true,
-  "required": ["image", "secretRef", "api", "worker", "scheduler", "outboxRelay", "service", "ingress"],
+  "required": ["image", "secretRef", "api", "worker", "scheduler", "outboxRelay", "backup", "service", "ingress"],
   "properties": {
     "productionMode": {"type": "boolean"},
     "image": {
@@ -28,6 +28,18 @@
     "maintenanceWorker": {"$ref": "#/$defs/workload"},
     "scheduler": {"$ref": "#/$defs/workload"},
     "outboxRelay": {"$ref": "#/$defs/workload"},
+    "backup": {
+      "type": "object",
+      "required": ["enabled", "schedule", "retentionDays", "storage"],
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "schedule": {"type": "string", "minLength": 9},
+        "retentionDays": {"type": "integer", "minimum": 1, "maximum": 365},
+        "storage": {"type": "string", "pattern": "^[1-9][0-9]*(Mi|Gi|Ti)$"},
+        "successfulJobsHistoryLimit": {"type": "integer", "minimum": 0, "maximum": 10},
+        "failedJobsHistoryLimit": {"type": "integer", "minimum": 0, "maximum": 10}
+      }
+    },
     "service": {
       "type": "object",
       "required": ["type", "port", "targetPort"],
