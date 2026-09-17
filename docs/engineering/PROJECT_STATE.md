@@ -3,8 +3,8 @@ schema_version: 1
 project: Star Warehouse AI
 phase: ENTERPRISE_HARDENING
 current_task: T20
-current_status: IN_PROGRESS
-execution_stage: VERIFY_PENDING
+current_status: AWAITING_ACCEPTANCE
+execution_stage: EXTERNAL_ACCEPTANCE_PENDING
 last_accepted_task: T19
 next_task: T21
 acceptance_owner: external
@@ -15,7 +15,8 @@ maintenance_status: PASS
 # Current Objective
 
 T19 is externally accepted `PASS_WITH_NOTES` by the explicit T20 implementation instruction.
-T20 Performance, Failure, Backup, Restore, and Disaster Recovery is `IN_PROGRESS / VERIFY_PENDING` on
+T20 Performance, Failure, Backup, Restore, and Disaster Recovery is `AWAITING_ACCEPTANCE /
+EXTERNAL_ACCEPTANCE_PENDING` on
 `feat/t14-t21-enterprise-hardening`. T20 owns one bounded load harness, disposable dependency
 failure and backpressure evidence, demo PostgreSQL backup/restore validation, persistence
 classification, measured disposable recovery evidence, and operator runbooks. Production and
@@ -63,6 +64,54 @@ shared developer data are excluded. T21 final integration, hosted proof, PR, and
 - The disposable cluster, namespaces, PVCs, network, volume, and k6 containers were removed. Only
   ignored local evidence was retained. T20 remains `IN_PROGRESS / VERIFY_PENDING`; external
   verification is required and T21 remains `NOT_STARTED`.
+
+## T20 Verification Closeout
+
+- Independent verification started from clean, synchronized `8c55131a16d81eed7521d8095ae96a43e66dece9` on
+  `feat/t14-t21-enterprise-hardening`. Production, persistent developer databases, shared Redis,
+  RabbitMQ, Qdrant, object storage, and real model providers were not touched. The only runtime
+  target was disposable k3d cluster `t20v-20260917` (`k3d 5.9.0`, `k3s v1.35.5+k3s1`) with
+  synthetic credentials and tenants.
+- The safe-default k6 SMOKE passed once (39 requests, 100% checks). One bounded BASELINE spot-check
+  passed 587/587 checks at 15.36 requests/s with p50/p95/p99 `94.18/355.74/840.39 ms`; API memory
+  was 246->260 MiB, worker memory 207->205 MiB, and PostgreSQL activity was 9 connections. The
+  higher single-run p99 was an endpoint-tail variance; throughput and p95 did not regress against
+  the three-run implementation mean. No production capacity or SLA claim is made.
+- Independent async integrity passed with 5/5 Outbox-to-RabbitMQ-to-Celery effects, unique receipts,
+  zero loss, zero duplicate durable effects, and drained Outbox and business queues. Worker restart,
+  relay pause/resume, and PostgreSQL outage/reconnect samples all passed; PostgreSQL outage produced
+  a bounded login failure rather than false success, then recovered authenticated reads.
+- A fresh 296047-byte PostgreSQL custom archive passed non-empty, SHA-256, metadata, and archive-list
+  validation. Metadata identified timestamp, application/image revision, Alembic `e9f0a1b2c3d4`,
+  disposable database identity, and backup type without credentials. A fresh target restore passed
+  roles, RLS policies, required extension, application connectivity, deterministic business/audit/
+  conversation/runtime sentinels, tenant isolation, and no-op migration at the accepted head.
+- Both restore defects were independently regression-tested. A moved artifact passed the portable
+  basename checksum path and full restore. A control restore using the former `--no-acl` behavior
+  reproduced runtime `permission denied`, while the fixed ACL-preserving restore granted the fixed
+  capability role and returned the expected tenant rows. No defect regressed.
+- The end-to-end DR replay destroyed only the disposable source namespace/PVCs, created a fresh
+  target environment, restored and migrated it, started the application, revalidated tenant and
+  business invariants, and completed one new async effect exactly once. Measured local RTO from
+  source-destroy initiation through post-restore async completion was approximately 665 seconds
+  (11m05s), not a production target. Tested RPO is the latest completed logical backup; PITR is
+  `NOT IMPLEMENTED`.
+- Persistence classification remains explicit: PostgreSQL is authoritative; Qdrant is
+  `DERIVED_REBUILDABLE` and its PostgreSQL/source-file reconciliation seam is covered by focused
+  tests; Redis is `EPHEMERAL`; RabbitMQ is `DURABLE_SECONDARY` behind the PostgreSQL Outbox. No
+  durable object-storage adapter is active, local uploads use transient `emptyDir`, and
+  `OBJECT_STORAGE_RUNTIME_RECOVERY = NOT_EXERCISED`; PostgreSQL backup does not restore uploaded
+  source bytes.
+- Focused disposable RLS/database-role tests passed 14/14 and the selected T20/outbox/task-runtime/
+  memory/route/migration/Celery tests passed 72/72. Ruff, format, ty, ShellCheck 0.11.0, Helm lint,
+  route inventory (136 entries, 0 unclassified HTTP/WS), and the single Alembic head all passed.
+  The known OpenAI cold-start and Celery fresh-process timing debt tests were not run. Initial
+  disposable setup races and one operator copy naming omission were corrected in the test procedure,
+  not in product code, and introduced no verification failure.
+- The exact disposable cluster, namespaces, PVCs, network, port-forwards, temporary credentials,
+  backup, k6 summaries, and raw verification directory were removed. T20 moves to
+  `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING`; Codex does not mark it `PASS`. T21 remains
+  `NOT_STARTED`, with no PR or merge created.
 
 T18 CI/CD and Supply Chain is externally accepted `PASS_WITH_NOTES` by the explicit T19
 implementation instruction. T19 Production Deployment Baseline is now `AWAITING_ACCEPTANCE /

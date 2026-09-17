@@ -35,7 +35,7 @@ Codex may set a completed implementation to `AWAITING_ACCEPTANCE` only. `PASS` a
 | T17 | Observability | PASS |
 | T18 | CI/CD + Supply Chain | PASS_WITH_NOTES |
 | T19 | Helm + k3s + AWS Reference | PASS_WITH_NOTES |
-| T20 | Performance + Failure + DR | IN_PROGRESS |
+| T20 | Performance + Failure + DR | AWAITING_ACCEPTANCE |
 | T21 | Eval + Portfolio + Interview | NOT_STARTED |
 
 ## T20 Implementation Closeout
@@ -56,6 +56,42 @@ Codex may set a completed implementation to `AWAITING_ACCEPTANCE` only. `PASS` a
   restore was 6 seconds and restore-to-service was approximately 80 seconds; no production SLA,
   capacity, HA, or PITR claim is made.
 - T20 is not externally accepted. T21 remains `NOT_STARTED`; no PR or merge was created.
+
+## T20 Verification Closeout
+
+- **Status:** `AWAITING_ACCEPTANCE`.
+- **Execution stage:** `EXTERNAL_ACCEPTANCE_PENDING`.
+- Independent verification used only disposable k3d `t20v-20260917` (`k3d 5.9.0`, `k3s
+  v1.35.5+k3s1`), synthetic credentials, and the Mock/provider-free application path. Production,
+  shared developer persistence, real providers, cloud resources, and customer object storage were
+  not touched.
+- The safe-default SMOKE passed once. One bounded BASELINE spot-check passed 587/587 checks at
+  15.36 requests/s with p50/p95/p99 `94.18/355.74/840.39 ms`; API memory was 246->260 MiB,
+  worker memory 207->205 MiB, and database activity was 9 connections. This is an environment
+  spot-check, not a production capacity or SLA result.
+- Independent Outbox integrity passed 5/5 effects with unique receipts, zero loss/duplicates, and
+  drained queues. Worker interruption, relay pause/resume, and PostgreSQL outage/reconnect samples
+  passed. A fresh 296047-byte logical backup passed checksum, metadata, and archive-list checks;
+  metadata contained no credentials.
+- Fresh-target restore and the complete disposable DR replay passed Alembic head
+  `e9f0a1b2c3d4`, capability roles, RLS, application login, tenant isolation, business/audit/
+  conversation/runtime invariants, post-restore migration, and one new exactly-once durable effect.
+  The two IMPLEMENT restore defects were directly exercised: relocated checksum validation passed;
+  a former `--no-acl` control restore denied runtime access while the fixed restore succeeded.
+- Measured local DR RTO from source-destroy initiation through post-restore async completion was
+  approximately 665 seconds (11m05s). Tested RPO is the latest completed logical backup. PITR is
+  `NOT IMPLEMENTED`; no production RTO/RPO/SLA, HA, public-cloud DR, or capacity claim is made.
+- Object storage remains a documented limitation: the active local upload path is transient
+  `emptyDir`, not a production backup strategy; no durable object-storage adapter was active, so
+  `OBJECT_STORAGE_RUNTIME_RECOVERY = NOT_EXERCISED`. Production durable uploads require the
+  accepted external S3-compatible contract and its bucket/versioning/backup or provider-durability
+  responsibility. PostgreSQL backup alone does not restore uploaded source bytes. Qdrant remains
+  `DERIVED_REBUILDABLE`; Redis is `EPHEMERAL`; RabbitMQ is `DURABLE_SECONDARY` behind Outbox.
+- Focused RLS/database-role tests passed 14/14; the selected T20/outbox/task-runtime/memory/route/
+  migration/Celery tests passed 72/72. Ruff, format, ty, ShellCheck 0.11.0, Helm lint, route
+  inventory (136 classified, 0 unclassified HTTP/WS), and the single Alembic head passed. Known
+  OpenAI/Celery timing-debt tests were excluded. T21 remains `NOT_STARTED`; no PR or merge was
+  created.
 
 ## Independent maintenance tasks
 
