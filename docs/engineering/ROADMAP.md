@@ -56,14 +56,16 @@ Codex may set a completed implementation to `AWAITING_ACCEPTANCE` only. `PASS` a
 
 - **Status:** `IN_PROGRESS`.
 - **Execution stage:** `IMPLEMENT_BLOCKED`.
-- The single full-suite attempt collected 1,848 tests but was stopped at 5% after widespread
-  PostgreSQL connection timeouts. A focused diagnostic proved this host's `localhost` path times
-  out in `asyncpg`, while `127.0.0.1` reaches the same healthy Docker database immediately.
-- Classification is `TEST_ENVIRONMENT`, not `FEATURE_REGRESSION` and not either accepted timing
-  baseline. The full suite was not rerun under the explicit one-run constraint, so T21 cannot move
-  to `VERIFY_PENDING`.
-- The provider-free evaluation implementation itself passes 12/12 scenarios and 3/3 focused tests.
-  The remaining final integration gates and PR readiness remain incomplete; no PR or merge exists.
+- The first full-suite attempt remains invalid/incomplete because `localhost` timed out; direct
+  `127.0.0.1` connectivity passed. Its classification is `TEST_ENVIRONMENT`.
+- After 3/3 corrected DB preflight tests passed, the explicitly authorized replacement full run
+  completed exactly once: 1,848 collected, 1,810 passed, 1 failed, 0 errors, 37 skipped, 81.93%
+  coverage, 2,231.21 seconds.
+- The sole failure, `tests/test_chat_api.py::test_chat_timeout_after_answer_closes_without_error`,
+  reproduced in a focused diagnostic in 5.84 seconds. It is not either accepted timing debt and is
+  classified `FEATURE_REGRESSION`; T21 made no chat-runtime change and did not repair it.
+- Per instruction, final readiness stopped at this regression. T21 cannot move to `VERIFY_PENDING`;
+  no PR or merge exists.
 
 ## T20 Implementation Closeout
 
