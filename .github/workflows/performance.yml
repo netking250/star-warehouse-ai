@@ -90,6 +90,8 @@ jobs:
       - run: uv sync --frozen
       - name: Verify locked dependency graph
         run: uv lock --check
+      - name: Bootstrap PostgreSQL schema and capability roles
+        run: uv run alembic upgrade head
       - name: Run performance regression suite
         run: mkdir -p reports && uv run pytest tests/performance -q --junitxml=reports/performance.xml
       - name: Upload performance report

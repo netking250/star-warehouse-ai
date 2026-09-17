@@ -95,6 +95,8 @@ jobs:
       - run: uv sync --frozen
       - name: Verify locked dependency graph
         run: uv lock --check
+      - name: Bootstrap PostgreSQL schema and capability roles
+        run: uv run alembic upgrade head
       - name: Run offline evaluation suite
         run: |
           mkdir -p reports

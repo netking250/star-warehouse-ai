@@ -177,7 +177,7 @@ jobs:
         run: |
           image_id="$(docker image inspect --format '{{.Id}}' "${IMAGE_NAME}")"
           image_user="$(docker image inspect --format '{{.Config.User}}' "${IMAGE_NAME}")"
-          image_revision="$(docker image inspect --format '{{index .Config.Labels \"org.opencontainers.image.revision\"}}' "${IMAGE_NAME}")"
+          image_revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "${IMAGE_NAME}")"
           jq -n \
             --arg repository "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
             --arg commit "${GITHUB_SHA}" \
