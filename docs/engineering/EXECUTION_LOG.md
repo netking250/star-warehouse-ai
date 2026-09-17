@@ -3097,6 +3097,31 @@ Execution Stage: `IMPLEMENT_BLOCKED`
   coverage, final frontend/Docker/Helm/route/security gates, remote synchronization, and final PR
   readiness are therefore not claimed. T21 remains in progress and does not advance to VERIFY.
 
+## T21-IMPLEMENT-EVIDENCE-BLOCKED - Replacement Full Regression
+
+Recorded: 2026-09-17
+
+Status: `IN_PROGRESS`
+
+Execution Stage: `IMPLEMENT_BLOCKED`
+
+- The prior interrupted run remains documented as invalid/incomplete `TEST_ENVIRONMENT` evidence:
+  `localhost` PostgreSQL timed out while `127.0.0.1` succeeded.
+- The explicitly authorized replacement used the corrected `127.0.0.1` endpoint, a fresh isolated
+  database migrated to `e9f0a1b2c3d4`, writable OS temp/cache paths, Redis DB 15, a process-scoped
+  Qdrant collection, memory Celery transports, and no real provider calls. Three focused preflight
+  tests passed: migration single-head, tenant-filtered DB access, and unauthenticated protected API.
+- The canonical full backend command ran exactly once to completion: 1,848 collected, 1,810 passed,
+  1 failed, 0 errors, 37 skipped, 81.93% coverage, and 2,231.21 seconds (37:11). The single failure
+  was `tests/test_chat_api.py::test_chat_timeout_after_answer_closes_without_error`.
+- A focused diagnostic reproduced that failure in 5.84 seconds. The stream emitted a timeout error
+  before the expected token after answer; this is not either accepted OpenAI/Celery timing debt and
+  not a PostgreSQL connectivity issue. T21 did not change chat code and no repair was made.
+  Classification: `FEATURE_REGRESSION`.
+- Final frontend, Docker, Helm, route, security, CI, and PR-readiness gates were intentionally not
+  started after the feature regression. T21 remains `IN_PROGRESS / IMPLEMENT_BLOCKED`; no PR or
+  merge was created.
+
 ## T20-VERIFY-CLOSEOUT - Resilience, Backup, Restore, and DR Final Verification
 
 Completed: 2026-09-17

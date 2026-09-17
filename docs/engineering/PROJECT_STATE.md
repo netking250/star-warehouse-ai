@@ -23,20 +23,24 @@ and preparation of the final PR body. It does not create the PR, merge `main`, p
 or claim deferred hosted/cloud/production evidence. The active plan is
 [`docs/exec-plans/active/T21.md`](../exec-plans/active/T21.md).
 
-## T21 Test-Environment Blocker
+## T21 Replacement Full-Regression Blocker
 
-- The one authorized full backend command collected `1848` tests but was stopped at 5% after a
-  broad connection-timeout pattern crossed admin API and agent tests. It did not produce valid
-  aggregate pass/fail/coverage counts and is not accepted as regression evidence.
-- A focused diagnostic reproduced `asyncpg` `TimeoutError` while connecting to PostgreSQL through
-  `localhost` (`1 failed in 79.87s`). A direct `asyncpg` probe to the same database through
-  `127.0.0.1` succeeded immediately, while the `localhost` probe timed out. PostgreSQL itself was
-  healthy and had no blocked transaction. Classification: `TEST_ENVIRONMENT`.
-- The suite was not rerun because the T21 instruction permits one full backend execution. T21
-  cannot advance to `VERIFY_PENDING` until an externally authorized resumed run uses the working
-  loopback address and produces complete counts and coverage.
-- Before the blocker, the new deterministic offline evaluation passed 12/12 scenarios and its
-  focused tests passed 3/3. Ruff and `ty` passed; Ruff normalized one line-ending-only package file.
+- The first backend attempt remains invalid/incomplete: it collected `1848` tests and stopped near
+  5% because `asyncpg` timed out through `localhost`. A direct `127.0.0.1` connection succeeded;
+  PostgreSQL was healthy. Its classification remains `TEST_ENVIRONMENT` and it is not final evidence.
+- The explicitly authorized replacement used `127.0.0.1`, a fresh isolated database, writable OS
+  temp/cache paths, Redis DB 15, a process-scoped Qdrant collection, memory Celery transports, and
+  real providers disabled. Preflight passed 3/3 focused migration/tenant/API tests.
+- The replacement full suite ran exactly once to completion: `1848` collected, `1810` passed,
+  `1` failed, `0` errors, `37` skipped, `81.93%` coverage, `2231.21s` (`37:11`).
+- The sole failure was `tests/test_chat_api.py::test_chat_timeout_after_answer_closes_without_error`.
+  It reproducibly returned the timeout error before the expected streamed token; the focused
+  diagnostic repeated the failure in `5.84s`. This is not an OpenAI/Celery baseline and is not an
+  environment connectivity failure. T21 did not change `app/api/v1/chat.py`; no repair was made.
+  Classification: `FEATURE_REGRESSION`.
+- Per the evidence-task instruction, final readiness execution stopped at this regression. T21
+  remains `IN_PROGRESS / IMPLEMENT_BLOCKED`; frontend, Docker, Helm, route, security, final CI,
+  and PR-readiness gates are not claimed.
 
 ## T21 Implementation Start
 
