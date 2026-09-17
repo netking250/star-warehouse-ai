@@ -7,6 +7,10 @@ open until new real evidence exists; wording alone does not close it.
   first-process OpenAI SDK import cost.
 - **Celery fresh-process import timing:** a historical timing assertion remains sensitive to a
   fresh Celery process/import path.
+- **Historical chat-stream timing flake:**
+  `tests/test_chat_api.py::test_chat_timeout_after_answer_closes_without_error` remains a
+  nondeterministic historical failure observed at T21, T20, and protected `origin/main`; it is not
+  demonstrated to be a T21 feature regression and is separate from the OpenAI/Celery timing debts.
 - **Vulnerability baseline:** T18 scan findings remain visible; the repository does not claim zero
   dependency or image vulnerabilities.
 - **Hosted protected-PR proof:** the final hosted PR checks have not yet run.

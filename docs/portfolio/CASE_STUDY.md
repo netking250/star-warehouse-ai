@@ -33,8 +33,9 @@ scale claim.
 - T18 recorded a 255-component SBOM, zero Gitleaks findings, npm findings of 0 critical / 9 high /
   4 moderate / 1 low, pip-audit findings of 83 across 19 packages, and Trivy findings of 0 critical /
   81 high with 37 fixable.
-- T19 rendered and validated 38 Kubernetes resources and exercised install/upgrade/rollback on a
-  disposable k3s target. It did not prove a public VM, DNS, CA, or hosted GHCR publication.
+- T19 exercised install/upgrade/rollback on a disposable k3s target with its 38-resource chart
+  revision. T21's final chart render validated 42 resources statically. Neither stage proved a
+  public VM, DNS, CA, or hosted GHCR publication.
 - T20 request-load runs completed 537, 547, and 527 requests, averaging 14.46 requests/second with
   mean p50/p95/p99 of 112.39/412.85/604.75 ms. A two-minute run completed 1,707 requests with no
   request failures. Independent disposable restore evidence measured about 665 seconds RTO; RPO is
@@ -42,6 +43,11 @@ scale claim.
 - T21 adds 12 provider-free deterministic workflow scenarios. They measure routing, tool selection,
   approval, authorization, tenant separation, model failure policy, and terminal-state contracts;
   they do not measure real-model linguistic quality.
+- T21's final local gates passed locked frontend validation (12 Vitest files/51 tests and 6/6 browser
+  tests), a detached clean-checkout Docker build/startup/health smoke, Helm lint/template/schema/
+  kubeconform/ShellCheck, and route/security/CI static checks. The full backend result was 1,848
+  collected, 1,810 passed, one historical nondeterministic chat timeout failure, zero errors, 37
+  skipped, and 81.93% coverage; no T21 feature regression was demonstrated.
 
 ## Trade-offs and limits
 

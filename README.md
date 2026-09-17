@@ -194,10 +194,12 @@ Alertmanager, Loki, Promtail, Tempo, OpenTelemetry Collector, and Mimir configur
 - T15, T16, and T17 are externally accepted `PASS`; T18, T19, and T20 are externally accepted
   `PASS_WITH_NOTES` on the same long-lived `feat/t14-t21-enterprise-hardening` branch.
 - T21 final integration, deterministic evaluation, and portfolio/PR readiness is
-  `IN_PROGRESS / IMPLEMENT_BLOCKED` by a local `localhost`/Docker PostgreSQL test-environment
-  failure.
-  The final PR, hosted proof, and merge remain outside this implementation stage; see the
-  [current project state](docs/engineering/PROJECT_STATE.md).
+  `IN_PROGRESS / VERIFY_PENDING`. The completed full regression records one historical
+  nondeterministic chat-stream timing failure and zero demonstrated T21 feature regressions;
+  final local frontend, browser, Docker, Helm, route, security, and CI-readiness gates passed.
+  The final PR, hosted proof, trusted publication/attestation, and merge remain outside this
+  implementation stage; see the [current project state](docs/engineering/PROJECT_STATE.md) and
+  [prepared PR body](docs/engineering/FINAL_PR_BODY.md).
 
 Detailed milestone evidence remains in the engineering state documents rather than this project
 introduction.
@@ -225,5 +227,6 @@ introduction.
 - [Engineering evidence index](docs/portfolio/EVIDENCE_INDEX.md)
 - [Interview guide](docs/interview/ENGINEERING_GUIDE.md)
 - [Known limitations](docs/engineering/KNOWN_LIMITATIONS.md)
+- [Prepared final PR body](docs/engineering/FINAL_PR_BODY.md)
 
 Contributors and coding agents should read [AGENTS.md](AGENTS.md) before changing the repository.

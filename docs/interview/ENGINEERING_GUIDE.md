@@ -63,8 +63,9 @@ main/version-tag runs own image publication, SBOM, and provenance. Helm uses imm
 a single pre-install/pre-upgrade migration Job; applications never migrate at startup.
 **Trade-off.** Hosted publication evidence arrives only after the final accepted PR/main flow.
 **Failure mode.** PRs cannot publish; failed migration blocks rollout; backup restore targets must be
-explicitly disposable. **Evidence.** T18 workflow review/scans, T19 38-resource k3s validation, and
-T20 independent logical restore around 665 seconds.
+explicitly disposable. **Evidence.** T18 workflow review/scans, T19's 38-resource disposable k3s
+validation, T21's final 42-resource static chart validation, and T20 independent logical restore
+around 665 seconds.
 
 ## Reading the numbers honestly
 

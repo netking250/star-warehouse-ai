@@ -4,9 +4,9 @@ project: Star Warehouse AI
 phase: ENTERPRISE_HARDENING
 current_task: T21
 current_status: IN_PROGRESS
-execution_stage: IMPLEMENT_BLOCKED
+execution_stage: VERIFY_PENDING
 last_accepted_task: T20
-next_task: T21_IMPLEMENT_RESUME
+next_task: T21_HOSTED_VERIFY
 acceptance_owner: external
 maintenance_task: M02
 maintenance_status: PASS
@@ -16,14 +16,14 @@ maintenance_status: PASS
 
 T14 and T18-T20 are externally accepted `PASS_WITH_NOTES`; T15-T17 are externally accepted
 `PASS`. T21 Final Integration, Evaluation, and Portfolio Readiness is
-`IN_PROGRESS / IMPLEMENT_BLOCKED`
-on `feat/t14-t21-enterprise-hardening`. It owns one final local integration pass, deterministic
-provider-free workflow evaluation, final architecture/portfolio/evidence/interview documentation,
-and preparation of the final PR body. It does not create the PR, merge `main`, publish a release,
-or claim deferred hosted/cloud/production evidence. The active plan is
+`IN_PROGRESS / VERIFY_PENDING`
+on `feat/t14-t21-enterprise-hardening`. Its deterministic evaluation, final local integration
+gates, architecture/portfolio/evidence/interview documentation, and final PR body are prepared.
+Hosted PR, publication, attestation, cloud, and production evidence remain outside this stage. It
+does not create the PR, merge `main`, or publish a release. The active plan is
 [`docs/exec-plans/active/T21.md`](../exec-plans/active/T21.md).
 
-## T21 Replacement Full-Regression Blocker
+## T21 Final Integration Evidence
 
 - The first backend attempt remains invalid/incomplete: it collected `1848` tests and stopped near
   5% because `asyncpg` timed out through `localhost`. A direct `127.0.0.1` connection succeeded;
@@ -33,14 +33,22 @@ or claim deferred hosted/cloud/production evidence. The active plan is
   real providers disabled. Preflight passed 3/3 focused migration/tenant/API tests.
 - The replacement full suite ran exactly once to completion: `1848` collected, `1810` passed,
   `1` failed, `0` errors, `37` skipped, `81.93%` coverage, `2231.21s` (`37:11`).
-- The sole failure was `tests/test_chat_api.py::test_chat_timeout_after_answer_closes_without_error`.
-  It reproducibly returned the timeout error before the expected streamed token; the focused
-  diagnostic repeated the failure in `5.84s`. This is not an OpenAI/Celery baseline and is not an
-  environment connectivity failure. T21 did not change `app/api/v1/chat.py`; no repair was made.
-  Classification: `FEATURE_REGRESSION`.
-- Per the evidence-task instruction, final readiness execution stopped at this regression. T21
-  remains `IN_PROGRESS / IMPLEMENT_BLOCKED`; frontend, Docker, Helm, route, security, final CI,
-  and PR-readiness gates are not claimed.
+- The full regression completed with one historical nondeterministic timing failure and zero
+  demonstrated T21 feature regressions. The sole failure was
+  `tests/test_chat_api.py::test_chat_timeout_after_answer_closes_without_error`, classified as
+  `NON_REPRODUCIBLE_PREVIOUS_FAILURE`. Focused control evidence was T21 `5/5` passing, accepted T20
+  `4/5` with the same failure, and protected `origin/main` `4/5` with the same failure. No code in
+  the failing execution path changed. This is its own historical chat-stream timing flake, not the
+  OpenAI or Celery timing debt. **T21 feature regression: NO.**
+- Remaining local gates passed: frozen frontend install, format, lint, typecheck, Vitest (`12` files,
+  `51` tests), build, and browser E2E (`6/6`); clean-checkout Docker build/startup/health with
+  synthetic configuration; Helm lint/template/schema/kubeconform (`42` valid resources) and
+  ShellCheck; route inventory (`126` HTTP, `2` WebSocket, `0` unclassified HTTP/WS); and the bounded
+  final security/CI graph review. The Playwright runner reported all six tests passing before a
+  Windows Vite teardown hang required termination; no browser test failed.
+- The provider-free offline evaluation remains reused at `12/12` scenarios, with no real provider.
+  Hosted PR checks, trusted GHCR publication, image/SBOM attestation, and any external cloud proof
+  remain pending. T21 is `IN_PROGRESS / VERIFY_PENDING`; no PR or merge exists.
 
 ## T21 Implementation Start
 
