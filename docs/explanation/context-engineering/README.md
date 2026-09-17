@@ -1,5 +1,8 @@
 # Context Engineering
 
+- [Deterministic offline workflow evaluation](./offline-evaluation.md) - the provider-free T21
+  dataset, command, objective metrics, and explicit live-model boundary
+
 本节提供项目上下文工程的系统化说明、最佳实践，以及下一阶段的具体目标和任务规划。
 
 - [什么是 Context Engineering](./overview.md) — 定义、边界与项目重要性

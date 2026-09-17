@@ -3070,6 +3070,33 @@ State transition:
 - T20 remains `IN_PROGRESS` and advances to `VERIFY_PENDING`; Codex does not mark it `PASS`.
 - T21 remains `NOT_STARTED`; no PR or merge was created.
 
+## T21-IMPLEMENT-BLOCKED - Final Integration Test Environment
+
+Recorded: 2026-09-17
+
+Status: `IN_PROGRESS`
+
+Execution Stage: `IMPLEMENT_BLOCKED`
+
+- Recovered the clean, synchronized integration branch at
+  `d7acd74d0fddc9b4b539c8c8300c37617660b1d4`; reconciled T15-T20 accepted plan locations and
+  preserved all accepted notes.
+- Added a provider-free deterministic workflow evaluation inside the existing evaluation package,
+  with 12 synthetic scenarios and objective routing, tool, approval, authorization, tenant,
+  fallback, and terminal metrics. The command passed 12/12 and focused tests passed 3/3.
+- Added the final system view, case study, evidence index, interview guide, limitation register,
+  offline-evaluation guide, README links, and an unsubmitted final-PR draft. No PR, merge, release,
+  provider call, migration, or platform feature was created.
+- Fresh migration validation reached the single accepted Alembic head `e9f0a1b2c3d4`.
+- The one authorized canonical full backend attempt collected 1,848 tests but was stopped at 5%
+  after widespread PostgreSQL connection timeouts crossed API and agent tests. A focused diagnostic
+  failed with `asyncpg` `TimeoutError` in 79.87 seconds. Direct probes proved `localhost` timed out
+  on this Windows/Docker host while `127.0.0.1` reached the same healthy database immediately;
+  PostgreSQL had no lock wait. Classification: `TEST_ENVIRONMENT`.
+- The full suite was not rerun under the explicit one-run constraint. Aggregate full-suite counts,
+  coverage, final frontend/Docker/Helm/route/security gates, remote synchronization, and final PR
+  readiness are therefore not claimed. T21 remains in progress and does not advance to VERIFY.
+
 ## T20-VERIFY-CLOSEOUT - Resilience, Backup, Restore, and DR Final Verification
 
 Completed: 2026-09-17

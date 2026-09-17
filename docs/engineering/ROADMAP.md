@@ -35,8 +35,35 @@ Codex may set a completed implementation to `AWAITING_ACCEPTANCE` only. `PASS` a
 | T17 | Observability | PASS |
 | T18 | CI/CD + Supply Chain | PASS_WITH_NOTES |
 | T19 | Helm + k3s + AWS Reference | PASS_WITH_NOTES |
-| T20 | Performance + Failure + DR | AWAITING_ACCEPTANCE |
-| T21 | Eval + Portfolio + Interview | NOT_STARTED |
+| T20 | Performance + Failure + DR | PASS_WITH_NOTES |
+| T21 | Eval + Portfolio + Interview | IN_PROGRESS |
+
+## T21 Implementation Start
+
+- **Status:** `IN_PROGRESS`.
+- **Execution stage:** `IMPLEMENT`.
+- T20 is externally accepted `PASS_WITH_NOTES` by the explicit T21 instruction. T14 and T18-T20
+  retain their accepted notes; T15-T17 remain `PASS`.
+- Frozen scope is final integration and evidence: one full backend regression, final frontend,
+  Docker, Helm, route, migration, and security gates; provider-free deterministic workflow
+  evaluation; and concise architecture, portfolio, evidence, interview, limitations, and final-PR
+  preparation.
+- T21 adds no business module, platform architecture, migration, live provider dependency, live
+  cloud deployment, release, pull request, or merge. The active plan is
+  [`docs/exec-plans/active/T21.md`](../exec-plans/active/T21.md).
+
+## T21 Implementation Blocker
+
+- **Status:** `IN_PROGRESS`.
+- **Execution stage:** `IMPLEMENT_BLOCKED`.
+- The single full-suite attempt collected 1,848 tests but was stopped at 5% after widespread
+  PostgreSQL connection timeouts. A focused diagnostic proved this host's `localhost` path times
+  out in `asyncpg`, while `127.0.0.1` reaches the same healthy Docker database immediately.
+- Classification is `TEST_ENVIRONMENT`, not `FEATURE_REGRESSION` and not either accepted timing
+  baseline. The full suite was not rerun under the explicit one-run constraint, so T21 cannot move
+  to `VERIFY_PENDING`.
+- The provider-free evaluation implementation itself passes 12/12 scenarios and 3/3 focused tests.
+  The remaining final integration gates and PR readiness remain incomplete; no PR or merge exists.
 
 ## T20 Implementation Closeout
 
@@ -288,7 +315,7 @@ The sequence is the default gate order. A user may issue a documented change req
   and concise recovery runbooks using T17 telemetry and the T19 deployment topology.
 - Production/shared resources, production-capacity claims, live AWS DR, broad tuning, schema
   migrations, real model providers, T21 hosted proof, PR creation, and merge remain out of scope.
-- The active plan is [`docs/exec-plans/active/T20.md`](../exec-plans/active/T20.md).
+- The completed plan is [`docs/exec-plans/completed/T20.md`](../exec-plans/completed/T20.md).
 
 ## T16 Implementation Start
 
@@ -300,7 +327,7 @@ The sequence is the default gate order. A user may issue a documented change req
 - Frozen scope is the existing frontend extension for Overview, AI, Operations, Security, and
   Compliance over already accepted backend contracts. No backend route, schema migration, provider
   secret management, T17 observability work, or T18-T20 deployment/performance work is in scope.
-- The active plan is [`docs/exec-plans/active/T16.md`](../exec-plans/active/T16.md).
+- The completed plan is [`docs/exec-plans/completed/T16.md`](../exec-plans/completed/T16.md).
 
 ## T16 Implementation Closeout
 
@@ -349,7 +376,7 @@ The sequence is the default gate order. A user may issue a documented change req
 - No T02/T03/T04 context or delivery redesign, T16 UI expansion, database migration, public
   business route, CI/CD/SBOM/signing, deployment architecture, load/DR work, or baseline timing
   debt repair is in scope.
-- The active plan is [`docs/exec-plans/active/T17.md`](../exec-plans/active/T17.md).
+- The completed plan is [`docs/exec-plans/completed/T17.md`](../exec-plans/completed/T17.md).
 
 ## T17 Implementation Closeout
 
@@ -438,7 +465,7 @@ State transition:
   image SBOM, capture safe source metadata, and isolate trusted provenance from untrusted PRs.
 - No branch-protection mutation, registry publication, image signing key, T19 deployment, T20
   performance/DR work, or deferred OpenAI/Celery timing-debt repair is in scope.
-- The active plan is [`docs/exec-plans/active/T18.md`](../exec-plans/active/T18.md).
+- The completed plan is [`docs/exec-plans/completed/T18.md`](../exec-plans/completed/T18.md).
 
 ## T18 Implementation Closeout
 

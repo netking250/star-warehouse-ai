@@ -6,6 +6,8 @@
 - [Accepted decisions](../../engineering/DECISIONS.md) — 当前架构基线
 - [Deployment architecture](./deployment.md) — Helm runtime roles, trusted image flow, k3s demo,
   and the qualified AWS production reference
+- [Final system view](./final-system-view.md) - browser, runtime roles, data stores, async delivery,
+  model providers, telemetry, CI, and Helm in one maintained diagram
 - [Enterprise authorization](../../architecture/AUTHORIZATION.md) — tenant membership, roles,
   capabilities, route policy, revocation, and audit semantics
 - [Secure browser session](../../architecture/SECURE_BROWSER_SESSION.md) — HttpOnly cookie,
