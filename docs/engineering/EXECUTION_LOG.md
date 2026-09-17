@@ -2973,3 +2973,56 @@ State transition:
 - T19 remains `IN_PROGRESS` and advances from `IMPLEMENT` to `VERIFY_PENDING`; Codex does not mark
   it `PASS`.
 - T20 remains `NOT_STARTED`; no PR or merge is created before T21.
+
+## T19-VERIFY-CLOSEOUT - Deployment Baseline Final Verification
+
+Completed: 2026-09-17
+
+Status: `AWAITING_ACCEPTANCE`
+
+Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
+
+- Final verification recovered a clean, synchronized `feat/t14-t21-enterprise-hardening` branch at
+  `31536460a808cffa3847261d4db681a2086b9eb9`. No production namespace, database, credential, AWS
+  resource, production image publication, PR, merge, application business code, route, or migration
+  history was changed.
+- Independent Helm 3.17.3 lint/template passed for default, demo, and production-reference values.
+  Strict kubeconform 0.6.7 against Kubernetes 1.30 reported `38` valid resources and `0` invalid,
+  errors, or skipped. ShellCheck 0.11.0 passed for deployment scripts. Production render scans found
+  zero privileged/host access, cluster-admin, plaintext Secret object, public infrastructure service,
+  or `latest` image. Digest precedence, missing production digest, and default `latest` negative
+  cases failed as designed.
+- Fresh disposable k3d `5.9.0` with actual k3s `v1.35.5+k3s1` and isolated namespace `t19-verify`
+  passed canonical install, migration completion, API/tenant-worker/maintenance-worker/scheduler/
+  relay readiness, demo dependency readiness, TLS ingress health, internal metrics, public metrics
+  denial, browser session/CSRF/Origin behavior, WebSocket security, and small authenticated upload.
+  A stale broker-host value from the discarded first non-canonical test fixture was corrected only in
+  the disposable Secret; the final chart-declared Service names and all worker processes recovered.
+- A benign Helm upgrade with API replicas `2` succeeded and ran one revision-scoped migration owner
+  with parallelism/completions `1/1`. Deliberate invalid-PostgreSQL and missing-`SECRET_KEY` tests
+  returned visible non-zero failures and atomically recovered. Application rollback succeeded at
+  Helm revision `7`; no `alembic downgrade`, PVC/namespace deletion, or database restore occurred.
+  PostgreSQL remained at `e9f0a1b2c3d4`.
+- Effective app security was UID/GID `999`, non-root, no privilege escalation, no privileged/host
+  namespace/path access, no service-account API token, and bounded termination. Scheduler and relay
+  remained singleton. The API startup/readiness/liveness and process-lifecycle probes matched their
+  documented semantics; provider keys were empty while API readiness remained healthy.
+- T17 Helm telemetry smoke reached the existing Collector/Tempo endpoint. One API request returned
+  a trace ID and its four-span `star-warehouse-ai-api` trace was queryable in Tempo; internal API
+  metrics and API/maintenance-worker JSON logs were present. A maintenance task trace was queryable,
+  and disposable Secret sentinels had zero log/trace matches. Existing scheduled maintenance-task
+  `TenantContextMissingError` records are a non-blocking `PRE_EXISTING_BASELINE` observation in the
+  reused T18 image, not a T19 Helm defect; no application repair was made during VERIFY.
+- No deterministic runtime Mock-provider stream fixture is wired into the chart, so SSE completion
+  was not claimed and no real provider was called. Effective production buffering/body/120-second
+  ingress settings were verified separately. Hosted GHCR runtime/attestation, public VM/DNS/CA,
+  live AWS deployment, T20 performance/resilience/backup/restore/DR/capacity work, and existing
+  OpenAI/Celery timing debt remain deferred.
+
+State transition:
+
+- T14 remains `PASS_WITH_NOTES`; T15, T16, and T17 remain `PASS`; T18 remains `PASS_WITH_NOTES` by
+  explicit user instruction.
+- T19 moves from `IN_PROGRESS / VERIFY_PENDING` to `AWAITING_ACCEPTANCE /
+  EXTERNAL_ACCEPTANCE_PENDING`; Codex does not mark it `PASS`.
+- T20 remains `NOT_STARTED`; no PR or merge is created before T21.

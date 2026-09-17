@@ -3,8 +3,8 @@ schema_version: 1
 project: Star Warehouse AI
 phase: ENTERPRISE_HARDENING
 current_task: T19
-current_status: IN_PROGRESS
-execution_stage: VERIFY_PENDING
+current_status: AWAITING_ACCEPTANCE
+execution_stage: EXTERNAL_ACCEPTANCE_PENDING
 last_accepted_task: T18
 next_task: T20
 acceptance_owner: external
@@ -15,7 +15,8 @@ maintenance_status: PASS
 # Current Objective
 
 T18 CI/CD and Supply Chain is externally accepted `PASS_WITH_NOTES` by the explicit T19
-implementation instruction. T19 Production Deployment Baseline is now `IN_PROGRESS / VERIFY_PENDING`
+implementation instruction. T19 Production Deployment Baseline is now `AWAITING_ACCEPTANCE /
+EXTERNAL_ACCEPTANCE_PENDING`
 on `feat/t14-t21-enterprise-hardening`. Its frozen scope is one Helm chart for the existing API,
 worker, scheduler, and outbox-relay process boundaries; an immutable T18 image-consumption
 contract; a low-cost k3s demo profile; secure configuration, migration, ingress, and observability
@@ -58,6 +59,38 @@ and capacity work and T21 final hosted proof remain out of scope.
   live AWS resources were not created; AWS remains a documented reference. No T20 performance,
   resilience, backup/restore, DR, or capacity work was performed.
 
+## T19 Verification Closeout
+
+- T19 moves from `IN_PROGRESS / VERIFY_PENDING` to `AWAITING_ACCEPTANCE /
+  EXTERNAL_ACCEPTANCE_PENDING`; Codex does not mark it `PASS`. T20 remains `NOT_STARTED`.
+- Independent final verification passed on the synchronized `feat/t14-t21-enterprise-hardening`
+  branch at `31536460a808cffa3847261d4db681a2086b9eb9` with a clean worktree. Helm lint/template,
+  strict kubeconform (`38` valid, `0` invalid/errors/skipped), ShellCheck deployment scripts,
+  production security render, immutable image negative cases, migration ownership, and route/Alembic
+  guards passed.
+- A fresh disposable k3d `5.9.0` cluster running k3s `v1.35.5+k3s1` in namespace `t19-verify`
+  passed canonical install, API/worker/maintenance/scheduler/relay and demo dependency readiness,
+  HTTPS ingress, upgrade with two API replicas, atomic migration and missing-Secret failures,
+  application rollback without downgrade, bounded Pod termination, and singleton checks. No
+  production namespace, database, credential, AWS resource, or image publication was touched.
+- The migration Job was the only `alembic upgrade head` owner (parallelism/completions `1/1`); all
+  application workloads used non-mutating `alembic current --check-heads`. PostgreSQL remained at
+  `e9f0a1b2c3d4` after rollback. No migration history, application route, or business code changed.
+- Browser/ingress verification preserved Secure HttpOnly cookies, CSRF, exact Origin behavior, no
+  browser bearer/query token, valid cookie/origin WebSocket handshakes, query-token/invalid-Origin
+  rejection, HTTPS OIDC callback configuration, and a small authenticated upload. Public metrics
+  were not routed. SSE completion is explicitly unclaimed because no supported runtime Mock-provider
+  fixture exists in the chart and no real provider was called; production ingress streaming/body
+  annotations were verified.
+- Helm OTLP configuration reached the existing T17 Collector/Tempo boundary. One API request
+  produced a queryable four-span API trace, internal metrics and JSON API/worker logs were observed,
+  and no disposable Secret sentinel appeared in logs or traces. Existing scheduled maintenance
+  task tenant-context failures were observed in the reused T18 image and remain classified
+  `PRE_EXISTING_BASELINE`; they are not a T19 chart defect and were not repaired in VERIFY.
+- Hosted GHCR runtime/attestation proof remains deferred to T21. Public VM/DNS/CA proof remains
+  deployment-environment deferred. AWS is reference-only. T20 performance, resilience,
+  backup/restore, DR, and capacity work, plus OpenAI/Celery timing debt, was not performed.
+
 T13 Model Gateway is externally accepted `PASS`. T14 AI Failure Policy is externally accepted
 `PASS_WITH_NOTES` on the long-lived T14-T21 integration branch. T15 Frontend Transport, T16
 Enterprise Console, and T17 Production Observability Hardening are externally accepted `PASS` by
@@ -81,8 +114,8 @@ The frozen product target is an **Enterprise Multi-tenant AI Customer Service Pl
 # Current Task
 
 - **Task:** T19 - Production Deployment Baseline.
-- **Status:** `IN_PROGRESS`.
-- **Execution stage:** `VERIFY_PENDING`; the long-lived integration branch is
+- **Status:** `AWAITING_ACCEPTANCE`.
+- **Execution stage:** `EXTERNAL_ACCEPTANCE_PENDING`; the long-lived integration branch is
   `feat/t14-t21-enterprise-hardening`.
 - **Scope:** Verify the canonical Helm/k3s deployment, immutable T18 image flow, secret boundary,
   release migration ownership, TLS ingress/browser-security compatibility, probes/lifecycle,
