@@ -34,9 +34,28 @@ Codex may set a completed implementation to `AWAITING_ACCEPTANCE` only. `PASS` a
 | T16 | Enterprise Console | PASS |
 | T17 | Observability | PASS |
 | T18 | CI/CD + Supply Chain | PASS_WITH_NOTES |
-| T19 | Helm + k3s + AWS Reference | AWAITING_ACCEPTANCE |
-| T20 | Performance + Failure + DR | NOT_STARTED |
+| T19 | Helm + k3s + AWS Reference | PASS_WITH_NOTES |
+| T20 | Performance + Failure + DR | IN_PROGRESS |
 | T21 | Eval + Portfolio + Interview | NOT_STARTED |
+
+## T20 Implementation Closeout
+
+- **Status:** `IN_PROGRESS`.
+- **Execution stage:** `VERIFY_PENDING`.
+- One bounded k6 framework now covers safe smoke, three-run baseline, and short-soak profiles.
+  Disposable T19 topology evidence includes representative authenticated HTTP load, resource/DB
+  pressure, Outbox/worker backpressure, one-dependency-at-a-time failure recovery, Mock-provider
+  policy, and conversation terminal/cancellation regressions.
+- The demo chart now owns automated logical PostgreSQL backup with dedicated persistence, metadata,
+  portable SHA-256 integrity, and retention. A guarded restore creates a fresh target, preserves
+  ACLs, safely reconstructs accepted legacy RLS grants, and defers login credentials to the normal
+  role provisioner.
+- The end-to-end drill deleted only the disposable source namespace/PVCs, restored into a fresh
+  environment, retained Alembic head `e9f0a1b2c3d4`, passed login/RLS/business/audit/idempotency
+  validation, resumed async processing, and cleaned up the cluster. Measured disposable database
+  restore was 6 seconds and restore-to-service was approximately 80 seconds; no production SLA,
+  capacity, HA, or PITR claim is made.
+- T20 is not externally accepted. T21 remains `NOT_STARTED`; no PR or merge was created.
 
 ## Independent maintenance tasks
 
@@ -174,7 +193,7 @@ The sequence is the default gate order. A user may issue a documented change req
 - No application business-code change, migration, live AWS provisioning, production image
   publication, T20 performance/DR work, or T21 hosted-gate work is in scope. Hosted registry proof
   and real-VM k3s proof may be explicitly deferred when the local environment cannot provide them.
-- The active plan is [`docs/exec-plans/active/T19.md`](../exec-plans/active/T19.md).
+- The completed plan is [`docs/exec-plans/completed/T19.md`](../exec-plans/completed/T19.md).
 
 ## T19 Implementation Closeout
 
@@ -219,6 +238,21 @@ The sequence is the default gate order. A user may issue a documented change req
   non-blocking `PRE_EXISTING_BASELINE`; no application logic was changed during VERIFY.
 - AWS remains reference-only. Hosted GHCR runtime/attestation, public VM/DNS/CA, live AWS deployment,
   T20 capacity/performance/DR work, and existing OpenAI/Celery timing debt remain deferred.
+
+## T20 Implementation Start
+
+- Status: `IN_PROGRESS`.
+- Execution stage: `IMPLEMENT`.
+- Branch: `feat/t14-t21-enterprise-hardening`.
+- T19 is externally accepted `PASS_WITH_NOTES` by the explicit T20 instruction. T14 and T18 remain
+  `PASS_WITH_NOTES`; T15-T17 remain `PASS`; T21 remains `NOT_STARTED`.
+- Frozen scope is ADR-020 plus the explicit T20 instruction: bounded representative load,
+  backpressure and dependency-failure recovery, PostgreSQL backup and fresh-target restore,
+  persistence criticality, a disposable DR drill with measured local RTO/RPO characteristics,
+  and concise recovery runbooks using T17 telemetry and the T19 deployment topology.
+- Production/shared resources, production-capacity claims, live AWS DR, broad tuning, schema
+  migrations, real model providers, T21 hosted proof, PR creation, and merge remain out of scope.
+- The active plan is [`docs/exec-plans/active/T20.md`](../exec-plans/active/T20.md).
 
 ## T16 Implementation Start
 

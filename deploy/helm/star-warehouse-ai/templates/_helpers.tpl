@@ -218,3 +218,79 @@ envFrom:
 {{- define "star-warehouse-ai.demoSecretName" -}}
 {{- default .Values.secretRef.name .Values.demoInfrastructure.secretRefName -}}
 {{- end -}}
+
+{{- define "star-warehouse-ai.backupPodTemplate" -}}
+template:
+  metadata:
+    labels:
+      {{- include "star-warehouse-ai.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: backup
+  spec:
+    restartPolicy: OnFailure
+    automountServiceAccountToken: false
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 999
+      runAsGroup: 999
+      fsGroup: 999
+      seccompProfile:
+        type: RuntimeDefault
+    containers:
+      - name: postgres-backup
+        image: {{ .Values.demoInfrastructure.postgres.image | quote }}
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/sh", "/scripts/backup-postgres.sh"]
+        env:
+          - name: PGHOST
+            value: {{ printf "%s-postgres" (include "star-warehouse-ai.fullname" .) | quote }}
+          - name: PGPORT
+            value: "5432"
+          - name: PGUSER
+            value: {{ .Values.config.POSTGRES_USER | quote }}
+          - name: PGDATABASE
+            value: {{ .Values.config.POSTGRES_DB | quote }}
+          - name: PGPASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ include "star-warehouse-ai.demoSecretName" . }}
+                key: POSTGRES_PASSWORD
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: BACKUP_DIRECTORY
+            value: /backups
+          - name: BACKUP_ENVIRONMENT_ID
+            value: {{ printf "$(POD_NAMESPACE)/%s-demo" .Release.Name | quote }}
+          - name: BACKUP_RETENTION_DAYS
+            value: {{ .Values.backup.retentionDays | quote }}
+          - name: APPLICATION_VERSION
+            value: {{ .Chart.AppVersion | quote }}
+          - name: APPLICATION_REVISION
+            value: {{ default "unknown" .Values.image.buildRevision | quote }}
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        volumeMounts:
+          - name: script
+            mountPath: /scripts
+            readOnly: true
+          - name: backup
+            mountPath: /backups
+    volumes:
+      - name: script
+        configMap:
+          name: {{ include "star-warehouse-ai.fullname" . }}-backup-script
+          defaultMode: 0550
+      - name: backup
+        persistentVolumeClaim:
+          claimName: {{ include "star-warehouse-ai.fullname" . }}-backup
+{{- end -}}

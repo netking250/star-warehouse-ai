@@ -158,6 +158,15 @@ uv run celery -A app.celery_app beat --loglevel=info
 
 # Transactional outbox relay (independent runtime role)
 uv run python -m app.outbox
+
+# Bounded T20 request-load smoke (requires an explicit non-production target)
+TARGET_ENVIRONMENT=t20-local BASE_URL=http://127.0.0.1:18000 ./scripts/t20-run-load.sh
+
+# Disposable demo backup and fresh-target restore procedures
+NAMESPACE=t20-local TARGET_ENVIRONMENT=t20-local ./scripts/t20-backup-now.sh
+TARGET_ENVIRONMENT=t20-restore T20_DESTRUCTIVE_CONFIRM=YES_DISPOSABLE_ONLY \
+  SOURCE_DATABASE_ID=t20-source/star_warehouse_ai RESTORE_TARGET_DB=t20_restore \
+  BACKUP_ARTIFACT=/secure-temp/star_warehouse_ai.dump ./scripts/t20-postgres-restore.sh
 ```
 
 ### Database

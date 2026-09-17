@@ -39,6 +39,7 @@ Backend test suite using pytest + pytest-asyncio with a flat directory structure
 | Service tests | `@tests/services/test_continuous_improvement.py`, `@tests/services/test_alert_service.py` | Business service validation |
 | Task tests | `@tests/tasks/`, `@tests/tasks/test_autoheal.py`, `@tests/tasks/test_continuous_improvement_tasks.py`, `@tests/tasks/test_shadow_tasks.py` | Celery task tests including autoheal, CI, and shadow testing |
 | Integration tests | `@tests/integration/test_workflow_invoke.py` | LangGraph integration (including parallel multi-intent scenarios) |
+| Operational asset guards | `@tests/operations/test_t20_assets.py` | Bounded load, disposable fault injection, and backup/restore safety contracts |
 | PostgreSQL RLS | `@tests/integration/test_postgres_rls.py` | Fresh migrated database, runtime-role reality, raw cross-tenant access, pool leakage, worker propagation, and catalog inventory |
 | Security tests | `@tests/test_main_security.py`, `@tests/test_security.py`, `@tests/test_auth_rate_limit.py` | Security and rate limiting validation |
 | Enterprise identity | `@tests/identity/`, `@tests/integration/test_keycloak_oidc.py` | OIDC crypto negatives, state/nonce/PKCE, durable linking, and optional real Keycloak evidence |
@@ -79,6 +80,7 @@ uv run pytest tests/tasks/
 uv run pytest tests/admin/
 uv run pytest tests/services/
 uv run pytest tests/safety/
+uv run pytest tests/operations/ --confcutdir=tests/operations
 ```
 
 ## Code Style

@@ -2,17 +2,67 @@
 schema_version: 1
 project: Star Warehouse AI
 phase: ENTERPRISE_HARDENING
-current_task: T19
-current_status: AWAITING_ACCEPTANCE
-execution_stage: EXTERNAL_ACCEPTANCE_PENDING
-last_accepted_task: T18
-next_task: T20
+current_task: T20
+current_status: IN_PROGRESS
+execution_stage: VERIFY_PENDING
+last_accepted_task: T19
+next_task: T21
 acceptance_owner: external
 maintenance_task: M02
 maintenance_status: PASS
 ---
 
 # Current Objective
+
+T19 is externally accepted `PASS_WITH_NOTES` by the explicit T20 implementation instruction.
+T20 Performance, Failure, Backup, Restore, and Disaster Recovery is `IN_PROGRESS / VERIFY_PENDING` on
+`feat/t14-t21-enterprise-hardening`. T20 owns one bounded load harness, disposable dependency
+failure and backpressure evidence, demo PostgreSQL backup/restore validation, persistence
+classification, measured disposable recovery evidence, and operator runbooks. Production and
+shared developer data are excluded. T21 final integration, hosted proof, PR, and closeout remain
+`NOT_STARTED` and out of scope. The active plan is
+[`docs/exec-plans/active/T20.md`](../exec-plans/active/T20.md).
+
+## T20 Implementation Start
+
+- Recovery started from clean, synchronized branch `feat/t14-t21-enterprise-hardening` at
+  `bd524560606134f75eadba981904c7fd8dc00fe6`.
+- The user explicitly accepted T19 as `PASS_WITH_NOTES`, satisfying the T20 prerequisite. T14 and
+  T18 remain `PASS_WITH_NOTES`; T15-T17 remain `PASS`; T21 remains `NOT_STARTED`.
+- Existing tooling is limited to pytest micro/performance regressions and the T19 Helm/k3s
+  deployment. No version-controlled request-load harness, backup/restore automation, or T20
+  failure matrix exists. T20 will reuse T17 telemetry and T19 topology rather than add competing
+  systems.
+- ADR-020 requires a real automated demo backup and restore test. Production-reference HA/PITR is
+  documented architecture only in this local stage; no production RTO/RPO or HA claim will be
+  made without provider evidence.
+- Docker/k3d/Helm/k6 runtime availability must be established in a disposable environment before
+  destructive evidence. No production or shared persistent developer resource is authorized.
+
+## T20 Implementation Closeout
+
+- One safe-by-default k6 harness, guarded failure/backup/restore scripts, a Helm demo PostgreSQL
+  backup CronJob/bootstrap Job/PVC, performance/failure guidance, and dependency/DR runbooks are
+  implemented. No route, application schema, provider traffic, production resource, PR, or T21
+  work was added.
+- Three identical disposable baselines completed 1,611 requests with zero failures at mean 14.46
+  requests/s and 112.39/412.85/604.75 ms mean p50/p95/p99. A two-minute short soak completed 1,707
+  requests with zero failures. These are local measurements, not capacity or SLA claims.
+- Relay, worker, broker, API, scheduler, PostgreSQL, Redis, Qdrant, Mock-provider, and absent-
+  telemetry-sink scenarios produced visible degradation and recovered. Peak Outbox/queue backlog
+  was 10/5; all 19 protected effects completed with zero duplicate receipt keys or lost committed
+  work.
+- The source disposable namespace/PVCs were deleted after a checksummed backup. Fresh restore
+  exposed and fixed portable-checksum and missing-ACL defects. A repeated fresh-database restore,
+  normal migration/role provisioning, application login, RLS cross-tenant denial, business/audit
+  sentinels, and post-restore async processing passed. PostgreSQL restore took 6 seconds and measured
+  restore-to-service readiness was approximately 80 seconds in this disposable environment.
+- Tested RPO is the selected completed logical backup; PITR is not implemented. Single-node k3s is
+  not node HA. Object-storage durability is not claimed because the active T19 compatibility path
+  is `emptyDir`; Qdrant remains rebuildable, Redis ephemeral, and RabbitMQ secondary to Outbox.
+- The disposable cluster, namespaces, PVCs, network, volume, and k6 containers were removed. Only
+  ignored local evidence was retained. T20 remains `IN_PROGRESS / VERIFY_PENDING`; external
+  verification is required and T21 remains `NOT_STARTED`.
 
 T18 CI/CD and Supply Chain is externally accepted `PASS_WITH_NOTES` by the explicit T19
 implementation instruction. T19 Production Deployment Baseline is now `AWAITING_ACCEPTANCE /
@@ -30,7 +80,7 @@ and capacity work and T21 final hosted proof remain out of scope.
 - ADR-015 and ADR-016 match the explicit T19 instruction: Docker Compose remains local, k3s plus
   Helm is the public-demo target, and AWS EKS with managed data/service boundaries is reference
   architecture only. The active plan is
-  [`docs/exec-plans/active/T19.md`](../exec-plans/active/T19.md).
+  [`docs/exec-plans/completed/T19.md`](../exec-plans/completed/T19.md).
 - T18 is accepted `PASS_WITH_NOTES` by explicit user instruction. Hosted registry publication and
   attestation proof remain deferred to T21; T19 configures the immutable GHCR consumption boundary
   without publishing an image.

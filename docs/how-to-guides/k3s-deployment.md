@@ -112,6 +112,14 @@ Rollback changes application/chart resources only. It does not downgrade Alembic
 restore snapshots. Confirm the previous image is schema-compatible before rollback. Destructive
 cleanup and disaster recovery are separate, explicit operator procedures owned by T20.
 
+## Demo backup and restore boundary
+
+The demo values enable the T20 PostgreSQL logical-backup CronJob. It writes custom-format dumps,
+safe metadata, and SHA-256 files to a dedicated backup PVC with a seven-day test default. A file is
+not considered valid until checksum/list validation and a fresh-target restore pass. See
+[Backup, Restore, and Disaster Recovery](../runbooks/disaster-recovery.md). The backup PVC is still
+on the single demo node and is not node-failure HA or an off-host production backup.
+
 ## Failure visibility
 
 - Find and inspect the revision-scoped migration with

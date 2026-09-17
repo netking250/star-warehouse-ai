@@ -35,6 +35,12 @@ scheduler:
 outboxRelay:
   replicas: 1
 
+backup:
+  enabled: true
+  schedule: "0 2 * * *"
+  retentionDays: 7
+  storage: 2Gi
+
 ingress:
   enabled: true
   className: traefik
