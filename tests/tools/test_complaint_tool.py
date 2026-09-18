@@ -40,8 +40,12 @@ async def test_create_ticket_with_defaults(complaint_tool: ComplaintTool, db_ses
             urgency="HIGH",
             description="Broken item",
             expected_resolution="REFUND",
+            question="我要投诉商品损坏",
+            intent_result={"primary_intent": "COMPLAINT", "secondary_intent": "APPLY"},
         )
     assert result["ticket_id"] is not None
+    assert result["created"] is True
+    assert result["authorized"] is True
     assert result["user_id"] == user.id
     assert result["status"] == "open"
 
@@ -70,6 +74,8 @@ async def test_create_ticket_normalizes_invalid_enums(complaint_tool: ComplaintT
             description="Something",
             expected_resolution="UNKNOWN_RESOLUTION",
             order_sn="ORDER123",
+            question="我要投诉商品问题",
+            intent_result={"primary_intent": "COMPLAINT", "secondary_intent": "APPLY"},
         )
     assert result["status"] == "open"
 
@@ -90,3 +96,27 @@ async def test_create_ticket_normalizes_invalid_enums(complaint_tool: ComplaintT
     assert ticket.urgency == ComplaintUrgency.MEDIUM.value
     assert ticket.expected_resolution == ExpectedResolution.APOLOGY.value
     assert ticket.order_sn == "ORDER123"
+
+
+@pytest.mark.asyncio
+async def test_create_ticket_rejects_policy_consultation_before_persistence(
+    complaint_tool: ComplaintTool,
+):
+    with patch("app.tools.complaint_tool.async_session_maker") as mock_maker:
+        result = await complaint_tool.create_ticket(
+            user_id=1,
+            thread_id="consultation-thread",
+            category="product_defect",
+            urgency="medium",
+            description="不是产品坏了，就是我自己不喜欢，退的话运费怎么办？",
+            expected_resolution="apology",
+            question="不是产品坏了，就是我自己不喜欢，退的话运费怎么办？",
+            intent_result={"primary_intent": "COMPLAINT", "secondary_intent": "QUERY"},
+        )
+
+    assert result == {
+        "created": False,
+        "authorized": False,
+        "reason": "explicit_complaint_request_required",
+    }
+    mock_maker.assert_not_called()

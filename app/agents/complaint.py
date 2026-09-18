@@ -9,7 +9,11 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.agents.base import BaseAgent
 from app.intent.few_shot_loader import load_agent_examples
 from app.models.state import AgentProcessResult, AgentState
-from app.tools.complaint_tool import ComplaintTool
+from app.tools.complaint_tool import (
+    COMPLAINT_TICKET_NOT_CREATED_RESPONSE,
+    ComplaintTool,
+    is_explicit_complaint_request,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +62,17 @@ class ComplaintAgent(BaseAgent):
         question = state.get("question", "")
         user_id = state.get("user_id", 0)
         thread_id = state.get("thread_id", "")
+        intent_result = state.get("intent_result")
+
+        if not is_explicit_complaint_request(question, intent_result):
+            logger.info(
+                "Complaint route did not receive an explicit ticket-creation request",
+                extra={"user_id": user_id, "thread_id": thread_id},
+            )
+            return {
+                "response": COMPLAINT_TICKET_NOT_CREATED_RESPONSE,
+                "updated_state": {"answer": COMPLAINT_TICKET_NOT_CREATED_RESPONSE},
+            }
 
         # Fast-path: skip LLM for common complaint patterns to ensure <2s response
         classification = self._classify_with_rules(question)
@@ -95,16 +110,19 @@ class ComplaintAgent(BaseAgent):
                 urgency=classification.urgency,
                 description=classification.summary,
                 expected_resolution=classification.expected_resolution,
+                question=question,
+                intent_result=intent_result,
             )
-            ticket_id = ticket.get("ticket_id", "N/A")
-            response_text = classification.empathetic_response.replace(
-                "{ticket_id}", str(ticket_id)
-            )
+            if ticket.get("created") is not True:
+                response_text = COMPLAINT_TICKET_NOT_CREATED_RESPONSE
+            else:
+                ticket_id = ticket.get("ticket_id", "N/A")
+                response_text = classification.empathetic_response.replace(
+                    "{ticket_id}", str(ticket_id)
+                )
         except (SQLAlchemyError, ConnectionError, OSError, RuntimeError):
             logger.exception("Failed to create complaint ticket")
-            response_text = (
-                "非常抱歉给您带来不好的体验，我们已经记录了您的问题，客服团队会尽快与您联系处理。"
-            )
+            response_text = f"{COMPLAINT_TICKET_NOT_CREATED_RESPONSE}客服团队会尽快与您联系。"
 
         return {
             "response": response_text,

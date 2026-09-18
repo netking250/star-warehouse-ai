@@ -17,6 +17,7 @@ import time
 from typing import Any
 
 import redis.asyncio as aioredis
+from pydantic_core import to_jsonable_python
 
 from app.core.config import settings
 from app.core.tenancy import namespaced_key
@@ -58,6 +59,15 @@ class CacheManager:
     @staticmethod
     def _hash_key(value: str) -> str:
         return hashlib.sha256(value.encode()).hexdigest()
+
+    @staticmethod
+    def _json_dumps(value: Any) -> str:
+        """Serialize cache values as deterministic JSON-safe data."""
+        return json.dumps(
+            to_jsonable_python(value),
+            ensure_ascii=False,
+            sort_keys=True,
+        )
 
     def _record_hit(self, cache_name: str) -> None:
         self._stats[cache_name]["hits"] += 1
@@ -174,9 +184,7 @@ class CacheManager:
     async def set_intent(self, query: str, result: dict[str, Any]) -> None:
         """Cache an intent result for *query*."""
         key = self._intent_key(query)
-        await self._redis_set(
-            key, json.dumps(result, ensure_ascii=False), settings.CACHE_TTL_INTENT
-        )
+        await self._redis_set(key, self._json_dumps(result), settings.CACHE_TTL_INTENT)
 
     async def invalidate_intent(self, query: str) -> None:
         """Remove a specific intent cache entry."""
@@ -206,9 +214,7 @@ class CacheManager:
     async def set_profile(self, user_id: int, profile: dict[str, Any]) -> None:
         """Cache a user profile for *user_id*."""
         key = f"profile:{user_id}"
-        await self._redis_set(
-            key, json.dumps(profile, ensure_ascii=False), settings.CACHE_TTL_PROFILE
-        )
+        await self._redis_set(key, self._json_dumps(profile), settings.CACHE_TTL_PROFILE)
 
     async def invalidate_profile(self, user_id: int) -> None:
         """Remove a specific profile cache entry."""
@@ -242,9 +248,7 @@ class CacheManager:
     async def set_retrieval(self, query: str, chunks: list[dict[str, Any]]) -> None:
         """Cache retrieval results for *query*."""
         key = f"retrieval:{self._hash_key(query)}"
-        await self._redis_set(
-            key, json.dumps(chunks, ensure_ascii=False), settings.CACHE_TTL_RETRIEVAL
-        )
+        await self._redis_set(key, self._json_dumps(chunks), settings.CACHE_TTL_RETRIEVAL)
 
     async def invalidate_retrieval(self, query: str) -> None:
         """Remove a specific retrieval cache entry."""
@@ -288,9 +292,7 @@ class CacheManager:
         """Cache user facts for *user_id*."""
         type_hash = self._hash_key(",".join(sorted(fact_types))) if fact_types else "all"
         key = f"facts:{user_id}:{type_hash}:{limit}"
-        await self._redis_set(
-            key, json.dumps(facts, ensure_ascii=False), settings.CACHE_TTL_PROFILE
-        )
+        await self._redis_set(key, self._json_dumps(facts), settings.CACHE_TTL_PROFILE)
 
     async def invalidate_facts(self, user_id: int) -> None:
         """Remove all facts cache entries for *user_id*."""
@@ -319,9 +321,7 @@ class CacheManager:
     async def set_preferences(self, user_id: int, preferences: list[dict[str, Any]]) -> None:
         """Cache user preferences for *user_id*."""
         key = f"preferences:{user_id}"
-        await self._redis_set(
-            key, json.dumps(preferences, ensure_ascii=False), settings.CACHE_TTL_PROFILE
-        )
+        await self._redis_set(key, self._json_dumps(preferences), settings.CACHE_TTL_PROFILE)
 
     async def invalidate_preferences(self, user_id: int) -> None:
         """Remove preferences cache entry for *user_id*."""
@@ -353,9 +353,7 @@ class CacheManager:
     ) -> None:
         """Cache interaction summaries for *user_id*."""
         key = f"summaries:{user_id}:{limit}"
-        await self._redis_set(
-            key, json.dumps(summaries, ensure_ascii=False), settings.CACHE_TTL_PROFILE
-        )
+        await self._redis_set(key, self._json_dumps(summaries), settings.CACHE_TTL_PROFILE)
 
     async def invalidate_summaries(self, user_id: int) -> None:
         """Remove all summaries cache entries for *user_id*."""
@@ -396,7 +394,7 @@ class CacheManager:
         """Cache vector search results."""
         role_suffix = f":{message_role}" if message_role else ":all"
         key = f"vsearch:{user_id}:{query_hash}:{top_k}{role_suffix}"
-        await self._redis_set(key, json.dumps(results, ensure_ascii=False), ttl)
+        await self._redis_set(key, self._json_dumps(results), ttl)
 
     async def invalidate_vector_search(self, user_id: int) -> None:
         """Remove all vector search cache entries for *user_id*."""
@@ -425,9 +423,7 @@ class CacheManager:
     async def set_db_config(self, config_key: str, config: dict[str, Any]) -> None:
         """Cache a database configuration value for *config_key*."""
         key = f"db_config:{config_key}"
-        await self._redis_set(
-            key, json.dumps(config, ensure_ascii=False), settings.CACHE_TTL_DB_CONFIG
-        )
+        await self._redis_set(key, self._json_dumps(config), settings.CACHE_TTL_DB_CONFIG)
 
     async def invalidate_db_config(self, config_key: str) -> None:
         """Remove a specific database configuration cache entry."""

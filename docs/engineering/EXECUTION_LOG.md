@@ -3365,3 +3365,40 @@ State transition:
 - P-UAT-02 and P-UAT-02-FIX move to `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING`; Codex does
   not mark either `PASS`.
 - P-UAT-03 remains gated on explicit external acceptance. No PR or merge exists.
+
+## P-UAT-03-FIX-1 - Runtime determinism and complaint state-change guard
+
+Started: 2026-09-18
+
+Status: `AWAITING_ACCEPTANCE`
+
+Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
+
+- Recovery confirmed accepted main `92a67ecec12d4cae00c31d70cf5a0b6664d393af`, created branch
+  `fix/uat03-runtime-side-effects`, and preserved a clean starting worktree. No source changes
+  were made before reproducing both defects.
+- The red runtime reproduction showed `InteractionSummary.model_dump()` leaving timezone-aware
+  `datetime` values in the payload; `CacheManager.set_summaries()` then called plain `json.dumps`
+  and raised `TypeError: Object of type datetime is not JSON serializable`. The real baseline
+  greeting reached `TURN_ACCEPTED -> RUN_STARTED -> RUN_FAILED` through the same stack.
+- The red side-effect reproduction showed P-UAT-03A B4 and D4 consultation turns create direct
+  complaint tickets (`3 -> 4` and `4 -> 5`). The current complaint agent had no intent/action or
+  explicit-request guard, and the tool opened a session unconditionally.
+- The minimum cache repair uses Pydantic Core `to_jsonable_python()` plus sorted-key JSON at the
+  shared cache write boundary. Existing JSON reads and model validation remain unchanged. The
+  complaint repair uses the existing `IntentCategory`/`IntentAction` values plus explicit raw
+  request markers in both `ComplaintAgent` and `ComplaintTool`; no database migration was needed.
+- Focused pytest passed `62` selected tests; `1` optional real-LLM unit was deselected because its
+  fixture selected OpenAI for a DashScope-only route. The run covered cache, memory, router,
+  complaint agent/tool, conversation submission/tools, and chat replay idempotency. Focused Ruff,
+  format, and ty passed. The full P-UAT-03A suite was intentionally not run.
+- Actual isolated Redis proof stored `2026-09-18T05:06:07Z`/`2026-09-18T05:07:08Z` and restored
+  the original typed datetimes. Real Bailian greeting and consultation reached `RUN_COMPLETED`;
+  the UAT complaint-ticket count stayed at `5` after the post-fix smoke. Deterministic authorized
+  complaint tests and existing runtime idempotency tests passed.
+- Real Bailian explicit complaint wording returned `OTHER` on the accepted routing path; one
+  wording entered the existing policy loop and reached `RUN_FAILED`, while another completed a
+  generic policy response without creating a ticket. This is classified as an out-of-scope
+  routing/model-quality failure; no routing, prompt, retrieval, model, or frontend tuning was
+  performed.
+- No migration, PR, push, or merge was created. External acceptance is required.
