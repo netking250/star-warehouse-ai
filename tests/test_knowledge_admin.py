@@ -1,18 +1,19 @@
 import io
-import os
 import uuid
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from sqlmodel import select
 
+from app.core.config import settings
 from app.core.database import async_session_maker
 from app.core.security import create_access_token
 from app.models.knowledge_document import KnowledgeDocument
 from app.models.outbox import OutboxEvent, OutboxStatus
 from app.models.user import User
+from app.storage.knowledge import LocalKnowledgeObjectStore
 
 
 @pytest.fixture(autouse=True)
@@ -91,8 +92,9 @@ async def test_list_knowledge_documents(client):
 
 
 @pytest.mark.asyncio
-async def test_upload_knowledge_document(client):
+async def test_upload_knowledge_document(client, tmp_path, monkeypatch):
     _admin, token = await create_admin_user()
+    monkeypatch.setattr(settings, "KNOWLEDGE_UPLOAD_DIR", str(tmp_path / "knowledge"))
 
     content = b"# Test knowledge document\nThis is a test."
     file = io.BytesIO(content)
@@ -117,7 +119,12 @@ async def test_upload_knowledge_document(client):
         doc = result.one_or_none()
         assert doc is not None
         assert doc.doc_size_bytes == len(content)
-        assert tuple(Path(doc.storage_path).parts[-3:-1]) == ("tenant", "default")
+        assert tuple(Path(doc.storage_path).parts[:2]) == ("tenant", "default")
+        worker_store = LocalKnowledgeObjectStore(settings.KNOWLEDGE_UPLOAD_DIR)
+        assert (
+            await worker_store.read_bytes(tenant_id="default", object_key=doc.storage_path)
+            == content
+        )
         outbox_event = (
             await session.exec(
                 select(OutboxEvent).where(
@@ -129,18 +136,19 @@ async def test_upload_knowledge_document(client):
         assert outbox_event is not None
         assert outbox_event.status == OutboxStatus.PENDING
         assert str(outbox_event.event_id) == data["task_id"]
-        if os.path.exists(doc.storage_path):
-            os.remove(doc.storage_path)
+        await worker_store.delete(tenant_id="default", object_key=doc.storage_path)
 
 
 @pytest.mark.asyncio
-async def test_delete_knowledge_document(client, tmp_path):
+async def test_delete_knowledge_document(client, monkeypatch):
     _admin, token = await create_admin_user()
+    delete_assets = AsyncMock()
+    monkeypatch.setattr("app.api.v1.admin.delete_knowledge_assets", delete_assets)
 
     async with async_session_maker() as session:
         doc = KnowledgeDocument(
             filename="delete_me.md",
-            storage_path=os.path.join(str(tmp_path), "delete_me.md"),
+            storage_path="tenant/default/delete_me.md",
             content_type="text/markdown",
             doc_size_bytes=10,
             sync_status="done",
@@ -150,16 +158,17 @@ async def test_delete_knowledge_document(client, tmp_path):
         await session.refresh(doc)
         doc_id = doc.id
 
-    with open(doc.storage_path, "wb") as f:
-        f.write(b"test")
-
     response = await client.delete(
         f"/api/v1/admin/knowledge/{doc_id}",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 200
     assert response.json()["success"] is True
-    assert not os.path.exists(doc.storage_path)
+    delete_assets.assert_awaited_once_with(
+        tenant_id="default",
+        document_id=doc_id,
+        object_key="tenant/default/delete_me.md",
+    )
 
     async with async_session_maker() as session:
         result = await session.exec(select(KnowledgeDocument).where(KnowledgeDocument.id == doc_id))

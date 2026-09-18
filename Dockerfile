@@ -50,7 +50,8 @@ COPY data/ ./data/
 COPY scripts/ ./scripts/
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
-RUN chown -R appuser:appgroup /app
+RUN mkdir -p /app/uploads/knowledge \
+    && chown -R appuser:appgroup /app
 USER appuser
 
 # Ensure the virtual environment is on PATH

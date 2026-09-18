@@ -2,17 +2,47 @@
 schema_version: 1
 project: Star Warehouse AI
 phase: ENTERPRISE_HARDENING
-current_task: T21
-current_status: IN_PROGRESS
-execution_stage: VERIFY_PENDING
-last_accepted_task: T20
-next_task: T21_HOSTED_VERIFY
+current_task: P-UAT-02A-FIX
+current_status: AWAITING_ACCEPTANCE
+execution_stage: EXTERNAL_ACCEPTANCE_PENDING
+last_accepted_task: P-UAT-01
+next_task: P-UAT-02
 acceptance_owner: external
 maintenance_task: M02
 maintenance_status: PASS
 ---
 
 # Current Objective
+
+P-UAT-02A-FIX is `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` on
+`fix/knowledge-worker-storage`, based on
+protected `origin/main` at `5d84b034513e79557c6ad9ce9fb819832034352f`. P-UAT-01 is externally
+reported `PASS_WITH_NOTES`. The focused post-merge repair owns only the local/demo knowledge
+upload -> shared source object -> tenant worker -> parse/chunk -> Qdrant path. It must preserve
+the production S3-compatible object-storage target as not currently active and must not claim
+Docker named-volume durability as a production object-store solution. The active plan is
+[`docs/exec-plans/active/P-UAT-02A-FIX.md`](../exec-plans/active/P-UAT-02A-FIX.md).
+
+The pre-fix real-stack reproduction uploaded synthetic document `3` and persisted reference
+`uploads/knowledge/tenant/default/128cfb2edc6340798f54b78077163432.txt`. The API container read
+the 91-byte sentinel object, while the tenant worker at the same `/app` working directory reported
+`FileNotFoundError`; neither container had a shared uploads mount. The document reached explicit
+`failed` state after bounded retries. Root-cause classification is `LOCAL_VOLUME_NOT_SHARED` with
+an accompanying `STORAGE_ADAPTER_CONTRACT_BUG`: the worker bypasses a canonical object-store
+contract and opens the database value as a process-local path.
+
+The focused repair now persists `tenant/{tenant_id}/{object}` keys, resolves bytes through the
+canonical tenant-aware storage Port, and gives API, tenant worker, and maintenance worker the same
+non-root-writable local/demo named volume and root. The task payload remains document identity only.
+Missing source objects enter bounded retry and terminal `failed` state; delete and retention remove
+both source bytes and tenant-scoped derived vectors. A fresh isolated Compose proof uploaded
+`STAR_WAREHOUSE_KB_UAT_SENTINEL_9274`: document `1`, task
+`40068d5f-c0da-4ccb-acbd-8f064c5168b8`, final `SUCCESS`, one chunk, one Qdrant point with
+`tenant_id=default`, and identical API/worker source SHA-256
+`d9403452220caa77f389353062ce9548a32701ba52ec9519b0516811540ff109`. Re-sync succeeded;
+a second synced document was deleted with zero remaining metadata, source files, or Qdrant points.
+Focused pytest passed `30/30`; Ruff, format, ty, Compose config, image build, startup, and health
+passed. Production object storage remains not active and no durability claim changed.
 
 T14 and T18-T20 are externally accepted `PASS_WITH_NOTES`; T15-T17 are externally accepted
 `PASS`. T21 Final Integration, Evaluation, and Portfolio Readiness is

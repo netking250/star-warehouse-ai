@@ -38,6 +38,27 @@ Codex may set a completed implementation to `AWAITING_ACCEPTANCE` only. `PASS` a
 | T20 | Performance + Failure + DR | PASS_WITH_NOTES |
 | T21 | Eval + Portfolio + Interview | IN_PROGRESS |
 
+## Post-merge product UAT
+
+| Task | Name | Status |
+| --- | --- | --- |
+| P-UAT-01 | Frontend Product UAT | PASS_WITH_NOTES |
+| P-UAT-02A-FIX | Knowledge Upload / Worker Storage Repair | AWAITING_ACCEPTANCE |
+| P-UAT-02 | Knowledge Base Real E2E | NOT_STARTED |
+
+P-UAT-02A-FIX runs on `fix/knowledge-worker-storage` from protected `origin/main` at
+`5d84b034513e79557c6ad9ce9fb819832034352f`. Its scope is the reproduced local/demo source-object
+visibility defect only. It does not activate or claim a production S3 backend, redesign Qdrant,
+change schema, or repair unrelated UAT findings. P-UAT-02 remains gated on this focused repair and
+external acceptance.
+
+Implementation and focused verification are complete. The repaired local/demo path uses one
+tenant-aware source-object contract and one shared non-root-writable named volume for API and the
+workers that require source bytes. Fresh real E2E evidence reached upload HTTP 200, task `SUCCESS`,
+document `done`, one tenant-scoped Qdrant point, successful re-sync, and complete source/vector/
+metadata cleanup for a second deleted document. Focused pytest passed `30/30`; static and Compose
+gates passed. Production S3-compatible storage remains `NOT CURRENTLY ACTIVE`.
+
 ## T21 Implementation Start
 
 - **Status:** `IN_PROGRESS`.

@@ -3,7 +3,6 @@
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from pathlib import Path
 from time import monotonic
 
 from sqlmodel import col, select
@@ -12,7 +11,6 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.compliance.audit import append_compliance_audit
 from app.compliance.classification import DATASET_POLICIES, DeletionStrategy
 from app.core.config import settings
-from app.core.tenancy import tenant_storage_path
 from app.models.compliance import SensitiveExportArtifact
 from app.models.evaluation import MessageFeedback
 from app.models.knowledge_document import KnowledgeDocument
@@ -22,6 +20,7 @@ from app.observability.metrics import (
     RETENTION_RUN_DURATION_SECONDS,
     RETENTION_RUNS_TOTAL,
 )
+from app.services.knowledge_service import delete_knowledge_assets
 
 logger = logging.getLogger(__name__)
 
@@ -111,7 +110,7 @@ class RetentionExecutor:
             processed = 0
             for record in records:
                 if policy.deletion_strategy is DeletionStrategy.DELETE_EXTERNAL_OBJECT:
-                    self._delete_knowledge_object(record, tenant_id=tenant_id)
+                    await self._delete_knowledge_object(record, tenant_id=tenant_id)
                 await session.delete(record)
                 processed += 1
             await append_compliance_audit(
@@ -142,13 +141,13 @@ class RetentionExecutor:
             RETENTION_RUN_DURATION_SECONDS.observe(monotonic() - started)
 
     @staticmethod
-    def _delete_knowledge_object(record: object, *, tenant_id: str) -> None:
+    async def _delete_knowledge_object(record: object, *, tenant_id: str) -> None:
         if not isinstance(record, KnowledgeDocument):
             raise RetentionPolicyError("External-object strategy requires a knowledge document")
-        expected_root = tenant_storage_path(
-            settings.KNOWLEDGE_UPLOAD_DIR, "__tenant_boundary__"
-        ).parent.resolve()
-        path = Path(record.storage_path).resolve()
-        if expected_root not in path.parents:
-            raise RetentionPolicyError("Knowledge object escaped the current tenant storage root")
-        path.unlink(missing_ok=True)
+        if record.id is None:
+            raise RetentionPolicyError("Knowledge document must be persisted before deletion")
+        await delete_knowledge_assets(
+            tenant_id=tenant_id,
+            document_id=record.id,
+            object_key=record.storage_path,
+        )

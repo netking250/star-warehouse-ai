@@ -1,33 +1,50 @@
+"""Tenant-scoped knowledge ingestion tasks."""
+
+from __future__ import annotations
+
 import asyncio
 import json
 import logging
 import os
+import tempfile
+from pathlib import Path
 from typing import Any
 
-from langchain_community.document_loaders import PyPDFLoader, TextLoader
+from langchain_community.document_loaders import PyPDFLoader
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pydantic import BaseModel, ConfigDict, Field
 from qdrant_client import models
-from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import select
 
 from app.celery_app import celery_app
 from app.core.config import settings
 from app.core.database import sync_session_maker
 from app.core.redis import create_redis_client
-from app.core.tenancy import namespaced_key
+from app.core.tenancy import get_current_tenant_id, namespaced_key
 from app.core.utils import utc_now
 from app.models.knowledge_document import KnowledgeDocument
 from app.retrieval.client import QdrantKnowledgeClient
 from app.retrieval.embeddings import create_embedding_model
 from app.retrieval.sparse_embedder import SparseTextEmbedder
+from app.storage.knowledge import get_knowledge_object_store
 from app.task_runtime.binding import task_execution_scope
 from app.task_runtime.envelope import TaskEnvelope
 
+logger = logging.getLogger(__name__)
+BATCH_SIZE = 32
+
+
+class KnowledgeSyncPayload(BaseModel):
+    """Identifier required for a tenant-scoped knowledge sync."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    document_id: int = Field(gt=0)
+
 
 def _invalidate_retrieval_cache() -> None:
-    """Invalidate all retrieval caches after knowledge base update."""
+    """Invalidate all retrieval caches after a knowledge-base update."""
     try:
         client = create_redis_client()
 
@@ -45,32 +62,40 @@ def _invalidate_retrieval_cache() -> None:
         logger.warning("Failed to invalidate retrieval cache: %s", exc)
 
 
-logger = logging.getLogger(__name__)
-BATCH_SIZE = 32
-UPLOAD_DIR = settings.KNOWLEDGE_UPLOAD_DIR
-
-
-class KnowledgeSyncPayload(BaseModel):
-    """Identifier required for a tenant-scoped knowledge sync."""
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    document_id: int = Field(gt=0)
-
-
 def load_documents(file_path: str) -> list[Document]:
-    ext = os.path.splitext(file_path)[1].lower()
-    if ext in [".md", ".txt"]:
-        return TextLoader(file_path, encoding="utf-8").load()
-    elif ext == ".pdf":
-        return PyPDFLoader(file_path).load()
-    elif ext == ".json":
-        with open(file_path, encoding="utf-8") as f:
-            data = json.load(f)
+    """Load a local file for backward-compatible direct-loader callers."""
+    path = Path(file_path)
+    return load_documents_from_bytes(path.read_bytes(), path.name)
+
+
+def load_documents_from_bytes(content: bytes, source_name: str) -> list[Document]:
+    """Parse source bytes without making a durable task depend on a local path."""
+    extension = os.path.splitext(source_name)[1].lower()
+    if extension in {".md", ".txt"}:
+        return [
+            Document(
+                page_content=content.decode("utf-8"),
+                metadata={"source": source_name},
+            )
+        ]
+    if extension == ".pdf":
+        temporary_path: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temporary:
+                temporary.write(content)
+                temporary_path = Path(temporary.name)
+            documents = PyPDFLoader(str(temporary_path)).load()
+            for document in documents:
+                document.metadata["source"] = source_name
+            return documents
+        finally:
+            if temporary_path is not None:
+                temporary_path.unlink(missing_ok=True)
+    if extension == ".json":
+        data = json.loads(content.decode("utf-8"))
         text = json.dumps(data, ensure_ascii=False)
-        return [Document(page_content=text, metadata={"source": file_path})]
-    else:
-        raise ValueError(f"Unsupported file type: {ext}")
+        return [Document(page_content=text, metadata={"source": source_name})]
+    raise ValueError(f"Unsupported file type: {extension}")
 
 
 async def _embed_dense(texts: list[str]) -> list[list[float]]:
@@ -83,39 +108,46 @@ async def _embed_sparse(
     return await sparse_embedder.aembed(texts)
 
 
-async def _do_sync(document_id: int, storage_path: str, source_name: str) -> dict[str, Any]:
+async def ingest_knowledge_document(
+    document_id: int, object_key: str, source_name: str
+) -> dict[str, Any]:
+    """Resolve source bytes through storage and rebuild the derived vector set."""
+    object_store = get_knowledge_object_store()
+    source_bytes = await object_store.read_bytes(
+        tenant_id=get_current_tenant_id(), object_key=object_key
+    )
+    documents = await asyncio.to_thread(load_documents_from_bytes, source_bytes, source_name)
+
     qdrant_client = QdrantKnowledgeClient(
         url=settings.QDRANT_URL,
         collection_name=settings.QDRANT_COLLECTION_NAME,
         api_key=settings.QDRANT_API_KEY.get_secret_value(),
     )
     try:
-        await qdrant_client.ensure_collection()
-        await qdrant_client.delete_document(document_id)
-        sparse_embedder = SparseTextEmbedder()
-
-        docs = load_documents(storage_path)
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=512,
             chunk_overlap=50,
             separators=["\n\n", "\n", "。", "！", "？", " ", ""],
         )
-        split_docs = text_splitter.split_documents(docs)
-        total_chunks = len(split_docs)
+        split_documents = text_splitter.split_documents(documents)
+        total_chunks = len(split_documents)
         if total_chunks == 0:
+            await qdrant_client.ensure_collection()
+            await qdrant_client.delete_document(document_id)
             return {"status": "success", "chunks": 0, "message": "No content found"}
 
+        sparse_embedder = SparseTextEmbedder()
         points: list[models.PointStruct] = []
-        for i in range(0, total_chunks, BATCH_SIZE):
-            batch_docs = split_docs[i : i + BATCH_SIZE]
+        for offset in range(0, total_chunks, BATCH_SIZE):
+            batch_documents = split_documents[offset : offset + BATCH_SIZE]
             batch_texts: list[str] = []
-            batch_metas: list[dict] = []
-            for idx, doc in enumerate(batch_docs):
-                cleaned = doc.page_content.strip()
+            batch_metadata: list[dict[str, Any]] = []
+            for index, document in enumerate(batch_documents):
+                cleaned = document.page_content.strip()
                 if cleaned:
                     batch_texts.append(cleaned)
-                    page = doc.metadata.get("page", 0) + 1
-                    batch_metas.append({"page": page, "chunk_index": i + idx})
+                    page = int(document.metadata.get("page", 0)) + 1
+                    batch_metadata.append({"page": page, "chunk_index": offset + index})
 
             if not batch_texts:
                 continue
@@ -124,35 +156,35 @@ async def _do_sync(document_id: int, storage_path: str, source_name: str) -> dic
                 _embed_dense(batch_texts),
                 _embed_sparse(sparse_embedder, batch_texts),
             )
-
-            for j, text in enumerate(batch_texts):
-                point_id = f"{document_id}_{i + j}"
+            for index, text in enumerate(batch_texts):
                 points.append(
                     models.PointStruct(
-                        id=point_id,
+                        id=f"{document_id}_{offset + index}",
                         vector={
-                            "dense": dense_vectors[j],
-                            "sparse": sparse_vectors[j],
+                            "dense": dense_vectors[index],
+                            "sparse": sparse_vectors[index],
                         },
                         payload={
                             "content": text,
                             "source": source_name,
                             "doc_id": document_id,
-                            "meta_data": batch_metas[j],
+                            "meta_data": batch_metadata[index],
                         },
                     )
                 )
 
-        for i in range(0, len(points), BATCH_SIZE):
-            await qdrant_client.upsert_chunks(points[i : i + BATCH_SIZE])
-
-        return {"status": "success", "chunks": total_chunks}
+        await qdrant_client.ensure_collection()
+        await qdrant_client.delete_document(document_id)
+        for offset in range(0, len(points), BATCH_SIZE):
+            await qdrant_client.upsert_chunks(points[offset : offset + BATCH_SIZE])
+        return {"status": "success", "chunks": len(points)}
     finally:
         await qdrant_client.aclose()
 
 
 @celery_app.task(bind=True, name="knowledge.sync_document", max_retries=3, default_retry_delay=60)
 def sync_knowledge_document(self, envelope: dict[str, object]) -> dict[str, Any]:
+    """Synchronize one tenant-owned source object into the derived Qdrant index."""
     task_envelope = TaskEnvelope.from_message(envelope)
     payload = KnowledgeSyncPayload.model_validate(task_envelope.payload)
     document_id = payload.document_id
@@ -165,42 +197,50 @@ def sync_knowledge_document(self, envelope: dict[str, object]) -> dict[str, Any]
         sync_session_maker() as session,
     ):
         result = session.exec(select(KnowledgeDocument).where(KnowledgeDocument.id == document_id))
-        doc = result.one_or_none()
-        if not doc:
+        document = result.one_or_none()
+        if document is None:
             logger.error("Knowledge document %s not found", document_id)
             raise ValueError(f"Knowledge document {document_id} not found")
 
-        doc.sync_status = "running"
-        doc.sync_message = None
-        session.add(doc)
+        document.sync_status = "running"
+        document.sync_message = None
+        session.add(document)
         session.commit()
 
         try:
-            sync_result = asyncio.run(_do_sync(document_id, doc.storage_path, doc.filename))
+            sync_result = asyncio.run(
+                ingest_knowledge_document(
+                    document_id,
+                    document.storage_path,
+                    document.filename,
+                )
+            )
             _invalidate_retrieval_cache()
-            doc.sync_status = "done"
-            doc.sync_message = "Synced successfully"
-            doc.last_synced_at = utc_now()
-            doc.updated_at = utc_now()
-            session.add(doc)
+            document.sync_status = "done"
+            document.sync_message = "Synced successfully"
+            document.last_synced_at = utc_now()
+            document.updated_at = utc_now()
+            session.add(document)
             session.commit()
             return {
                 "status": "success",
                 "document_id": document_id,
                 "chunks": sync_result["chunks"],
             }
-        except (SQLAlchemyError, RuntimeError) as exc:
+        except Exception as exc:
             logger.exception("Failed to sync knowledge document %s", document_id)
-            doc.sync_status = "failed"
-            doc.sync_message = "同步失败，已达到最大重试次数"
-            doc.updated_at = utc_now()
-            session.add(doc)
+            final_attempt = self.request.retries >= int(self.max_retries or 0)
+            document.sync_status = "failed" if final_attempt else "pending"
+            document.sync_message = (
+                "同步失败，已达到最大重试次数" if final_attempt else "同步失败，将自动重试"
+            )
+            document.updated_at = utc_now()
+            session.add(document)
             session.commit()
-            try:
-                raise self.retry(exc=exc)
-            except self.MaxRetriesExceededError:
+            if final_attempt:
                 return {
                     "status": "failed",
                     "document_id": document_id,
                     "message": "同步失败，已达到最大重试次数",
                 }
+            raise self.retry(exc=exc) from exc

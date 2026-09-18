@@ -103,3 +103,28 @@ def test_compose_uses_project_scoped_names_and_loopback_infrastructure_ports() -
         "127.0.0.1:6334:6334",
     ]
     assert compose["services"]["app"]["ports"] == ["8000:8000"]
+
+
+def test_compose_shares_canonical_local_knowledge_storage_with_required_processes() -> None:
+    compose = yaml.safe_load((REPOSITORY_ROOT / "docker-compose.yaml").read_text(encoding="utf-8"))
+
+    expected_root = "/app/uploads/knowledge"
+    expected_mount = "knowledge_uploads:/app/uploads"
+    for service_name in ("app", "celery_worker", "celery_maintenance"):
+        service = compose["services"][service_name]
+        assert service["environment"]["KNOWLEDGE_UPLOAD_DIR"] == expected_root
+        assert expected_mount in service["volumes"]
+
+    for service_name in ("celery_scheduler", "outbox_relay"):
+        assert expected_mount not in compose["services"][service_name]["volumes"]
+
+    assert "knowledge_uploads" in compose["volumes"]
+
+
+def test_image_prepares_non_root_writable_knowledge_volume_mountpoint() -> None:
+    dockerfile = (REPOSITORY_ROOT / "Dockerfile").read_text(encoding="utf-8")
+
+    create_mountpoint = dockerfile.index("mkdir -p /app/uploads/knowledge")
+    assign_ownership = dockerfile.index("chown -R appuser:appgroup /app")
+    drop_privileges = dockerfile.index("USER appuser")
+    assert create_mountpoint < assign_ownership < drop_privileges

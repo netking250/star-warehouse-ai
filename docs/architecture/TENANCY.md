@@ -40,7 +40,7 @@ isolation, infrastructure namespaces, and the T07 PostgreSQL RLS inventory.
 | PostgreSQL ORM | Loader criteria for reads; tenant predicates for bulk update/delete; flush-time ownership and relationship checks | Explicit operational APIs or `skip_tenant_scope` inside reviewed infrastructure only |
 | Redis | `{environment}:tenant:{tenant_id}:{scope}:{key}` through `TenantNamespace` | `{environment}:system:{scope}:{key}` through `TenantNamespace.system()` |
 | Qdrant | Shared environment collection; every payload, query, and delete uses `app.retrieval.tenant_boundary` | Collection creation/recreation is bootstrap infrastructure, never tenant business work |
-| Local knowledge files | `{root}/tenant/{tenant_id}/{object}` for new uploads | No global business-object prefix |
+| Local knowledge files | Persist key `tenant/{tenant_id}/{object}`; the canonical adapter resolves it below the configured root | No global business-object prefix; Compose shares one local/demo named volume only with API and workers that require source bytes |
 | Object storage/S3 | **NOT CURRENTLY ACTIVE** — no production object-storage Port or tenant-owned S3 objects exist | Define a tenant-aware Port before first use |
 
 Tenant identifiers are intentionally not Prometheus labels. Use structured logs and traces for

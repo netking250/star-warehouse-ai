@@ -95,6 +95,7 @@ services:
       REDIS_HOST: redis
       REDIS_PASSWORD: ${REDIS_PASSWORD:-devpassword}
       QDRANT_URL: http://qdrant:6333
+      KNOWLEDGE_UPLOAD_DIR: /app/uploads/knowledge
       SERVICE_HEALTH_URL: http://app:8000/health
       CELERY_BROKER_URL: amqp://${RABBITMQ_USER:-star_warehouse_ai}:${RABBITMQ_PASSWORD:-dev-rabbitmq-password}@rabbitmq:5672//
       LOG_FORMAT: ${LOG_FORMAT:-json}
@@ -102,6 +103,7 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
     volumes:
       - ./app:/app/app
+      - knowledge_uploads:/app/uploads
     restart: unless-stopped
 
   celery_scheduler:
@@ -176,6 +178,7 @@ services:
       REDIS_HOST: redis
       REDIS_PASSWORD: ${REDIS_PASSWORD:-devpassword}
       QDRANT_URL: http://qdrant:6333
+      KNOWLEDGE_UPLOAD_DIR: /app/uploads/knowledge
       SERVICE_HEALTH_URL: http://app:8000/health
       CELERY_BROKER_URL: amqp://${RABBITMQ_USER:-star_warehouse_ai}:${RABBITMQ_PASSWORD:-dev-rabbitmq-password}@rabbitmq:5672//
       LOG_FORMAT: ${LOG_FORMAT:-json}
@@ -183,6 +186,7 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
     volumes:
       - ./app:/app/app
+      - knowledge_uploads:/app/uploads
     restart: unless-stopped
 
   # Optional DEV-ONLY generic OIDC demo provider. Start with:
@@ -229,12 +233,14 @@ services:
       REDIS_HOST: redis
       REDIS_PASSWORD: ${REDIS_PASSWORD:-devpassword}
       QDRANT_URL: http://qdrant:6333
+      KNOWLEDGE_UPLOAD_DIR: /app/uploads/knowledge
       CELERY_BROKER_URL: amqp://${RABBITMQ_USER:-star_warehouse_ai}:${RABBITMQ_PASSWORD:-dev-rabbitmq-password}@rabbitmq:5672//
       LOG_FORMAT: ${LOG_FORMAT:-json}
       OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-star-warehouse-ai-api}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
     volumes:
       - ./app:/app/app
+      - knowledge_uploads:/app/uploads
     healthcheck:
       test:
         [
@@ -254,3 +260,4 @@ volumes:
   redis_data:
   rabbitmq_data:
   qdrant_storage:
+  knowledge_uploads:

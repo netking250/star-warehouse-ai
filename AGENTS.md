@@ -37,6 +37,7 @@ Use the right `AGENTS.md` for the area you're working in:
 - **Schemas** (`@app/schemas/**`) → [`app/schemas/AGENTS.md`](app/schemas/AGENTS.md)
 - **Models** (`@app/models/**`) → [`app/models/AGENTS.md`](app/models/AGENTS.md)
 - **Services** (`@app/services/**`) → [`app/services/AGENTS.md`](app/services/AGENTS.md)
+- **Storage** (`@app/storage/**`) → [`app/storage/AGENTS.md`](app/storage/AGENTS.md)
 - **Core** (`@app/core/**`) → [`app/core/AGENTS.md`](app/core/AGENTS.md)
 - **Model Gateway** (`@app/model_gateway/**`) → [`app/model_gateway/AGENTS.md`](app/model_gateway/AGENTS.md)
 - **Confidence** (`@app/confidence/**`) → [`app/confidence/AGENTS.md`](app/confidence/AGENTS.md)
@@ -97,6 +98,7 @@ For any other area, this root file applies.
     - `@app/services/alert_service.py` - AlertService with email/webhook/PagerDuty/OpsGenie integrations, suppression, deduplication, SLA tracking.
     - `@app/services/online_eval.py` - OnlineEvalService for real-time evaluation from user feedback.
     - `@app/services/review_queue.py` - ReviewQueueService for human review tickets with SLA tracking.
+  - `@app/storage/`: Tenant-aware source-object storage Ports and local/demo adapters.
   - `@app/core/`: Core configuration, security, database, Redis, LLM factory, tracing, logging (cross-cutting infrastructure).
     - `@app/core/tenancy.py` / `tenant_resolver.py` - Canonical tenant identity, status validation, and infrastructure namespace primitives.
     - `@app/core/rls.py` / `database_roles.py` - Transaction-local PostgreSQL tenant binding and least-privilege runtime/maintenance role provisioning.

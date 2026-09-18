@@ -2,8 +2,6 @@
 管理员 API
 """
 
-import os
-import shutil
 import uuid
 from datetime import timedelta
 from pathlib import Path
@@ -28,11 +26,10 @@ from app.api.v1.admin.metrics_dashboard import router as metrics_dashboard_route
 from app.api.v1.admin.review_queue import router as review_queue_router
 from app.api.v1.admin.token_usage import router as token_usage_router
 from app.context.pii_filter import pii_filter
-from app.core.config import settings
 from app.core.database import get_session
 from app.core.logging import get_correlation_id
 from app.core.security import get_admin_user_id
-from app.core.tenancy import get_current_tenant_id, tenant_storage_path
+from app.core.tenancy import get_current_tenant_id
 from app.core.utils import utc_now
 from app.models.knowledge_document import KnowledgeDocument
 from app.models.message import MessageCard
@@ -51,6 +48,8 @@ from app.schemas.admin import (
     TaskStatsResponse,
 )
 from app.services.admin_service import AdminService, AuditAlreadyProcessedError, AuditNotFoundError
+from app.services.knowledge_service import delete_knowledge_assets
+from app.storage.knowledge import get_knowledge_object_store
 from app.task_runtime.context import build_task_context
 from app.task_runtime.dispatch import dispatch_task
 
@@ -481,9 +480,6 @@ async def get_conversation_messages(
         ]
 
 
-UPLOAD_DIR = settings.KNOWLEDGE_UPLOAD_DIR
-
-
 @router.get("/admin/knowledge", response_model=list[KnowledgeDocumentResponse])
 async def list_knowledge_documents(
     _current_admin_id: int = Depends(get_admin_user_id),
@@ -517,44 +513,48 @@ async def upload_knowledge_document(
 ):
     ext = Path(file.filename or "").suffix
     storage_name = f"{uuid.uuid4().hex}{ext}"
-    storage_path = tenant_storage_path(UPLOAD_DIR, storage_name)
-    storage_path.parent.mkdir(parents=True, exist_ok=True)
-
-    with storage_path.open("wb") as f:
-        shutil.copyfileobj(file.file, f)
-
-    size = storage_path.stat().st_size
-
-    doc = KnowledgeDocument(
-        filename=file.filename or "unnamed",
-        storage_path=str(storage_path),
-        content_type=file.content_type or "application/octet-stream",
-        doc_size_bytes=size,
-        sync_status="pending",
+    tenant_id = get_current_tenant_id()
+    object_store = get_knowledge_object_store()
+    content = await file.read()
+    object_key = await object_store.put_bytes(
+        tenant_id=tenant_id,
+        object_name=storage_name,
+        content=content,
     )
-    session.add(doc)
-    await session.flush()
-    await session.refresh(doc)
-    assert doc.id is not None
+    try:
+        doc = KnowledgeDocument(
+            filename=file.filename or "unnamed",
+            storage_path=object_key,
+            content_type=file.content_type or "application/octet-stream",
+            doc_size_bytes=len(content),
+            sync_status="pending",
+        )
+        session.add(doc)
+        await session.flush()
+        await session.refresh(doc)
+        assert doc.id is not None
 
-    correlation = get_correlation_id()
-    if correlation == "-":
-        correlation = f"knowledge-upload:{doc.id}:{current_admin_id}"
-    event = await enqueue_task(
-        session=session,
-        task_name="knowledge.sync_document",
-        task_context=build_task_context(
+        correlation = get_correlation_id()
+        if correlation == "-":
+            correlation = f"knowledge-upload:{doc.id}:{current_admin_id}"
+        event = await enqueue_task(
+            session=session,
             task_name="knowledge.sync_document",
-            tenant_id=get_current_tenant_id(),
-            user_id=current_admin_id,
-            correlation_id=correlation,
-        ),
-        payload={"document_id": doc.id},
-        event_type="knowledge.sync_requested",
-        aggregate_type="knowledge_document",
-        aggregate_id=str(doc.id),
-    )
-    await session.commit()
+            task_context=build_task_context(
+                task_name="knowledge.sync_document",
+                tenant_id=tenant_id,
+                user_id=current_admin_id,
+                correlation_id=correlation,
+            ),
+            payload={"document_id": doc.id},
+            event_type="knowledge.sync_requested",
+            aggregate_type="knowledge_document",
+            aggregate_id=str(doc.id),
+        )
+        await session.commit()
+    except Exception:
+        await object_store.delete(tenant_id=tenant_id, object_key=object_key)
+        raise
 
     return KnowledgeUploadResponse(
         id=doc.id,
@@ -578,8 +578,12 @@ async def delete_knowledge_document(
             detail="Document not found",
         )
 
-    if os.path.exists(doc.storage_path):
-        os.remove(doc.storage_path)
+    tenant_id = get_current_tenant_id()
+    await delete_knowledge_assets(
+        tenant_id=tenant_id,
+        document_id=doc_id,
+        object_key=doc.storage_path,
+    )
 
     await session.delete(doc)
     await session.commit()
