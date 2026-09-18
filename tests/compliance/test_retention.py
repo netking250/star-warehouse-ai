@@ -10,11 +10,11 @@ from sqlmodel import col, select
 
 from app.compliance.retention import RetentionExecutionDisabledError, RetentionExecutor
 from app.core.config import settings
-from app.core.tenancy import tenant_storage_path
 from app.models.evaluation import MessageFeedback
 from app.models.knowledge_document import KnowledgeDocument
 from app.models.user import User
 from app.observability.metrics import RETENTION_RECORDS_PROCESSED_TOTAL, RETENTION_RUNS_TOTAL
+from app.storage.knowledge import LocalKnowledgeObjectStore
 
 
 async def _feedback(
@@ -253,11 +253,19 @@ async def test_external_object_cleanup_is_tenant_safe_and_missing_is_idempotent(
 ) -> None:
     now = datetime(2026, 9, 14, tzinfo=UTC)
     monkeypatch.setattr(settings, "KNOWLEDGE_UPLOAD_DIR", str(tmp_path / "knowledge"))
-    path = tenant_storage_path(settings.KNOWLEDGE_UPLOAD_DIR, "expired.txt")
-    path.parent.mkdir(parents=True)
-    path.write_text("tenant knowledge", encoding="utf-8")
+    object_store = LocalKnowledgeObjectStore(settings.KNOWLEDGE_UPLOAD_DIR)
+    object_key = await object_store.put_bytes(
+        tenant_id=tenant_context,
+        object_name="expired.txt",
+        content=b"tenant knowledge",
+    )
+
+    async def delete_assets(**kwargs) -> None:
+        await object_store.delete(tenant_id=kwargs["tenant_id"], object_key=kwargs["object_key"])
+
+    monkeypatch.setattr("app.compliance.retention.delete_knowledge_assets", delete_assets)
     document = KnowledgeDocument(
-        storage_path=str(path),
+        storage_path=object_key,
         filename="expired.txt",
         created_at=now - timedelta(days=366),
     )
@@ -276,7 +284,7 @@ async def test_external_object_cleanup_is_tenant_safe_and_missing_is_idempotent(
     await db_session.flush()
 
     assert result.processed_count == 1
-    assert not path.exists()
+    assert await object_store.delete(tenant_id=tenant_context, object_key=object_key) is False
     assert await db_session.get(KnowledgeDocument, document.id) is None
 
 
@@ -286,8 +294,14 @@ async def test_retention_failure_is_logged_and_counted(
 ) -> None:
     now = datetime(2026, 9, 14, tzinfo=UTC)
     monkeypatch.setattr(settings, "KNOWLEDGE_UPLOAD_DIR", str(tmp_path / "knowledge"))
+    object_store = LocalKnowledgeObjectStore(settings.KNOWLEDGE_UPLOAD_DIR)
+
+    async def delete_assets(**kwargs) -> None:
+        await object_store.delete(tenant_id=kwargs["tenant_id"], object_key=kwargs["object_key"])
+
+    monkeypatch.setattr("app.compliance.retention.delete_knowledge_assets", delete_assets)
     document = KnowledgeDocument(
-        storage_path=str(tmp_path / "outside.txt"),
+        storage_path="tenant/another-tenant/outside.txt",
         filename="outside.txt",
         created_at=now - timedelta(days=366),
     )
@@ -296,7 +310,7 @@ async def test_retention_failure_is_logged_and_counted(
     caplog.set_level(logging.ERROR)
     failures_before = RETENTION_RUNS_TOTAL.labels(result="failure")._value.get()
 
-    with pytest.raises(Exception, match="escaped the current tenant"):
+    with pytest.raises(Exception, match="outside the active tenant namespace"):
         await RetentionExecutor().run(
             db_session,
             dataset="knowledge_documents",

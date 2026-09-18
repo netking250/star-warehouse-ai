@@ -34,6 +34,7 @@ Business logic services that orchestrate domain operations. Services sit between
 | Order service | `@app/services/order_service.py` | OrderPort-backed query; controlled refund workflow |
 | Refund service | `@app/services/refund_service.py` | Refund processing workflows |
 | Review queue | `@app/services/review_queue.py` | Human review tickets with SLA tracking |
+| Knowledge lifecycle | `@app/services/knowledge_service.py` | Coordinated source-object and tenant-scoped derived-vector deletion |
 | Status service | `@app/services/status_service.py` | Thread status polling |
 
 ## Commands

@@ -3254,3 +3254,56 @@ State transition:
   external hosted verification. Codex does not mark T21 `PASS` or `AWAITING_ACCEPTANCE`.
 - No PR was created, no merge was performed, and the branch remains the long-lived integration
   branch.
+
+## P-UAT-02A-FIX - Knowledge upload / worker storage repair
+
+Started: 2026-09-17
+
+Finished: 2026-09-18
+
+Status: `AWAITING_ACCEPTANCE`
+
+Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
+
+- Recovery confirmed a clean worktree, fetched protected `origin/main` at
+  `5d84b034513e79557c6ad9ce9fb819832034352f`, and created
+  `fix/knowledge-worker-storage` directly from that commit.
+- Pre-fix real reproduction uploaded document `3`, persisted
+  `uploads/knowledge/tenant/default/128cfb2edc6340798f54b78077163432.txt`, and returned task
+  `42d2b16b-2d93-4037-a0b0-130c3ea88ec4`. The API read the 91-byte source with SHA-256
+  `f711c8c1705cac8f028b5b44b077f3d0f0e9afe193f360b1376b7ce8c154fd0b`; the tenant worker could
+  not stat the same reference and raised `FileNotFoundError`. Both used `/app`, but neither had a
+  shared uploads mount. The document reached terminal `failed` after bounded retries.
+- Root cause was classified `LOCAL_VOLUME_NOT_SHARED` plus `STORAGE_ADAPTER_CONTRACT_BUG`.
+- The repair added a canonical tenant-aware source-object Port/local adapter, stable logical keys,
+  namespace validation, atomic writes, deterministic missing-object failure, and idempotent delete.
+  API, tenant worker, and maintenance worker now share one local/demo named volume and canonical
+  `/app/uploads/knowledge` root. The image pre-creates the mountpoint for non-root `appuser`.
+  Scheduler and outbox relay do not receive the source volume.
+- Worker payload remains document identity only. The worker reloads metadata and resolves source
+  bytes through the canonical adapter before parse/chunk/embed and Qdrant replacement. Retry status
+  is `pending` before the last attempt and terminal `failed` after the last attempt.
+- Admin deletion and retention use one lifecycle service to remove tenant-scoped Qdrant points and
+  source bytes before metadata. Qdrant remains derived/rebuildable.
+- Focused pytest passed `30/30`. Focused Ruff, Ruff format, and ty passed. Docker Compose config,
+  image build, fresh migrations/role provisioning, startup, and health passed.
+- Fresh isolated Compose E2E uploaded `STAR_WAREHOUSE_KB_UAT_SENTINEL_9274` through the real API:
+  HTTP 200, document `1`, task `40068d5f-c0da-4ccb-acbd-8f064c5168b8`, document `done`, Celery
+  `SUCCESS`, one chunk, and one Qdrant point carrying `tenant_id=default`, `doc_id=1`, source
+  `sentinel.txt`, and the sentinel content. API and worker both read 185 bytes with SHA-256
+  `d9403452220caa77f389353062ce9548a32701ba52ec9519b0516811540ff109` from the shared volume.
+  Re-sync task `d19597da-b287-48d9-90bd-3c87a3fbfe94` also reached `SUCCESS`. A second uploaded and
+  synchronized document was deleted; its metadata count, source object, and tenant-filtered Qdrant
+  point count were all zero afterward.
+- The existing `scripts/seed_data.py` failed in the fresh environment because it does not bind a
+  tenant context after T14-T21. This unrelated pre-existing limitation was not changed; the proof
+  used real registration plus an isolated local-only administrator promotion.
+- No migration, UI change, real model call, production object-store adapter, PR, or merge was made.
+  Docker named-volume durability remains local/demo only; production upload recovery remains
+  unexercised.
+
+State transition:
+
+- P-UAT-02A-FIX moves from `IN_PROGRESS / FIX_IMPLEMENT` to `AWAITING_ACCEPTANCE /
+  EXTERNAL_ACCEPTANCE_PENDING`; Codex does not mark it `PASS`.
+- P-UAT-02 remains `NOT_STARTED` pending external acceptance of this repair.

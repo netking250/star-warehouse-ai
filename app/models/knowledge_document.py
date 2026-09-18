@@ -12,7 +12,7 @@ class KnowledgeDocument(TenantScopedModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     filename: str = Field(index=True, description="原始文件名")
-    storage_path: str = Field(description="服务器存储路径")
+    storage_path: str = Field(description="租户范围的稳定源对象键")
     content_type: str = Field(default="application/octet-stream", description="MIME类型")
     doc_size_bytes: int | None = Field(default=None, description="文件大小（字节）")
     sync_status: str = Field(default="pending", description="同步状态: pending/running/done/failed")

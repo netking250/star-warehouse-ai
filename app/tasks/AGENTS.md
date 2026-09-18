@@ -75,6 +75,9 @@ General Python rules are defined in the root `AGENTS.md`. Task-specific conventi
   circular import before the Celery application exists.
 - **Async triggers**: Critical request callers persist a typed envelope through `@app/outbox/`; best-effort or non-transactional callers use `@app/task_runtime/dispatch.py`. Direct `.delay()`/`.apply_async()` outside infrastructure adapters is forbidden.
 - **Worker context**: Tenant tasks accept a versioned envelope, revalidate tenant existence/status, enter `task_execution_scope`, and perform I/O only while the resolved tenant/trace/correlation context is bound.
+- **Knowledge source objects**: Knowledge task envelopes carry document identity only. Workers load
+  the persisted logical object key and resolve bytes through `@app/storage/`; never open an
+  API-container-local path as the durable task contract.
 - **Knowledge vectors**: Knowledge sync runs in-process inside the task scope so Qdrant writes and replacement deletes retain the resolved tenant boundary; do not launch a context-free ETL subprocess.
 - **Sanitized payloads**: Telemetry, evaluation, usage, and memory tasks accept redacted/minimal data only. Recipient PII needed by a delivery adapter must not be logged or returned.
 - **Memory projection**: `memory.sync_vector` reloads authoritative content from PostgreSQL using the envelope identity. Its broker payload contains only memory ID, version, and operation; external execution uses the shared receipt lease and a stable Qdrant point ID.
