@@ -1,4 +1,4 @@
-FROM node:22-slim AS frontend-builder
+FROM node:26-slim AS frontend-builder
 WORKDIR /app
 COPY frontend/package.json frontend/package-lock.json ./frontend/
 ARG NPM_VERSION=11.9.0
@@ -8,7 +8,7 @@ RUN npm install --global "npm@${NPM_VERSION}" \
 COPY frontend/ ./frontend/
 RUN cd frontend && npm run build
 
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 ARG BUILD_VERSION=5.0.0
 ARG VCS_REF=unknown
