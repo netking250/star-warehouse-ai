@@ -248,6 +248,30 @@ class TestCaching:
         assert result.confidence == 0.9
 
     @pytest.mark.asyncio
+    async def test_explicit_complaint_does_not_use_stale_cached_action(
+        self, deterministic_llm, redis_client
+    ):
+        service = IntentRecognitionService(llm=deterministic_llm, redis_client=redis_client)
+        query = (
+            "\u6211\u8981\u6295\u8bc9\u8fd9\u6b21\u552e\u540e\u670d\u52a1\uff0c"
+            "\u8bf7\u5e2e\u6211\u63d0\u4ea4\u6295\u8bc9\u3002\u7f13\u5b58\u56de\u5f52"
+        )
+        stale = IntentResult(
+            primary_intent=IntentCategory.OTHER,
+            secondary_intent=IntentAction.CONSULT,
+            confidence=0.95,
+            raw_query=query,
+        )
+        key = namespaced_key(service._cache._intent_key(query))
+        await redis_client.setex(key, 300, stale.model_dump_json())
+
+        result = await service._get_cached_result(query)
+
+        assert result is not None
+        assert result.primary_intent == IntentCategory.COMPLAINT
+        assert result.secondary_intent == IntentAction.APPLY
+
+    @pytest.mark.asyncio
     async def test_get_cached_result_miss(self, deterministic_llm, redis_client):
         service = IntentRecognitionService(llm=deterministic_llm, redis_client=redis_client)
         result = await service._get_cached_result("新查询")
@@ -432,6 +456,27 @@ class TestEdgeCases:
 
         result = await service.recognize(query, "session_ts")
         assert result.primary_intent == IntentCategory.AFTER_SALES
+
+    @pytest.mark.asyncio
+    async def test_explicit_complaint_survives_previous_policy_session(
+        self, deterministic_llm, redis_client
+    ):
+        service = IntentRecognitionService(llm=deterministic_llm, redis_client=redis_client)
+        session_id = "explicit_complaint_session_regression"
+        policy_query = "\u6211\u53ea\u662f\u60f3\u77e5\u9053\u9000\u8d27\u89c4\u5219\u56de\u5f52"
+        complaint_query = (
+            "\u6211\u8981\u6295\u8bc9\u8fd9\u6b21\u552e\u540e\u670d\u52a1\uff0c"
+            "\u8bf7\u5e2e\u6211\u63d0\u4ea4\u6295\u8bc9\u3002\u4f1a\u8bdd\u56de\u5f52"
+        )
+        await redis_client.delete(namespaced_key(f"intent:session:{session_id}"))
+        await redis_client.delete(namespaced_key(service._cache._intent_key(policy_query)))
+        await redis_client.delete(namespaced_key(service._cache._intent_key(complaint_query)))
+
+        await service.recognize(policy_query, session_id)
+        result = await service.recognize(complaint_query, session_id)
+
+        assert result.primary_intent == IntentCategory.COMPLAINT
+        assert result.secondary_intent == IntentAction.APPLY
 
     @pytest.mark.asyncio
     async def test_recognize_creates_state_for_new_thread(self, deterministic_llm, redis_client):

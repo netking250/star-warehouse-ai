@@ -78,6 +78,77 @@ async def test_workflow_order_query(deterministic_llm, redis_checkpointer):
 
 
 @pytest.mark.asyncio
+async def test_workflow_explicit_complaint_reaches_terminal(deterministic_llm, redis_checkpointer):
+    initial_state = make_agent_state(
+        question="\u6211\u8981\u6295\u8bc9\uff0c\u8bf7\u5e2e\u6211\u63d0\u4ea4\u6295\u8bc9",
+        thread_id="test_explicit_complaint_workflow",
+    )
+    complaint_intent = {"primary_intent": "COMPLAINT", "secondary_intent": "APPLY"}
+
+    mock_router = DeterministicAgent(
+        process_result={
+            "response": "",
+            "updated_state": {
+                "intent_result": complaint_intent,
+                "slots": {},
+                "next_agent": "complaint",
+                "iteration_count": 1,
+            },
+        }
+    )
+    mock_complaint = DeterministicAgent(
+        name="complaint",
+        process_result={
+            "response": "complaint ticket created",
+            "updated_state": {},
+        },
+    )
+    mock_supervisor = DeterministicSupervisor(
+        process_result={
+            "response": "",
+            "updated_state": {
+                "next_agent": "complaint",
+                "execution_mode": "serial",
+                "pending_agent_results": ["complaint"],
+            },
+        }
+    )
+    mock_eval = DeterministicEvaluator(
+        evaluate_result={
+            "confidence_score": 0.9,
+            "confidence_signals": {},
+            "needs_human_transfer": False,
+            "transfer_reason": None,
+            "audit_level": "none",
+        }
+    )
+
+    workflow = create_workflow(
+        router_agent=mock_router,
+        policy_agent=DeterministicAgent(),
+        order_agent=DeterministicAgent(),
+        logistics_agent=DeterministicAgent(),
+        account_agent=DeterministicAgent(),
+        payment_agent=DeterministicAgent(),
+        product_agent=DeterministicAgent(),
+        cart_agent=DeterministicAgent(),
+        complaint_agent=mock_complaint,
+        evaluator=mock_eval,
+        supervisor_agent=mock_supervisor,
+        llm=deterministic_llm,
+    )
+    app_graph = workflow.compile(checkpointer=redis_checkpointer)
+
+    result = await app_graph.ainvoke(
+        cast(Any, initial_state),
+        config={"configurable": {"thread_id": initial_state["thread_id"]}},
+    )
+
+    assert result["answer"] == "complaint ticket created"
+    assert result["current_agent"] == "complaint"
+
+
+@pytest.mark.asyncio
 async def test_workflow_policy_query(deterministic_llm, redis_checkpointer):
     checkpointer = redis_checkpointer
 

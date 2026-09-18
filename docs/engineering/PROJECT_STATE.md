@@ -2,7 +2,7 @@
 schema_version: 1
 project: Star Warehouse AI
 phase: ENTERPRISE_HARDENING
-current_task: P-UAT-03-FIX-1
+current_task: P-UAT-03-FIX-1B
 current_status: AWAITING_ACCEPTANCE
 execution_stage: EXTERNAL_ACCEPTANCE_PENDING
 last_accepted_task: P-UAT-02A-FIX
@@ -12,23 +12,27 @@ maintenance_task: M02
 maintenance_status: PASS
 ---
 
-# P-UAT-03-FIX-1 Current State
+# P-UAT-03-FIX-1B Current State
 
-P-UAT-03-FIX-1 is `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` on
+P-UAT-03-FIX-1B is `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` on
 `fix/uat03-runtime-side-effects`, based on accepted main
-`92a67ecec12d4cae00c31d70cf5a0b6664d393af`. The task repaired the reproduced typed-datetime
-serialization failure in the Redis recent-summary cache path and added deterministic business-side
-authorization before `ComplaintTicket` persistence. Focused deterministic verification passed;
-the full P-UAT-03A suite was not run.
+`92a67ecec12d4cae00c31d70cf5a0b6664d393af`. It repairs only explicit complaint end-to-end
+routing: an unambiguous file/submit/create request now uses the existing `COMPLAINT/APPLY`
+contract, and a stale intent cache cannot override that deterministic rule. The FIX-1
+runtime-serialization repair and persistence-side complaint authorization guard remain intact.
 
-The real Bailian greeting and consultation smoke reached `RUN_COMPLETED` and added no complaint
-ticket. The explicit complaint smoke did not reach `ComplaintAgent`: the existing intent/routing
-path returned `OTHER`, and one explicit wording reached the existing LangGraph recursion failure.
-That routing/model-quality failure is recorded as out of scope; no prompt, routing, retrieval,
-model, or frontend tuning was performed. The active plan is
-[`docs/exec-plans/active/P-UAT-03-FIX-1.md`](../exec-plans/active/P-UAT-03-FIX-1.md).
+The pre-fix failure was traced to the existing `router_node -> memory_node -> supervisor_node ->
+policy_agent -> synthesis_node -> evaluator_node -> router_node` retry path after a stale or
+misclassified intent selected `policy_agent`; repeated low-confidence evaluation reached the
+existing LangGraph recursion limit. No graph recursion limit or general retry behavior changed.
+Focused deterministic verification passed `139` tests with `8` optional real-model tests
+deselected. The real Bailian five-case mini-suite completed all runs: both explicit complaint
+forms entered `complaint` and each created exactly one ticket, while the two consultation forms
+created none. Same-key replay created no duplicate ticket.
 
-No PR or merge was created. External acceptance is required before any next UAT fix stage.
+No general intent/RAG/prompt/model/frontend tuning, migration, PR, or merge was performed. The
+active plan is [`docs/exec-plans/active/P-UAT-03-FIX-1B.md`](../exec-plans/active/P-UAT-03-FIX-1B.md).
+External acceptance is required before any next UAT fix stage.
 
 # Historical Prior Objective
 

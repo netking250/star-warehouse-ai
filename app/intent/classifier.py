@@ -36,7 +36,7 @@ class IntentClassifier:
     SYSTEM_PROMPT = """你是一个电商客服意图识别专家。请分析用户输入，识别其意图并提取相关槽位。
 
 意图层级定义:
-1. 一级意图(primary_intent): ORDER, AFTER_SALES, POLICY, PRODUCT, CART, OTHER
+1. 一级意图(primary_intent): ORDER, AFTER_SALES, POLICY, PRODUCT, CART, COMPLAINT, OTHER
 2. 二级意图(secondary_intent): QUERY, APPLY, MODIFY, CANCEL, CONSULT, ADD, REMOVE, COMPARE
 3. 三级意图(tertiary_intent): 具体场景，可选
 
@@ -126,6 +126,12 @@ class IntentClassifier:
             r"(物流|快递|包裹).*(哪|状态|进度)",
             r"到哪.*(了|了没)",
             r"什么时候.*(到|送达)",
+        ],
+        ("COMPLAINT", "APPLY"): [
+            r"(?:\u6211\u8981|\u6211\u60f3|\u5e2e\u6211|\u8bf7\u5e2e\u6211|\u6b63\u5f0f).*?(?:\u6295\u8bc9|\u4e3e\u62a5|\u7ef4\u6743|\u7533\u8bc9)",
+            r"(?:\u63d0\u4ea4|\u521b\u5efa|\u53d1\u8d77|\u5f00).*?(?:\u6295\u8bc9|\u6295\u8bc9\u5de5\u5355)",
+            r"\b(?:file|submit|open|create|escalate)\b.*\bcomplaint\b",
+            r"\bcomplaint\b.*\b(?:ticket|case)\b",
         ],
         ("COMPLAINT", "QUERY"): [
             r"(投诉|举报|维权|申诉)",
@@ -230,10 +236,15 @@ class IntentClassifier:
                     slots: dict[str, Any] = {"matched_pattern": pattern.pattern}
                     if primary == "CART" and secondary in ("ADD", "REMOVE", "MODIFY", "QUERY"):
                         slots["action"] = secondary
+                    confidence = (
+                        1.0
+                        if (primary, secondary) == ("COMPLAINT", "APPLY")
+                        else self.RULE_MATCH_CONFIDENCE
+                    )
                     return IntentResult(
                         primary_intent=IntentCategory[primary],
                         secondary_intent=IntentAction[secondary],
-                        confidence=self.RULE_MATCH_CONFIDENCE,
+                        confidence=confidence,
                         slots=slots,
                         raw_query=query,
                     )

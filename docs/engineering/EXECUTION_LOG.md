@@ -3402,3 +3402,42 @@ Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
   routing/model-quality failure; no routing, prompt, retrieval, model, or frontend tuning was
   performed.
 - No migration, PR, push, or merge was created. External acceptance is required.
+
+## P-UAT-03-FIX-1B - Explicit complaint end-to-end routing
+
+Started: 2026-09-18
+
+Finished: 2026-09-18
+
+Status: `AWAITING_ACCEPTANCE`
+
+Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
+
+- Recovery confirmed branch `fix/uat03-runtime-side-effects`, previous head
+  `cc02db782b40447353f36965f3ee0b361b4513a1`, accepted main
+  `92a67ecec12d4cae00c31d70cf5a0b6664d393af`, and a clean starting worktree. No source was
+  changed before the real customer-path reproduction. The exact pre-fix evidence showed the
+  existing `router_node -> memory_node -> supervisor_node -> policy_agent -> synthesis_node ->
+  evaluator_node -> router_node` recursion topology after a bad/stale intent selected policy.
+- A red classifier test proved explicit complaint wording was classified as `COMPLAINT/QUERY`
+  rather than the existing state-changing `APPLY` action. A red intent-service test proved a
+  stale cached `OTHER` classification was returned before the correct deterministic rule. The
+  current baseline cache also contained stale `COMPLAINT/QUERY` entries for all three exact
+  complaint forms.
+- The minimum fix adds a narrow explicit complaint rule for Chinese and English
+  file/submit/create/escalate wording, returns confidence `1.0` for that rule, and adds
+  `COMPLAINT` to the existing classifier prompt intent list. The intent service rechecks this
+  deterministic rule on cache hits only for explicit complaint actions. No graph limit, general
+  route, retrieval, policy prompt, model, or business workflow was changed.
+- Focused verification passed `139` tests with `8` optional real-model tests deselected. The
+  selected coverage included intent classifier/service, session/cache contamination, router,
+  Supervisor, complaint agent/tool authorization, terminal graph execution, FIX-1 cache/memory,
+  Conversation Runtime, and replay idempotency. Ruff, Ruff format check, and ty passed.
+- Real Bailian mini-suite passed on fresh synthetic threads: greeting `RUN_COMPLETED`; English
+  defect consultation `RUN_COMPLETED`, ticket delta `0`; Chinese return-policy consultation
+  `RUN_COMPLETED`, ticket delta `0`; exact explicit complaint `RUN_COMPLETED`, route `complaint`,
+  ticket delta `1`, ticket `10`; explicit service complaint `RUN_COMPLETED`, route `complaint`,
+  ticket delta `1`, ticket `11`. Same-key replay created one ticket total for its authorized
+  turn (ticket `12`), with no duplicate.
+- No migration, PR, push, or merge was created. The full P-UAT-03A suite was intentionally not
+  run. External acceptance is required.

@@ -151,7 +151,14 @@ class IntentRecognitionService:
         try:
             cached = await self._cache.get_intent(query)
             if cached is not None:
-                return IntentResult.model_validate(cached)
+                cached_result = IntentResult.model_validate(cached)
+                rule_result = self.classifier._classify_with_rules(query)
+                if (
+                    rule_result.primary_intent == IntentCategory.COMPLAINT
+                    and rule_result.secondary_intent == IntentAction.APPLY
+                ):
+                    return rule_result
+                return cached_result
         except Exception as e:
             logger.warning("Failed to get cached intent result: %s", e)
         return None

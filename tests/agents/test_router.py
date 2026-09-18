@@ -44,6 +44,32 @@ async def test_router_routes_to_next_agent(agent):
 
 
 @pytest.mark.asyncio
+async def test_router_routes_explicit_complaint_to_complaint_agent(agent):
+    agent.intent_service.recognize.return_value = IntentResult(
+        primary_intent=IntentCategory.COMPLAINT,
+        secondary_intent=IntentAction.APPLY,
+        confidence=1.0,
+        needs_clarification=False,
+    )
+
+    with (
+        patch(
+            "app.agents.config_loader.get_target_agent_for_intent",
+            new=AsyncMock(return_value="complaint"),
+        ),
+        patch("app.agents.config_loader.is_agent_enabled", new=AsyncMock(return_value=True)),
+    ):
+        state = make_agent_state(
+            question="\u6211\u8981\u6295\u8bc9\uff0c\u8bf7\u5e2e\u6211\u63d0\u4ea4\u6295\u8bc9"
+        )
+        result = await agent.process(state)
+
+    assert result["response"] == ""
+    assert result["updated_state"]["next_agent"] == "complaint"
+    assert result["updated_state"]["intent_result"]["secondary_intent"] == "APPLY"
+
+
+@pytest.mark.asyncio
 async def test_router_routes_after_sales_consultation_to_policy_agent(agent):
     result = IntentResult(
         primary_intent=IntentCategory.AFTER_SALES,
