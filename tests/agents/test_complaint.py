@@ -25,9 +25,16 @@ async def test_complaint_agent_creates_ticket(agent):
         patch(
             "app.agents.config_loader.get_effective_system_prompt", new=AsyncMock(return_value=None)
         ),
-        patch.object(agent._tool, "create_ticket", new=AsyncMock(return_value={"ticket_id": 42})),
+        patch.object(
+            agent._tool,
+            "create_ticket",
+            new=AsyncMock(return_value={"created": True, "ticket_id": 42}),
+        ),
     ):
-        state = make_agent_state(question="我要投诉商品有瑕疵")
+        state = make_agent_state(
+            question="我要投诉商品有瑕疵",
+            intent_result={"primary_intent": "COMPLAINT", "secondary_intent": "QUERY"},
+        )
         result = await agent.process(state)
 
     assert "42" in result["response"]
@@ -50,7 +57,10 @@ async def test_complaint_agent_ticket_creation_fails(agent):
         ),
         patch.object(agent._tool, "create_ticket", side_effect=RuntimeError("DB down")),
     ):
-        state = make_agent_state(question="客服态度太差了")
+        state = make_agent_state(
+            question="我要投诉客服态度太差了",
+            intent_result={"primary_intent": "COMPLAINT", "secondary_intent": "QUERY"},
+        )
         result = await agent.process(state)
 
     assert "客服团队会尽快与您联系" in result["response"]
@@ -71,9 +81,16 @@ async def test_complaint_agent_parses_markdown_json(agent):
         patch(
             "app.agents.config_loader.get_effective_system_prompt", new=AsyncMock(return_value=None)
         ),
-        patch.object(agent._tool, "create_ticket", new=AsyncMock(return_value={"ticket_id": 7})),
+        patch.object(
+            agent._tool,
+            "create_ticket",
+            new=AsyncMock(return_value={"created": True, "ticket_id": 7}),
+        ),
     ):
-        state = make_agent_state(question="海外订单无法追踪")
+        state = make_agent_state(
+            question="我要投诉海外订单无法追踪",
+            intent_result={"primary_intent": "COMPLAINT", "secondary_intent": "APPLY"},
+        )
         result = await agent.process(state)
 
     assert "7" in result["response"]
@@ -88,9 +105,16 @@ async def test_complaint_agent_parse_fallback(agent):
         patch(
             "app.agents.config_loader.get_effective_system_prompt", new=AsyncMock(return_value=None)
         ),
-        patch.object(agent._tool, "create_ticket", new=AsyncMock(return_value={"ticket_id": 1})),
+        patch.object(
+            agent._tool,
+            "create_ticket",
+            new=AsyncMock(return_value={"created": True, "ticket_id": 1}),
+        ),
     ):
-        state = make_agent_state(question="无法使用购买的优惠券")
+        state = make_agent_state(
+            question="我要投诉无法使用购买的优惠券",
+            intent_result={"primary_intent": "COMPLAINT", "secondary_intent": "APPLY"},
+        )
         result = await agent.process(state)
 
     assert result["response"] == "不是有效JSON"
@@ -111,10 +135,44 @@ async def test_real_llm_complaint_agent(real_complaint_agent):
         patch.object(
             real_complaint_agent._tool,
             "create_ticket",
-            new=AsyncMock(return_value={"ticket_id": 42}),
+            new=AsyncMock(return_value={"created": True, "ticket_id": 42}),
         ),
     ):
-        state = make_agent_state(question="我要投诉商品有瑕疵")
+        state = make_agent_state(
+            question="我要投诉商品有瑕疵",
+            intent_result={"primary_intent": "COMPLAINT", "secondary_intent": "APPLY"},
+        )
         result = await real_complaint_agent.process(state)
         assert isinstance(result["response"], str)
         assert len(result["response"]) > 0
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "If the Aurora Chair has a verified defect, who pays the return shipping?",
+        "不是产品坏了，就是我自己不喜欢，退的话运费谁出？",
+        "Aurora Chair有质量问题，退货运费谁出？",
+    ],
+)
+@pytest.mark.asyncio
+async def test_complaint_agent_does_not_create_ticket_for_policy_consultation(agent, question):
+    with (
+        patch(
+            "app.agents.config_loader.get_effective_system_prompt", new=AsyncMock(return_value=None)
+        ),
+        patch.object(
+            agent._tool,
+            "create_ticket",
+            new=AsyncMock(return_value={"created": True, "ticket_id": 99}),
+        ) as create_ticket,
+    ):
+        state = make_agent_state(
+            question=question,
+            intent_result={"primary_intent": "COMPLAINT", "secondary_intent": "QUERY"},
+        )
+        result = await agent.process(state)
+
+    create_ticket.assert_not_awaited()
+    assert "未创建投诉工单" in result["response"]
+    assert "99" not in result["response"]

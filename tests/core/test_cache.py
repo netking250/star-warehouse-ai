@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 from fnmatch import fnmatchcase
 from typing import cast
 from unittest.mock import AsyncMock, MagicMock
@@ -13,6 +14,7 @@ import redis.asyncio as aioredis
 
 from app.core.cache import CacheManager
 from app.core.tenancy import namespaced_key, namespaced_system_key, tenant_scope
+from app.models.memory import InteractionSummary
 
 
 def _make_async_iter(items):
@@ -271,3 +273,36 @@ class TestCacheManagerRedisErrorHandling:
 
         mock_redis.scan_iter = _failing_scan
         await cache_manager.invalidate_all_profiles()
+
+
+@pytest.mark.asyncio
+async def test_summaries_cache_round_trip_preserves_datetime_fields():
+    redis = _InMemoryRedis()
+    manager = CacheManager(cast(aioredis.Redis, redis))
+    created_at = datetime(2026, 9, 18, 5, 6, 7, tzinfo=UTC)
+    updated_at = datetime(2026, 9, 18, 5, 7, 8, tzinfo=UTC)
+    deleted_at = datetime(2026, 9, 18, 5, 8, 9, tzinfo=UTC)
+
+    with tenant_scope("tenant-summary-cache"):
+        summary = InteractionSummary(
+            id=11,
+            user_id=7,
+            thread_id="summary-thread",
+            summary_text="User asked about shipping.",
+            resolved_intent="POLICY",
+            created_at=created_at,
+            updated_at=updated_at,
+            deleted_at=deleted_at,
+        )
+        await manager.set_summaries(7, [summary.model_dump()], limit=2)
+
+        raw = redis.values[namespaced_key("summaries:7:2")]
+        stored = json.loads(raw)
+        assert isinstance(stored, list)
+        cached = await manager.get_summaries(7, limit=2)
+        assert cached is not None
+        restored = InteractionSummary.model_validate(cached[0])
+
+    assert restored.created_at == created_at
+    assert restored.updated_at == updated_at
+    assert restored.deleted_at == deleted_at

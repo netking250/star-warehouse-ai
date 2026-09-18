@@ -2,7 +2,7 @@
 schema_version: 1
 project: Star Warehouse AI
 phase: ENTERPRISE_HARDENING
-current_task: P-UAT-02-FIX
+current_task: P-UAT-03-FIX-1
 current_status: AWAITING_ACCEPTANCE
 execution_stage: EXTERNAL_ACCEPTANCE_PENDING
 last_accepted_task: P-UAT-02A-FIX
@@ -12,7 +12,25 @@ maintenance_task: M02
 maintenance_status: PASS
 ---
 
-# Current Objective
+# P-UAT-03-FIX-1 Current State
+
+P-UAT-03-FIX-1 is `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` on
+`fix/uat03-runtime-side-effects`, based on accepted main
+`92a67ecec12d4cae00c31d70cf5a0b6664d393af`. The task repaired the reproduced typed-datetime
+serialization failure in the Redis recent-summary cache path and added deterministic business-side
+authorization before `ComplaintTicket` persistence. Focused deterministic verification passed;
+the full P-UAT-03A suite was not run.
+
+The real Bailian greeting and consultation smoke reached `RUN_COMPLETED` and added no complaint
+ticket. The explicit complaint smoke did not reach `ComplaintAgent`: the existing intent/routing
+path returned `OTHER`, and one explicit wording reached the existing LangGraph recursion failure.
+That routing/model-quality failure is recorded as out of scope; no prompt, routing, retrieval,
+model, or frontend tuning was performed. The active plan is
+[`docs/exec-plans/active/P-UAT-03-FIX-1.md`](../exec-plans/active/P-UAT-03-FIX-1.md).
+
+No PR or merge was created. External acceptance is required before any next UAT fix stage.
+
+# Historical Prior Objective
 
 P-UAT-02-FIX is `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` on
 `fix/knowledge-worker-storage`, based on accepted head
