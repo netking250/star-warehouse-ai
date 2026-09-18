@@ -2,17 +2,44 @@
 schema_version: 1
 project: Star Warehouse AI
 phase: ENTERPRISE_HARDENING
-current_task: P-UAT-02A-FIX
+current_task: P-UAT-02-FIX
 current_status: AWAITING_ACCEPTANCE
 execution_stage: EXTERNAL_ACCEPTANCE_PENDING
-last_accepted_task: P-UAT-01
-next_task: P-UAT-02
+last_accepted_task: P-UAT-02A-FIX
+next_task: P-UAT-03
 acceptance_owner: external
 maintenance_task: M02
 maintenance_status: PASS
 ---
 
 # Current Objective
+
+P-UAT-02-FIX is `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` on
+`fix/knowledge-worker-storage`, based on accepted head
+`dc2e08ec7ce14daf4d07e8cbcfe8b76b763877e7`. The pre-fix LangGraph event-stream reproduction proved
+that LangChain auto-selected `GatewayChatModel._astream()` for a public `ainvoke()` because an
+inherited streaming callback was present, causing the chat-only `summarization` route to request
+`chat + streaming` and fail before provider I/O. `GatewayChatModel.ainvoke()` now explicitly pins
+the public non-streaming semantic before delegating to LangChain; true `astream()` continues to
+require streaming. Resolver, route configuration, summarization, and T14 failure-policy ownership
+did not change.
+
+Focused verification passed: `95` focused tests passed and `1` opt-in real-model test skipped across
+Model Gateway, summarization, conversation runtime, cancellation/timeout, structured output, and
+T14 failure policy; scoped Ruff, Ruff format, and ty passed. The isolated real Aurora chat reached
+`COMPLETED`, persisted one agent message, emitted one `RUN_COMPLETED` and no `RUN_FAILED`, and the
+provider log contained `AURORA-REFUND-17`. The dedicated default-tenant private-sentinel chat
+completed with no Tenant B document heading/private sentence in provider context or answer. East
+Harbor re-sync stayed at one point and remained Top-1. Deleting Orbit document `4` removed its DB
+row, source object, and tenant-scoped point; it did not reappear in retrieval or post-delete chat
+context while Aurora remained Top-1. Browser proof shows the synchronized admin list and a completed
+customer chat with zero console errors or HTTP 4xx/5xx in the clean capture. Screenshots are OS-temp
+only. The active plan is
+[`docs/exec-plans/active/P-UAT-02-FIX.md`](../exec-plans/active/P-UAT-02-FIX.md).
+
+Recovery confirmed branch `fix/knowledge-worker-storage`, accepted head
+`dc2e08ec7ce14daf4d07e8cbcfe8b76b763877e7`, and a clean worktree before task-state documentation.
+No PR or merge is authorized. Real OpenAI and DashScope calls remain off.
 
 P-UAT-02A-FIX is `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` on
 `fix/knowledge-worker-storage`, based on

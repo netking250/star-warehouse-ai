@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from typing import TypedDict
+
 import pytest
 from langchain_core.messages import HumanMessage
+from langgraph.graph import END, START, StateGraph
 
 from app.agents.base import BaseAgent
 from app.graph.nodes import build_synthesis_node
@@ -12,12 +15,22 @@ from app.intent.models import IntentAction, IntentCategory, IntentResult
 from app.intent.multi_intent import MultiIntentProcessor
 from app.memory.extractor import FactExtractor
 from app.memory.summarizer import SessionSummarizer
-from app.model_gateway.contracts import ModelCandidate, ModelRoute, ModelToolCall
+from app.model_gateway.contracts import (
+    ModelCandidate,
+    ModelCapability,
+    ModelRoute,
+    ModelToolCall,
+)
 from app.model_gateway.gateway import ModelGateway
 from app.model_gateway.langchain import GatewayChatModel
 from app.model_gateway.providers.mock import MockProviderAdapter
 from app.models.state import AgentProcessResult, AgentState, make_agent_state
 from app.retrieval.rewriter import QueryRewriter
+
+
+class _SummaryState(TypedDict, total=False):
+    question: str
+    summary: str
 
 
 @pytest.fixture(autouse=True)
@@ -129,6 +142,43 @@ async def test_rag_rewriter_and_memory_services_use_gateway() -> None:
     assert rewritten == "normalized query"
     assert summary == "short summary"
     assert facts == [{"fact_type": "preference", "content": "likes blue", "confidence": 0.9}]
+
+
+@pytest.mark.asyncio
+async def test_summarizer_ainvoke_inside_graph_event_stream_uses_chat_only_candidate() -> None:
+    adapter = MockProviderAdapter(content="short summary")
+    candidate = ModelCandidate(
+        provider="mock",
+        model="mock-summarization-chat-only",
+        capabilities=frozenset({ModelCapability.CHAT}),
+        timeout_seconds=1.0,
+    )
+    gateway = ModelGateway(
+        adapters=[adapter],
+        routes=[ModelRoute(name="summarization", candidates=(candidate,))],
+    )
+    summarizer = SessionSummarizer(GatewayChatModel(gateway=gateway, route="summarization"))
+    summaries: list[str] = []
+
+    async def summarize_node(state: _SummaryState) -> dict[str, str]:
+        summary = await summarizer.summarize_thread(
+            [{"role": "user", "content": state["question"]}]
+        )
+        summaries.append(summary)
+        return {"summary": summary}
+
+    # LangGraph 1.0.10's bound is not recognized by ty for valid TypedDict state.
+    builder = StateGraph(_SummaryState)  # ty: ignore[invalid-argument-type]
+    builder.add_node("summarize", summarize_node)
+    builder.add_edge(START, "summarize")
+    builder.add_edge("summarize", END)
+    graph = builder.compile()
+
+    async for _event in graph.astream_events({"question": "Aurora"}, version="v2"):
+        pass
+
+    assert summaries == ["short summary"]
+    assert adapter.attempt_count == 1
 
 
 class _GatewayAgent(BaseAgent):

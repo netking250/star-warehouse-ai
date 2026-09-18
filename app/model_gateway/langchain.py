@@ -18,7 +18,7 @@ from langchain_core.messages import (
     UsageMetadata,
 )
 from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
-from langchain_core.runnables import Runnable
+from langchain_core.runnables import Runnable, RunnableConfig
 from langchain_core.tools import BaseTool
 from langchain_core.utils.function_calling import convert_to_openai_tool
 from pydantic import ConfigDict, Field
@@ -93,6 +93,18 @@ class GatewayChatModel(BaseChatModel):
             tools=normalized,
             tool_choice=self._model_tool_choice(tool_choice),
         )
+
+    async def ainvoke(
+        self,
+        input: LanguageModelInput,
+        config: RunnableConfig | None = None,
+        *,
+        stop: list[str] | None = None,
+        **kwargs: Any,
+    ) -> AIMessage:
+        """Execute non-streaming generation even under streaming event callbacks."""
+        kwargs["stream"] = False
+        return await super().ainvoke(input, config=config, stop=stop, **kwargs)
 
     def _generate(
         self,
