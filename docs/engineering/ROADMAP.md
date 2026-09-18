@@ -43,8 +43,19 @@ Codex may set a completed implementation to `AWAITING_ACCEPTANCE` only. `PASS` a
 | Task | Name | Status |
 | --- | --- | --- |
 | P-UAT-01 | Frontend Product UAT | PASS_WITH_NOTES |
-| P-UAT-02A-FIX | Knowledge Upload / Worker Storage Repair | AWAITING_ACCEPTANCE |
-| P-UAT-02 | Knowledge Base Real E2E | NOT_STARTED |
+| P-UAT-02A-FIX | Knowledge Upload / Worker Storage Repair | PASS_WITH_NOTES |
+| P-UAT-02 | Knowledge Base Real E2E | AWAITING_ACCEPTANCE |
+| P-UAT-02-FIX | Summarization Gateway Non-Streaming Semantics | AWAITING_ACCEPTANCE |
+
+P-UAT-02-FIX repaired the reproduced chat-runtime blocker where an inherited LangGraph event
+callback caused LangChain to consume the adapter's streaming implementation during an `ainvoke`,
+requiring `chat + streaming` from the chat-only `summarization` route before provider I/O. The
+adapter now pins public `ainvoke` to non-streaming generation while true `astream` retains
+`chat + streaming` validation. T14 failure-policy ownership, cancellation/deadline behavior, and
+durable single-terminal semantics passed focused regression. The accepted ingestion/retrieval
+matrix was retained; the blocked Aurora/cross-tenant chat, re-sync, delete, post-delete, and browser
+evidence completed. External acceptance remains required before P-UAT-03. The active plan is
+[`docs/exec-plans/active/P-UAT-02-FIX.md`](../exec-plans/active/P-UAT-02-FIX.md).
 
 P-UAT-02A-FIX runs on `fix/knowledge-worker-storage` from protected `origin/main` at
 `5d84b034513e79557c6ad9ce9fb819832034352f`. Its scope is the reproduced local/demo source-object

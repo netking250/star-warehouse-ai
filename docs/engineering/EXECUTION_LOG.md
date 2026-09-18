@@ -3307,3 +3307,61 @@ State transition:
 - P-UAT-02A-FIX moves from `IN_PROGRESS / FIX_IMPLEMENT` to `AWAITING_ACCEPTANCE /
   EXTERNAL_ACCEPTANCE_PENDING`; Codex does not mark it `PASS`.
 - P-UAT-02 remains `NOT_STARTED` pending external acceptance of this repair.
+
+## P-UAT-02-FIX - Summarization Gateway non-streaming semantics
+
+Started: 2026-09-18
+
+Finished: 2026-09-18
+
+Status: `AWAITING_ACCEPTANCE`
+
+Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
+
+- Recovery confirmed branch `fix/knowledge-worker-storage`, accepted head
+  `dc2e08ec7ce14daf4d07e8cbcfe8b76b763877e7`, and a clean initial worktree. P-UAT-01 and
+  P-UAT-02A-FIX were externally reported `PASS_WITH_NOTES`; P-UAT-02 entered this repair as `FAIL`.
+- The required red reproduction ran the real `SessionSummarizer` call inside
+  `StateGraph.astream_events()` against a chat-only `summarization` candidate. LangChain's inherited
+  streaming callback caused public `ainvoke()` to enter `GatewayChatModel._astream()`, request
+  `chat + streaming`, and raise the production-equivalent capability error before provider I/O.
+- `ModelRequest.required_capabilities`, ModelGateway resolution, ModelFailurePolicy, route config,
+  and `SessionSummarizer` were already semantically correct. The minimum adapter repair pins public
+  `GatewayChatModel.ainvoke()` to `stream=False` before delegating to LangChain; public `astream()`
+  still uses the streaming request and capability set. No resolver, route, summarizer, provider, or
+  T14 failure-policy change was made.
+- Focused verification passed `95` tests and skipped `1` opt-in real-model test. Coverage included
+  chat-only non-streaming success, chat-only streaming rejection before provider I/O,
+  streaming-capable success, missing-chat rejection, actual graph-event summarization, normalized
+  structured output, durable single-terminal conversation completion, cancellation, bounded global
+  timeout, post-visible timeout, duplicate-terminal prevention, and T14 fallback/circuit ownership.
+  Scoped Ruff, Ruff format, and ty passed. The full backend suite was intentionally not run.
+- The isolated Aurora chat run `cbfb389e-cea3-41d7-8124-5bae5c6a7b0e` reached `COMPLETED` with
+  `AURORA-REFUND-17` in provider context, one persisted agent card, one `RUN_COMPLETED`, no
+  `RUN_FAILED`, and no duplicate complete response. The deterministic provider returned a safe
+  completed terminal message; answer elegance and model quality were not evaluated.
+- The dedicated default-tenant private-sentinel run
+  `fe54f06b-4b70-47b6-9049-ed84a54d9c79` reached `COMPLETED` with one agent card and one terminal
+  event. Provider requests contained only the user's sentinel occurrence and zero Tenant B private
+  document heading/sentence; the answer contained no private document content. This supplements the
+  already accepted Tenant A retrieval result with zero retained Tenant B evidence.
+- Re-syncing `east-harbor-shipping.txt` completed successfully, kept its exact tenant-scoped Qdrant
+  point count at `1 -> 1`, and preserved Top-1 retrieval at `0.99`. Real API deletion of
+  default-tenant `orbit-lamp-general.txt` removed the DB row, source object, and point (`1 -> 0`).
+  Deleted document text did not enter post-delete provider context, three unrelated tenant points
+  remained, and Aurora remained Top-1 at `0.95`.
+- The previous `Event loop is closed` warning did not reproduce in recent app/worker logs and caused
+  no observed state, task, or resource impact; it remains `NON_BLOCKING_DIAGNOSTIC`.
+- Browser proof under OS temp
+  `C:\Users\11\AppData\Local\Temp\star-warehouse-ai-p-uat-02-fix-20260918-173240` shows synchronized
+  documents in Admin Knowledge and a completed Aurora customer chat. The clean browser capture had
+  zero console errors, HTTP 4xx, HTTP 5xx, or runtime exceptions. Screenshots are not Git-tracked.
+- Customer source/citation rendering is absent: `SOURCE_UI_NOT_IMPLEMENTED`. Real OpenAI and
+  DashScope remained off; no language-quality claim, production object-store recovery claim, or PITR
+  claim was made. The disposable focused-test database was removed. No PR or merge was created.
+
+State transition:
+
+- P-UAT-02 and P-UAT-02-FIX move to `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING`; Codex does
+  not mark either `PASS`.
+- P-UAT-03 remains gated on explicit external acceptance. No PR or merge exists.

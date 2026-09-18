@@ -16,7 +16,8 @@ from app.conversation.langgraph_executor import (
 from app.conversation.runtime import ConversationRuntime
 from app.conversation.state_machine import RunStatus
 from app.core.database import async_session_maker
-from app.model_gateway.contracts import ModelCandidate, ModelRoute
+from app.memory.summarizer import SessionSummarizer
+from app.model_gateway.contracts import ModelCandidate, ModelCapability, ModelRoute
 from app.model_gateway.gateway import ModelGateway
 from app.model_gateway.langchain import GatewayChatModel
 from app.model_gateway.providers.mock import MockProviderAdapter
@@ -28,20 +29,45 @@ from app.models.state import AgentState
 async def test_authenticated_runtime_flow_persists_one_mock_gateway_result(
     runtime_identity,
 ) -> None:
-    adapter = MockProviderAdapter(stream_chunks=("deterministic ", "answer"))
+    adapter = MockProviderAdapter(
+        content="internal Aurora summary",
+        stream_chunks=("Aurora refund window is ", "17 days."),
+    )
     candidate = ModelCandidate(
         provider="mock",
         model="mock-runtime-v1",
         capabilities=adapter.capabilities,
         timeout_seconds=1.0,
     )
+    summarization_candidate = ModelCandidate(
+        provider="mock",
+        model="mock-summarization-chat-only",
+        capabilities=frozenset({ModelCapability.CHAT}),
+        timeout_seconds=1.0,
+    )
     gateway = ModelGateway(
         adapters=[adapter],
-        routes=[ModelRoute(name="default_chat", candidates=(candidate,))],
+        routes=[
+            ModelRoute(name="default_chat", candidates=(candidate,)),
+            ModelRoute(name="summarization", candidates=(summarization_candidate,)),
+        ],
     )
     model = GatewayChatModel(gateway=gateway, route="default_chat")
+    summarizer = SessionSummarizer(GatewayChatModel(gateway=gateway, route="summarization"))
+    summaries: list[str] = []
 
     async def synthesis_node(state: AgentState) -> dict[str, object]:
+        summaries.append(
+            await summarizer.summarize_thread(
+                [
+                    {
+                        "role": "system",
+                        "content": "Document A evidence: AURORA-REFUND-17",
+                    },
+                    {"role": "user", "content": state["question"]},
+                ]
+            )
+        )
         chunks = []
         provider: str | None = None
         actual_model: str | None = None
@@ -70,7 +96,7 @@ async def test_authenticated_runtime_flow_persists_one_mock_gateway_result(
     )
     command = SubmitTurnCommand(
         conversation_id=f"gateway-runtime-{uuid.uuid4().hex}",
-        question="hello",
+        question="What is the refund window for the Aurora Chair?",
         idempotency_key="gateway-runtime-flow",
     )
     submission = await runtime.submit_turn(identity=runtime_identity, command=command)
@@ -110,9 +136,10 @@ async def test_authenticated_runtime_flow_persists_one_mock_gateway_result(
         ).one()
 
     assert snapshot.status is RunStatus.COMPLETED
-    assert snapshot.final_answer == "deterministic answer"
+    assert snapshot.final_answer == "Aurora refund window is 17 days."
     assert assistant_count == 1
     assert len(messages) == 1
+    assert summaries == ["internal Aurora summary"]
     metadata = messages[0].meta_data
     assert metadata is not None
     assert metadata["model_provider"] == "mock"
@@ -125,4 +152,6 @@ async def test_authenticated_runtime_flow_persists_one_mock_gateway_result(
         "METADATA",
         "RUN_COMPLETED",
     ], event_types
-    assert adapter.attempt_count == 1
+    assert event_types.count("RUN_COMPLETED") == 1
+    assert "RUN_FAILED" not in event_types
+    assert adapter.attempt_count == 2

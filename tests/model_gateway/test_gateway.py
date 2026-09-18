@@ -114,6 +114,21 @@ def test_unknown_provider_is_rejected_during_registry_construction() -> None:
         )
 
 
+def test_candidate_without_chat_capability_is_rejected_during_registry_construction() -> None:
+    candidate = ModelCandidate(
+        provider="mock",
+        model="streaming-only",
+        capabilities=frozenset({ModelCapability.STREAMING}),
+        timeout_seconds=1.0,
+    )
+
+    with pytest.raises(ModelConfigurationError, match="lacks chat capability"):
+        ModelGateway(
+            adapters=[MockProviderAdapter()],
+            routes=[ModelRoute(name="default_chat", candidates=(candidate,))],
+        )
+
+
 def test_resolution_filters_candidate_without_required_capability() -> None:
     class AlternateMockProvider(MockProviderAdapter):
         name = "alternate"
