@@ -135,6 +135,75 @@ def test_rule_matching_greeting(classifier):
     assert result.secondary_intent == IntentAction.CONSULT
 
 
+def test_explicit_complaint_rule_is_state_changing(classifier):
+    query = (
+        "\u6211\u8981\u6295\u8bc9\u8fd9\u6b21\u552e\u540e\u670d\u52a1\uff0c"
+        "\u8bf7\u5e2e\u6211\u63d0\u4ea4\u6295\u8bc9\u3002"
+    )
+
+    result = classifier._classify_with_rules(query)
+
+    assert result.primary_intent == IntentCategory.COMPLAINT
+    assert result.secondary_intent == IntentAction.APPLY
+    assert result.confidence == 1.0
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "\u6211\u8981\u6295\u8bc9\uff0c\u8bf7\u5e2e\u6211\u521b\u5efa\u6295\u8bc9\u5de5\u5355\u3002",
+        "\u5ba2\u670d\u6001\u5ea6\u5f88\u5dee\uff0c\u6211\u8981\u6b63\u5f0f\u6295\u8bc9\u3002",
+        "I want to file a complaint ticket.",
+    ],
+)
+def test_explicit_complaint_variants_are_authoritative(classifier, query):
+    result = classifier._classify_with_rules(query)
+
+    assert result.primary_intent == IntentCategory.COMPLAINT
+    assert result.secondary_intent == IntentAction.APPLY
+    assert result.confidence == 1.0
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "\u8fd9\u4e2a\u4ea7\u54c1\u6709\u7f3a\u9677\u600e\u4e48\u529e",
+        "\u6211\u53ea\u662f\u60f3\u77e5\u9053\u9000\u8d27\u89c4\u5219",
+        "\u7269\u6d41\u5f88\u6162\u600e\u4e48\u529e",
+    ],
+)
+def test_consultation_does_not_become_state_changing_complaint(classifier, query):
+    result = classifier._classify_with_rules(query)
+
+    assert not (
+        result.primary_intent == IntentCategory.COMPLAINT
+        and result.secondary_intent == IntentAction.APPLY
+    )
+
+
+@pytest.mark.asyncio
+async def test_explicit_complaint_rule_survives_llm_other_result(classifier, deterministic_llm):
+    deterministic_llm.tool_calls = [
+        {
+            "name": "classify_intent",
+            "args": {
+                "primary_intent": "OTHER",
+                "secondary_intent": "CONSULT",
+                "confidence": 0.99,
+                "slots": {},
+            },
+        }
+    ]
+
+    result = await classifier.classify(
+        "\u6211\u8981\u6295\u8bc9\u8fd9\u6b21\u552e\u540e\u670d\u52a1\uff0c"
+        "\u8bf7\u5e2e\u6211\u63d0\u4ea4\u6295\u8bc9\u3002"
+    )
+
+    assert result.primary_intent == IntentCategory.COMPLAINT
+    assert result.secondary_intent == IntentAction.APPLY
+
+
 # ========== Tertiary Intent Validation Tests ==========
 
 

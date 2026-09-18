@@ -39,6 +39,22 @@ async def test_supervisor_single_intent(supervisor):
 
 
 @pytest.mark.asyncio
+async def test_supervisor_explicit_complaint_routes_to_complaint(supervisor):
+    state = make_agent_state(
+        question="\u6211\u8981\u6295\u8bc9\uff0c\u8bf7\u5e2e\u6211\u63d0\u4ea4\u6295\u8bc9",
+        intent_result={"primary_intent": "COMPLAINT", "secondary_intent": "APPLY"},
+        slots={},
+    )
+
+    result = await supervisor.process(state)
+
+    updated = result["updated_state"]
+    assert updated["next_agent"] == "complaint"
+    assert updated["execution_mode"] == "serial"
+    assert updated["pending_agent_results"] == ["complaint"]
+
+
+@pytest.mark.asyncio
 async def test_supervisor_carts_intent(supervisor):
     state = make_agent_state(
         question="帮我加购物车",

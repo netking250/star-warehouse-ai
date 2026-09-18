@@ -47,14 +47,16 @@ Codex may set a completed implementation to `AWAITING_ACCEPTANCE` only. `PASS` a
 | P-UAT-02 | Knowledge Base Real E2E | AWAITING_ACCEPTANCE |
 | P-UAT-02-FIX | Summarization Gateway Non-Streaming Semantics | AWAITING_ACCEPTANCE |
 | P-UAT-03-FIX-1 | Runtime determinism and complaint side-effect guard | AWAITING_ACCEPTANCE |
+| P-UAT-03-FIX-1B | Explicit complaint end-to-end routing | AWAITING_ACCEPTANCE |
 
 P-UAT-03-FIX-1 repaired the reproduced recent-summary cache `datetime` serialization blocker and
-added defense-in-depth authorization before complaint-ticket persistence. Its focused deterministic
-tests and static checks pass. The real Bailian greeting and consultation smoke completed without
-new complaint tickets. An explicit complaint smoke remained blocked by the accepted baseline's
-intent/routing result of `OTHER` and existing policy recursion; routing/model-quality tuning is
-explicitly deferred to a later P-UAT-03 FIX stage. The active plan is
-[`docs/exec-plans/active/P-UAT-03-FIX-1.md`](../exec-plans/active/P-UAT-03-FIX-1.md).
+added defense-in-depth authorization before complaint-ticket persistence. P-UAT-03-FIX-1B then
+repaired only explicit complaint routing: the existing deterministic rule now returns
+`COMPLAINT/APPLY`, and stale complaint intent cache entries cannot override it. Its focused
+deterministic tests and static checks pass. The real Bailian mini-suite completed both explicit
+complaint forms with one ticket each, while defect and return-policy consultations completed with
+zero ticket deltas. No general routing, RAG, or prompt tuning is included. The active plan is
+[`docs/exec-plans/active/P-UAT-03-FIX-1B.md`](../exec-plans/active/P-UAT-03-FIX-1B.md).
 
 P-UAT-02-FIX repaired the reproduced chat-runtime blocker where an inherited LangGraph event
 callback caused LangChain to consume the adapter's streaming implementation during an `ainvoke`,
