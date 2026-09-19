@@ -2,19 +2,39 @@
 schema_version: 1
 project: Star Warehouse AI
 phase: ENTERPRISE_HARDENING
-current_task: P-UAT-03-FIX-1B
+current_task: P-UAT-03-FIX-2
 current_status: AWAITING_ACCEPTANCE
 execution_stage: EXTERNAL_ACCEPTANCE_PENDING
-last_accepted_task: P-UAT-02A-FIX
-next_task: P-UAT-03
+last_accepted_task: P-UAT-03-FIX-1B
+next_task: P-UAT-03-FIX-3
 acceptance_owner: external
 maintenance_task: M02
 maintenance_status: PASS
 ---
 
+# P-UAT-03-FIX-2 Current State
+
+P-UAT-03-FIX-2 is `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` on
+`fix/uat03-runtime-side-effects`, based on
+accepted main `92a67ecec12d4cae00c31d70cf5a0b6664d393af` and the accepted FIX-1B head
+`405d7cf6351a2e00a16838e7af53f0e8102331de`. This focused repair owns only informational
+knowledge-policy routing and grounded PolicyAgent retrieval. It preserves the FIX-1 cache and
+complaint state-change repairs and does not repair tool workflows or multi-turn memory.
+
+The pre-fix real Bailian probes showed Aurora, Nova, and East Harbor policy questions resolving to
+stale or transaction intents before PolicyAgent; direct Tenant A HybridRetriever probes retained
+the expected documents, so the primary defect was routing/cache precedence. The implementation
+adds narrow authoritative policy/transaction rules and protects deterministic read-only policy
+classification from stale intent-cache/session results. No retrieval threshold, model, prompt,
+graph, tool, or schema change was made. Focused tests, static checks, and the real Bailian
+mini-suite are recorded in the active plan. P-UAT-03-FIX-1 and P-UAT-03-FIX-1B are externally
+accepted prerequisites for this focused stage.
+
+The active plan is [`docs/exec-plans/active/P-UAT-03-FIX-2.md`](../exec-plans/active/P-UAT-03-FIX-2.md).
+
 # P-UAT-03-FIX-1B Current State
 
-P-UAT-03-FIX-1B is `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` on
+P-UAT-03-FIX-1B is externally accepted `PASS` on
 `fix/uat03-runtime-side-effects`, based on accepted main
 `92a67ecec12d4cae00c31d70cf5a0b6664d393af`. It repairs only explicit complaint end-to-end
 routing: an unambiguous file/submit/create request now uses the existing `COMPLAINT/APPLY`

@@ -95,6 +95,66 @@ def test_rule_matching_policy_consult(classifier):
     assert result.secondary_intent == IntentAction.CONSULT
 
 
+def test_rule_matching_aurora_policy_consultation(classifier):
+    result = classifier._classify_with_rules("What is the Aurora Chair return window?")
+
+    assert result.primary_intent == IntentCategory.POLICY
+    assert result.secondary_intent == IntentAction.CONSULT
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "What is the Aurora Chair return window?",
+        "\u6781\u5149\u6905\u4e70\u56de\u6765\u591a\u4e45\u4ee5\u5185\u80fd\u9000\uff1f",
+        "If the Aurora Chair has a verified defect, who pays return shipping?",
+        "\u4e0d\u662f\u8d28\u91cf\u95ee\u9898\uff0c\u6211\u9000\u8d27\u7684\u8bdd\u8fd0\u8d39\u8c01\u51fa\uff1f",
+        "\u4e0d\u662f\u8d28\u91cf\u95ee\u9898\uff0c\u6211\u53ea\u662f\u60f3\u9000\u8d27\uff0c\u8fd0\u8d39\u8c01\u51fa\uff1f",
+        "Nova Desk \u4fdd\u4fee\u591a\u4e45\uff1f",
+        "How long is the Nova Desk warranty?",
+        "East Harbor \u7684\u8ba2\u5355\u901a\u5e38\u591a\u4e45\u51fa\u5e93\uff1f",
+        "When does East Harbor normally dispatch?",
+        "\u8fd9\u4e2a\u6905\u5b50\u4e70\u4e86\u5341\u5929\uff0c\u4e0d\u559c\u6b22\u4e86\uff0c\u8fd8\u80fd\u9000\u5417\uff1f",
+        "\u684c\u5b50\u7528\u4e86\u4e24\u5e74\u591a\u574f\u4e86\uff0c\u8fd8\u5728\u4fdd\u4fee\u5417\uff1f",
+        "Aurora Chair \u4e0b\u5468\u4e94\u4f1a\u4e0d\u4f1a\u964d\u4ef7\uff1f",
+    ],
+)
+def test_rule_matching_known_policy_questions_as_read_only_consultation(classifier, query):
+    result = classifier._classify_with_rules(query)
+
+    assert result.primary_intent == IntentCategory.POLICY
+    assert result.secondary_intent == IntentAction.CONSULT
+
+
+def test_rule_matching_transaction_controls_keep_stateful_actions(classifier):
+    order = classifier._classify_with_rules("查一下订单 SN649201")
+    logistics = classifier._classify_with_rules("订单 SN649201 的物流到哪了？")
+    refund = classifier._classify_with_rules("我要退订单 SN649201")
+    complaint = classifier._classify_with_rules("我要投诉，请帮我提交投诉")
+
+    assert (order.primary_intent, order.secondary_intent) == (
+        IntentCategory.ORDER,
+        IntentAction.QUERY,
+    )
+    assert (logistics.primary_intent, logistics.secondary_intent) == (
+        IntentCategory.LOGISTICS,
+        IntentAction.QUERY,
+    )
+    assert (refund.primary_intent, refund.secondary_intent) == (
+        IntentCategory.AFTER_SALES,
+        IntentAction.APPLY,
+    )
+    assert (complaint.primary_intent, complaint.secondary_intent) == (
+        IntentCategory.COMPLAINT,
+        IntentAction.APPLY,
+    )
+
+    order_refund_status = classifier._classify_with_rules(
+        "What is the refund status for order SN649201?"
+    )
+    assert order_refund_status.primary_intent != IntentCategory.POLICY
+
+
 def test_rule_matching_return_shipping_fee_consult(classifier):
     result = classifier._classify_with_rules("退货运费由谁承担？")
 

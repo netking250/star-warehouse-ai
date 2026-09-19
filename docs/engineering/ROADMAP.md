@@ -46,8 +46,9 @@ Codex may set a completed implementation to `AWAITING_ACCEPTANCE` only. `PASS` a
 | P-UAT-02A-FIX | Knowledge Upload / Worker Storage Repair | PASS_WITH_NOTES |
 | P-UAT-02 | Knowledge Base Real E2E | AWAITING_ACCEPTANCE |
 | P-UAT-02-FIX | Summarization Gateway Non-Streaming Semantics | AWAITING_ACCEPTANCE |
-| P-UAT-03-FIX-1 | Runtime determinism and complaint side-effect guard | AWAITING_ACCEPTANCE |
-| P-UAT-03-FIX-1B | Explicit complaint end-to-end routing | AWAITING_ACCEPTANCE |
+| P-UAT-03-FIX-1 | Runtime determinism and complaint side-effect guard | PASS |
+| P-UAT-03-FIX-1B | Explicit complaint end-to-end routing | PASS |
+| P-UAT-03-FIX-2 | Knowledge-policy routing and grounded RAG | AWAITING_ACCEPTANCE |
 
 P-UAT-03-FIX-1 repaired the reproduced recent-summary cache `datetime` serialization blocker and
 added defense-in-depth authorization before complaint-ticket persistence. P-UAT-03-FIX-1B then
@@ -57,6 +58,15 @@ deterministic tests and static checks pass. The real Bailian mini-suite complete
 complaint forms with one ticket each, while defect and return-policy consultations completed with
 zero ticket deltas. No general routing, RAG, or prompt tuning is included. The active plan is
 [`docs/exec-plans/active/P-UAT-03-FIX-1B.md`](../exec-plans/active/P-UAT-03-FIX-1B.md).
+
+P-UAT-03-FIX-1 and P-UAT-03-FIX-1B are externally accepted prerequisites for the current stage.
+
+P-UAT-03-FIX-2 owns only the reproduced knowledge-policy routing defect. Narrow authoritative
+rules and cache/session precedence now send the tested informational English and Chinese cases
+to the existing `policy_agent` and canonical HybridRetriever; transaction controls remain on
+their stateful routes. Real Tenant A evidence and grounded Bailian answers were verified without
+changing retrieval thresholds, models, prompts, tool workflows, or multi-turn memory. The active
+plan is [`docs/exec-plans/active/P-UAT-03-FIX-2.md`](../exec-plans/active/P-UAT-03-FIX-2.md).
 
 P-UAT-02-FIX repaired the reproduced chat-runtime blocker where an inherited LangGraph event
 callback caused LangChain to consume the adapter's streaming implementation during an `ainvoke`,

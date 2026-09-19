@@ -272,6 +272,61 @@ class TestCaching:
         assert result.secondary_intent == IntentAction.APPLY
 
     @pytest.mark.asyncio
+    async def test_policy_consultation_does_not_use_stale_transaction_intent(
+        self, deterministic_llm, redis_client
+    ):
+        service = IntentRecognitionService(llm=deterministic_llm, redis_client=redis_client)
+        query = "What is the Aurora Chair return window?"
+        stale = IntentResult(
+            primary_intent=IntentCategory.AFTER_SALES,
+            secondary_intent=IntentAction.QUERY,
+            confidence=0.95,
+            raw_query=query,
+        )
+        key = namespaced_key(service._cache._intent_key(query))
+        await redis_client.setex(key, 300, stale.model_dump_json())
+
+        result = await service._get_cached_result(query)
+
+        assert result is not None
+        assert result.primary_intent == IntentCategory.POLICY
+        assert result.secondary_intent == IntentAction.CONSULT
+
+    @pytest.mark.asyncio
+    async def test_policy_consultation_overrides_stale_session_and_cache(
+        self, deterministic_llm, redis_client
+    ):
+        service = IntentRecognitionService(llm=deterministic_llm, redis_client=redis_client)
+        query = "What is the Aurora Chair return window?"
+        session_id = "policy-consultation-session"
+        stale = IntentResult(
+            primary_intent=IntentCategory.AFTER_SALES,
+            secondary_intent=IntentAction.QUERY,
+            confidence=0.95,
+            raw_query=query,
+        )
+        await redis_client.setex(
+            namespaced_key(f"intent:session:{session_id}"),
+            1800,
+            ClarificationState(session_id=session_id, current_intent=stale).model_dump_json(),
+        )
+        await redis_client.setex(
+            namespaced_key(service._cache._intent_key(query)),
+            300,
+            stale.model_dump_json(),
+        )
+
+        result = await service.recognize(query, session_id=session_id)
+        loaded_state = await service._load_session_state(session_id)
+
+        assert result.primary_intent == IntentCategory.POLICY
+        assert result.secondary_intent == IntentAction.CONSULT
+        assert loaded_state is not None
+        assert loaded_state.current_intent is not None
+        assert loaded_state.current_intent.primary_intent == IntentCategory.POLICY
+        assert loaded_state.current_intent.secondary_intent == IntentAction.CONSULT
+
+    @pytest.mark.asyncio
     async def test_get_cached_result_miss(self, deterministic_llm, redis_client):
         service = IntentRecognitionService(llm=deterministic_llm, redis_client=redis_client)
         result = await service._get_cached_result("新查询")

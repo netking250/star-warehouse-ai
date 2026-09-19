@@ -156,7 +156,13 @@ class IntentRecognitionService:
                 if (
                     rule_result.primary_intent == IntentCategory.COMPLAINT
                     and rule_result.secondary_intent == IntentAction.APPLY
+                ) or (
+                    rule_result.primary_intent == IntentCategory.POLICY
+                    and rule_result.secondary_intent == IntentAction.CONSULT
                 ):
+                    # A deterministic read-only policy rule, like the existing
+                    # explicit complaint rule, must not be replaced by a stale
+                    # transaction classification from Redis.
                     return rule_result
                 return cached_result
         except Exception as e:

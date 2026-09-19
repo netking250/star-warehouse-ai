@@ -90,6 +90,25 @@ async def test_router_routes_after_sales_consultation_to_policy_agent(agent):
 
 
 @pytest.mark.asyncio
+async def test_router_routes_policy_consultation_to_policy_agent(agent):
+    result = IntentResult(
+        primary_intent=IntentCategory.POLICY,
+        secondary_intent=IntentAction.CONSULT,
+        confidence=0.8,
+        needs_clarification=False,
+    )
+
+    with patch(
+        "app.agents.config_loader.get_target_agent_for_intent",
+        new=AsyncMock(return_value="policy_agent"),
+    ) as configured_route:
+        target = await agent._route_by_intent(result)
+
+    assert target == "policy_agent"
+    configured_route.assert_awaited_once_with("POLICY", fallback="policy_agent")
+
+
+@pytest.mark.asyncio
 async def test_router_returns_clarification(agent):
     agent.intent_service.recognize.return_value = IntentResult(
         primary_intent=IntentCategory.PRODUCT,
