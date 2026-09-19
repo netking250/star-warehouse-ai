@@ -2,15 +2,48 @@
 schema_version: 1
 project: Star Warehouse AI
 phase: ENTERPRISE_HARDENING
-current_task: P-UAT-03-FIX-3
+current_task: P-UAT-03-FIX-4
 current_status: AWAITING_ACCEPTANCE
 execution_stage: EXTERNAL_ACCEPTANCE_PENDING
-last_accepted_task: P-UAT-03-FIX-2
+last_accepted_task: P-UAT-03-FIX-3
 next_task: P-UAT-03
 acceptance_owner: external
 maintenance_task: M02
 maintenance_status: PASS
 ---
+
+# P-UAT-03-FIX-4 Current State
+
+P-UAT-03-FIX-4 is `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` on
+`fix/uat03-runtime-side-effects`, based on the externally accepted FIX-3 head
+`79111ba471143ed0dec5d325142fd604e2d51239`. This focused repair owns only durable same-
+conversation multi-turn history hydration, correction handling, context-sensitive intent
+classification, and the related topic/isolation regressions. It must preserve run-isolated
+checkpoints, tenant/user ownership, and all accepted FIX-1 through FIX-3 behavior.
+
+The required real Bailian D1-D4 reproduction is complete. Durable user/assistant MessageCards
+exist for completed prior turns, but the API passes `conversation_history=None` before intent
+recognition and `ExecutionRequest` has no history field; the LangGraph executor initializes each
+run with only the current user message. D1-D4 therefore show lost or misapplied context. The
+exact D3 baseline is `East Harbor 的订单通常多久出库？` followed by `那如果是周一确认呢？`.
+The confirmed loss boundary was the API/executor contract: durable records existed, but the API
+supplied no history to pre-execution intent recognition and each isolated LangGraph run
+initialized history with only the current user message. The implementation now hydrates bounded
+completed user/assistant pairs from tenant/user/conversation-scoped PostgreSQL records, excludes
+failed/partial runs, passes the trusted history through `TurnSubmission` and `ExecutionRequest`,
+and preserves the run-specific checkpoint namespace. Context-dependent intent recognition no
+longer reads or writes the query-only cache. Focused deterministic tests and static checks pass.
+
+The post-restart real Bailian mini-suite had zero provider errors and zero RUN_FAILED in D1-D4,
+but retained pre-existing model/safety/routing failures: D1/D2 initial policy turns were routed
+to PRODUCT, short follow-ups were OTHER, D3/D4 follow-ups were safety-blocked, and the explicit
+topic switch did not reach the logistics route. The explicit complaint regression control also
+hit GraphRecursionError and the refund control remained on ORDER; neither was changed because
+tool/complaint/graph routing is outside FIX-4. No unauthorized refund, audit, or complaint
+mutation occurred in these controls.
+
+The active plan is
+[`docs/exec-plans/active/P-UAT-03-FIX-4.md`](../exec-plans/active/P-UAT-03-FIX-4.md).
 
 # P-UAT-03-FIX-3 Current State
 

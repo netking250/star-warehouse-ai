@@ -101,7 +101,7 @@ class LangGraphConversationExecutor(ConversationExecutor):
             tenant_id=request.tenant_id,
             correlation_id=request.correlation_id,
             trace_id=request.trace_id,
-            history=[{"role": "user", "content": request.question}],
+            history=[*request.history, {"role": "user", "content": request.question}],
             experiment_variant_id=request.experiment_variant_id,
             memory_context_config=request.memory_context_config,
             variant_llm_model=request.variant_llm_model,

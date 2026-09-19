@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.context.token_budget import MemoryTokenBudget
 from app.conversation.contracts import (
     CancellationResult,
     ConversationExecutor,
@@ -155,6 +156,12 @@ class ConversationRuntime:
             else:
                 self._require_owner(conversation.user_id, identity.user_id)
 
+            history = await self._load_completed_history(
+                session,
+                identity=identity,
+                conversation_id=command.conversation_id,
+            )
+
             if conversation.active_run_id is not None:
                 active_run = (
                     await session.exec(
@@ -233,7 +240,93 @@ class ConversationRuntime:
                 payload={"status": RunStatus.PENDING},
             )
             await session.flush()
-            return self._submission(run, created=True)
+            return self._submission(run, created=True, history=history)
+
+    async def _load_completed_history(
+        self,
+        session: AsyncSession,
+        *,
+        identity: ConversationIdentity,
+        conversation_id: str,
+    ) -> tuple[dict[str, str], ...]:
+        """Load bounded completed turn pairs for the next isolated graph run.
+
+        Conversation records are the source of truth. Only completed runs with a
+        durable final assistant message are eligible; failed, cancelled, and
+        partial output cannot become model context.
+        """
+        history_budget = MemoryTokenBudget().calculate_history_budget()
+        max_turns = max(4, history_budget // 32)
+        runs = (
+            await session.exec(
+                select(ConversationRun)
+                .where(
+                    ConversationRun.tenant_id == identity.tenant_id,
+                    ConversationRun.conversation_id == conversation_id,
+                    ConversationRun.user_id == identity.user_id,
+                    ConversationRun.status == RunStatus.COMPLETED,
+                )
+                .order_by(col(ConversationRun.created_at).desc())
+                .limit(max_turns)
+            )
+        ).all()
+
+        raw_history: list[dict[str, str]] = []
+        for run in reversed(runs):
+            if run.final_message_id is None:
+                continue
+            user_message = (
+                await session.exec(
+                    select(MessageCard).where(
+                        MessageCard.tenant_id == identity.tenant_id,
+                        MessageCard.conversation_id == conversation_id,
+                        MessageCard.turn_id == run.turn_id,
+                        MessageCard.run_id == run.run_id,
+                        MessageCard.logical_message_id == f"user:{run.turn_id}",
+                        MessageCard.message_type == MessageType.TEXT,
+                        MessageCard.status == MessageStatus.SENT,
+                        MessageCard.sender_type == "user",
+                        MessageCard.sender_id == identity.user_id,
+                    )
+                )
+            ).one_or_none()
+            assistant_message = (
+                await session.exec(
+                    select(MessageCard).where(
+                        MessageCard.id == run.final_message_id,
+                        MessageCard.tenant_id == identity.tenant_id,
+                        MessageCard.conversation_id == conversation_id,
+                        MessageCard.turn_id == run.turn_id,
+                        MessageCard.run_id == run.run_id,
+                        MessageCard.message_type == MessageType.TEXT,
+                        MessageCard.status == MessageStatus.SENT,
+                        MessageCard.sender_type == "agent",
+                        MessageCard.receiver_id == identity.user_id,
+                    )
+                )
+            ).one_or_none()
+            if user_message is None or assistant_message is None:
+                continue
+            user_text = user_message.content.get("text")
+            assistant_text = assistant_message.content.get("text")
+            if not isinstance(user_text, str) or not isinstance(assistant_text, str):
+                continue
+            raw_history.extend(
+                [
+                    {"role": "user", "content": user_text},
+                    {"role": "assistant", "content": assistant_text},
+                ]
+            )
+
+        bounded = MemoryTokenBudget().allocate_history(raw_history, history_budget)
+        while bounded and bounded[0].get("role") != "user":
+            bounded.pop(0)
+        while bounded and bounded[-1].get("role") != "assistant":
+            bounded.pop()
+        return tuple(
+            {"role": str(message["role"]), "content": str(message["content"])}
+            for message in bounded
+        )
 
     async def execute(
         self,
@@ -267,6 +360,7 @@ class ConversationRuntime:
             correlation_id=identity.correlation_id,
             trace_id=identity.trace_id,
             question=question,
+            history=submission.history,
             intent_category=intent_category,
             experiment_variant_id=experiment_variant_id,
             memory_context_config=memory_context_config,
@@ -1048,7 +1142,12 @@ class ConversationRuntime:
         )
 
     @staticmethod
-    def _submission(run: ConversationRun, *, created: bool) -> TurnSubmission:
+    def _submission(
+        run: ConversationRun,
+        *,
+        created: bool,
+        history: tuple[dict[str, str], ...] = (),
+    ) -> TurnSubmission:
         return TurnSubmission(
             conversation_id=run.conversation_id,
             turn_id=run.turn_id,
@@ -1056,6 +1155,7 @@ class ConversationRuntime:
             status=RunStatus(run.status),
             run_revision=run.revision,
             created=created,
+            history=history,
         )
 
     @staticmethod
