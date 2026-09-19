@@ -3441,3 +3441,40 @@ Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
   turn (ticket `12`), with no duplicate.
 - No migration, PR, push, or merge was created. The full P-UAT-03A suite was intentionally not
   run. External acceptance is required.
+
+## P-UAT-03-FIX-2 - Knowledge-policy routing and grounded RAG
+
+Started: 2026-09-19
+
+Finished: 2026-09-19
+
+Status: `AWAITING_ACCEPTANCE`
+
+Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
+
+- Recovery used the externally accepted FIX-1B head
+  `405d7cf6351a2e00a16838e7af53f0e8102331de` on `fix/uat03-runtime-side-effects`; the accepted
+  main baseline remains `92a67ecec12d4cae00c31d70cf5a0b6664d393af`. No source was changed before
+  reproducing the representative policy-routing failures.
+- Real Bailian classifier/service probes reproduced Aurora, Nova, East Harbor, and paraphrase
+  policy questions being sent to stale or transaction intents. Direct Tenant A HybridRetriever
+  probes retained the expected Aurora, Nova, and East Harbor documents before the fix, proving
+  the primary defect was routing/cache precedence rather than Qdrant recall.
+- The focused implementation adds an authoritative, narrow rule tier for read-only policy
+  semantics and transaction controls, and lets deterministic `POLICY/CONSULT` classification
+  supersede only stale intent-cache/session results. Existing router mapping already sent POLICY
+  to `policy_agent`; no graph, PolicyAgent, retrieval, reranker, prompt, model, tool, or schema
+  change was made.
+- Final focused verification passed `141` selected tests with `10` optional real-model tests
+  deselected. `uv run ruff check app tests`, `uv run ruff format --check app tests`, and
+  `uv run ty check --error-on-warning app tests` passed. The full P-UAT-03A suite was intentionally
+  not run.
+- The real Bailian ten-case mini-suite completed all ten turns with `RUN_COMPLETED`, correct
+  policy routing, expected Tenant A evidence, materially correct known facts `9/9`, and safe
+  no-answer behavior. Policy consultations created zero complaint/refund side effects. The
+  provider had no terminal failures; embedding timeout warnings were recovered by existing sparse
+  fallback, and one transient reranker connection error was recovered by its bounded retry. One
+  known answer retained the correct 28-month warranty fact but added an unsupported hypothetical
+  date example; this remains outside FIX-2's routing scope.
+- The exact disposable database `test_uat03fix2` was verified and removed. No migration, PR, push,
+  or merge was created. External acceptance is required; Codex does not mark this task `PASS`.

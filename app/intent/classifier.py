@@ -72,6 +72,34 @@ class IntentClassifier:
         },
     }
 
+    # These high-signal semantic rules run before the legacy keyword rules. They
+    # distinguish read-only policy questions from stateful order, logistics, and
+    # after-sales requests without making every product or shipping question a
+    # policy query.
+    AUTHORITATIVE_RULE_PATTERNS: dict[tuple[str, str], list[str]] = {
+        ("POLICY", "CONSULT"): [
+            r"\b(?:what|how long|who pays|which party)\b.*\b(?:return window|return policy|return shipping|warranty|shipping policy|dispatch time|refund policy|refund conditions|refund eligibility)\b",
+            r"\b(?:return window|return policy|warranty|return shipping|dispatch time|shipping policy)\b",
+            r"\b(?:if|when)\b.*\b(?:verified defect|defect|defective)\b.*\b(?:who pays|shipping|return)\b",
+            r"(?:买回来|收货|签收).*(?:多久|几天|几个月|以内).*(?:退|退货)",
+            r"(?:退货|退换货|退款|换货).*(?:运费|邮费|快递费).*(?:谁|由谁|承担|谁出)",
+            r"(?:\u4e0d\u662f\u8d28\u91cf\u95ee\u9898|\u4e0d\u559c\u6b22|\u4e0d\u60f3\u8981|\u6539\u53d8\u4e3b\u610f).*(?:\u9000|\u9000\u8d27).*(?:\u8fd0\u8d39|\u90ae\u8d39|\u5feb\u9012\u8d39).*(?:\u600e\u4e48\u529e|\u8c01|\u7531\u8c01|\u627f\u62c5|\u8c01\u51fa)",
+            r"(?:质量问题|质量|缺陷|瑕疵).*(?:运费|邮费|快递费).*(?:谁|由谁|承担|谁出)",
+            r"(?:保修|质保).*(?:多久|几个月|几年|时间|政策|规则|条件)",
+            r"(?:买了|用了).*(?:天|个月|年).*(?:不喜欢|不想要|不合适|坏|故障|质量问题).*(?:能退|可以退|退货|保修|质保)",
+            r"(?:通常|一般).*(?:多久|几天|几个工作日).*(?:出库|发货|送达)",
+            r"\bwhen\b.*\b(?:normally\s+)?(?:dispatch|ship|ships|ship out)\b",
+            r"(?:下周|下个|未来|会不会|能不能).*(?:降价|打折|优惠|补货|维修费|维修费用|上门维修)",
+            r"\b(?:will|could|does)\b.*\b(?:discount|sale|restock|repair fee|price drop)\b",
+        ],
+        ("LOGISTICS", "QUERY"): [
+            r"(?:订单|单号)?\s*SN\d+.*(?:物流|快递|包裹).*(?:哪|状态|进度)",
+        ],
+        ("AFTER_SALES", "APPLY"): [
+            r"(?:我要|我想|帮我|请帮我|请).*(?:退订单|申请退款|提交退款|退货申请|换货申请|退款申请)",
+        ],
+    }
+
     RULE_PATTERNS: dict[tuple[str, str], list[str]] = {
         ("ORDER", "QUERY"): [
             r"订单.*(状态|进度|情况)",
@@ -150,6 +178,10 @@ class IntentClassifier:
         self._compiled_rules = {
             key: [re.compile(pattern, re.IGNORECASE) for pattern in patterns]
             for key, patterns in self.RULE_PATTERNS.items()
+        }
+        self._compiled_authoritative_rules = {
+            key: [re.compile(pattern, re.IGNORECASE) for pattern in patterns]
+            for key, patterns in self.AUTHORITATIVE_RULE_PATTERNS.items()
         }
         self._few_shot_examples = load_intent_examples()
 
@@ -230,24 +262,30 @@ class IntentClassifier:
 
     def _classify_with_rules(self, query: str) -> IntentResult:
         query_lower = query.lower()
-        for (primary, secondary), patterns in self._compiled_rules.items():
-            for pattern in patterns:
-                if pattern.search(query_lower):
-                    slots: dict[str, Any] = {"matched_pattern": pattern.pattern}
-                    if primary == "CART" and secondary in ("ADD", "REMOVE", "MODIFY", "QUERY"):
-                        slots["action"] = secondary
-                    confidence = (
-                        1.0
-                        if (primary, secondary) == ("COMPLAINT", "APPLY")
-                        else self.RULE_MATCH_CONFIDENCE
-                    )
-                    return IntentResult(
-                        primary_intent=IntentCategory[primary],
-                        secondary_intent=IntentAction[secondary],
-                        confidence=confidence,
-                        slots=slots,
-                        raw_query=query,
-                    )
+        for compiled_rules in (self._compiled_authoritative_rules, self._compiled_rules):
+            for (primary, secondary), patterns in compiled_rules.items():
+                for pattern in patterns:
+                    if pattern.search(query_lower):
+                        slots: dict[str, Any] = {"matched_pattern": pattern.pattern}
+                        if primary == "CART" and secondary in (
+                            "ADD",
+                            "REMOVE",
+                            "MODIFY",
+                            "QUERY",
+                        ):
+                            slots["action"] = secondary
+                        confidence = (
+                            1.0
+                            if (primary, secondary) == ("COMPLAINT", "APPLY")
+                            else self.RULE_MATCH_CONFIDENCE
+                        )
+                        return IntentResult(
+                            primary_intent=IntentCategory[primary],
+                            secondary_intent=IntentAction[secondary],
+                            confidence=confidence,
+                            slots=slots,
+                            raw_query=query,
+                        )
         return IntentResult(
             primary_intent=IntentCategory.OTHER,
             secondary_intent=IntentAction.CONSULT,
