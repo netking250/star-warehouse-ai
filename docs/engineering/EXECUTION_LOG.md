@@ -3519,3 +3519,42 @@ Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
   audit, or complaint mutation.
 - No migration, PR, push, or merge was created. The full P-UAT-03A suite was intentionally not
   run. External acceptance is required; Codex does not mark this task `PASS`.
+
+## P-UAT-03-FIX-4 - Durable multi-turn context and correction handling
+
+Started: 2026-09-19
+
+Finished: 2026-09-19
+
+Status: `AWAITING_ACCEPTANCE`
+
+Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
+
+- Recovery confirmed branch `fix/uat03-runtime-side-effects`, previous accepted FIX-3 head
+  `79111ba471143ed0dec5d325142fd604e2d51239`, accepted main
+  `92a67ecec12d4cae00c31d70cf5a0b6664d393af`, and a clean starting worktree. Real Bailian D1-D4
+  reproduction was completed before source changes. Durable cards existed, but the API supplied
+  no prior history to intent recognition or `ExecutionRequest`, and each isolated graph state held
+  only the current user message.
+- The minimal implementation adds trusted bounded history to `TurnSubmission` and
+  `ExecutionRequest`, hydrates only completed tenant/user/conversation-owned user/final-assistant
+  text pairs from PostgreSQL, excludes failed/partial outputs, and feeds that history to the API
+  intent call and the isolated LangGraph run. The current message is appended once by the
+  executor. Query-only intent cache use is bypassed only when context is present. Checkpoint/run
+  isolation, schema, models, prompts, retrieval, tools, and business rules were not changed.
+- New regression coverage proves pair hydration/order, current-message deduplication, failed-turn
+  exclusion, same-key replay behavior, checkpoint namespace isolation, context-cache bypass, and
+  same-user cross-conversation isolation. Focused non-real-provider verification passed `134` tests
+  with `5` optional real-model tests deselected; architecture guard passed `3`; the added runtime
+  and security regression passed `6`. Ruff check, Ruff format check, and `ty check --error-on-warning`
+  passed for changed files.
+- After restarting only the disposable application container to load the current source, the real
+  Bailian D1-D4 run completed all turns without provider failures or `RUN_FAILED`, but did not meet
+  semantic expectations: D1/D2 initial policy turns were PRODUCT, short follow-ups were OTHER,
+  D3/D4 follow-ups were safety-blocked, and the explicit topic-switch control stayed on ORDER/
+  product instead of logistics. An explicit complaint control hit `GraphRecursionError`, and the
+  explicit refund control stayed on ORDER; these are preserved FIX-1B/FIX-3 routing/runtime issues
+  outside FIX-4 and were not changed. No unauthorized complaint, refund, or audit mutation occurred
+  in the controls.
+- No migration, PR, push, or merge was created. The full P-UAT-03A suite was intentionally not
+  run. External acceptance is required; Codex does not mark this task `PASS`.

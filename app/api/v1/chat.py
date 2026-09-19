@@ -394,7 +394,7 @@ async def chat(
                 intent_result = await intent_service.recognize(
                     query=question,
                     session_id=conversation_id,
-                    conversation_history=None,
+                    conversation_history=list(submission.history),
                 )
                 if intent_result is not None:
                     intent_category = intent_result.primary_intent.value

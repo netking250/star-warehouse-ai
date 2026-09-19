@@ -50,6 +50,7 @@ Codex may set a completed implementation to `AWAITING_ACCEPTANCE` only. `PASS` a
 | P-UAT-03-FIX-1B | Explicit complaint end-to-end routing | PASS |
 | P-UAT-03-FIX-2 | Knowledge-policy routing and grounded RAG | AWAITING_ACCEPTANCE |
 | P-UAT-03-FIX-3 | Business-tool routing and refund approval boundary | AWAITING_ACCEPTANCE |
+| P-UAT-03-FIX-4 | Durable multi-turn context and correction handling | AWAITING_ACCEPTANCE |
 
 P-UAT-03-FIX-1 repaired the reproduced recent-summary cache `datetime` serialization blocker and
 added defense-in-depth authorization before complaint-ticket persistence. P-UAT-03-FIX-1B then
@@ -68,6 +69,17 @@ to the existing `policy_agent` and canonical HybridRetriever; transaction contro
 their stateful routes. Real Tenant A evidence and grounded Bailian answers were verified without
 changing retrieval thresholds, models, prompts, tool workflows, or multi-turn memory. The active
 plan is [`docs/exec-plans/active/P-UAT-03-FIX-2.md`](../exec-plans/active/P-UAT-03-FIX-2.md).
+
+P-UAT-03-FIX-4 is implemented and awaiting external acceptance. It hydrates bounded completed
+turn pairs from authoritative tenant/user/conversation-scoped PostgreSQL records into each new
+run and API-side intent call, excludes failed/partial outputs, preserves per-run checkpoints,
+and bypasses query-only intent caching when context is present. Focused runtime, isolation,
+intent, router, policy, and retrieval tests passed; Ruff, format, and type checks passed. The
+real Bailian D1-D4 run completed without RUN_FAILED/provider errors but did not pass all semantic
+multi-turn expectations because pre-existing PRODUCT/OTHER routing, safety filtering, and topic
+switch/tool routing failures remained. No complaint/refund mutation occurred in the regression
+controls. The active plan is
+[`docs/exec-plans/active/P-UAT-03-FIX-4.md`](../exec-plans/active/P-UAT-03-FIX-4.md).
 
 P-UAT-02-FIX repaired the reproduced chat-runtime blocker where an inherited LangGraph event
 callback caused LangChain to consume the adapter's streaming implementation during an `ainvoke`,

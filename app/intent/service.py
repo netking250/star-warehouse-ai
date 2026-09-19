@@ -52,7 +52,8 @@ class IntentRecognitionService:
         if not safety_result.is_safe:
             return self._create_safety_warning_result(query, safety_result)
 
-        cached_result = await self._get_cached_result(query)
+        has_conversation_context = bool(conversation_history)
+        cached_result = None if has_conversation_context else await self._get_cached_result(query)
         if cached_result:
             # Ensure session state exists so clarify() can resolve missing slots
             state = await self._load_session_state(session_id)
@@ -97,7 +98,8 @@ class IntentRecognitionService:
         state.current_intent = result
         await self._save_session_state(state)
 
-        await self._cache_result(query, result)
+        if not has_conversation_context:
+            await self._cache_result(query, result)
         return result
 
     async def clarify(self, session_id: str, user_response: str) -> ClarificationResponse:

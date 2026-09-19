@@ -49,6 +49,7 @@ class TurnSubmission:
     status: RunStatus
     run_revision: int
     created: bool
+    history: tuple[dict[str, str], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,6 +64,7 @@ class ExecutionRequest:
     correlation_id: str
     trace_id: str | None
     question: str
+    history: tuple[dict[str, str], ...] = ()
     intent_category: str | None = None
     experiment_variant_id: int | None = None
     memory_context_config: dict[str, Any] | None = None

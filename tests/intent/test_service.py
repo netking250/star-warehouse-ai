@@ -7,6 +7,7 @@ import pytest
 
 from app.core.tenancy import namespaced_key
 from app.intent.models import ClarificationState, IntentAction, IntentCategory, IntentResult
+from app.intent.multi_intent import MultiIntentResult
 from app.intent.safety import SafetyCheckResult
 from app.intent.service import IntentRecognitionService
 
@@ -366,6 +367,65 @@ class TestCaching:
         service = IntentRecognitionService(llm=deterministic_llm, redis_client=redis_client)
         result = await service._get_cached_result("新查询")
         assert result is None
+
+    @pytest.mark.asyncio
+    async def test_contextual_follow_up_does_not_use_query_only_cache(
+        self, deterministic_llm, redis_client, monkeypatch
+    ):
+        service = IntentRecognitionService(llm=deterministic_llm, redis_client=redis_client)
+        query = "已经买了10天。"
+        stale = IntentResult(
+            primary_intent=IntentCategory.OTHER,
+            secondary_intent=IntentAction.CONSULT,
+            confidence=0.95,
+            raw_query=query,
+        )
+        await redis_client.setex(
+            namespaced_key(service._cache._intent_key(query)),
+            300,
+            stale.model_dump_json(),
+        )
+        calls: list[list[dict[str, str]] | None] = []
+
+        async def process(query_text, conversation_history=None, db_session=None):
+            calls.append(conversation_history)
+            return MultiIntentResult(
+                is_multi_intent=False,
+                sub_intents=[
+                    IntentResult(
+                        primary_intent=IntentCategory.POLICY,
+                        secondary_intent=IntentAction.CONSULT,
+                        confidence=0.9,
+                        raw_query=query_text,
+                    )
+                ],
+            )
+
+        monkeypatch.setattr(service.multi_intent_processor, "process", process)
+
+        async def classify(query_text, context=None):
+            return IntentResult(
+                primary_intent=IntentCategory.POLICY,
+                secondary_intent=IntentAction.CONSULT,
+                confidence=0.9,
+                raw_query=query_text,
+            )
+
+        monkeypatch.setattr(service.classifier, "classify", classify)
+        history = [
+            {"role": "user", "content": "我的 Aurora Chair 能退吗？"},
+            {"role": "assistant", "content": "退货窗口为17个日历日。"},
+        ]
+
+        result = await service.recognize(
+            query=query,
+            session_id="contextual-follow-up",
+            conversation_history=history,
+        )
+
+        assert calls == [history]
+        assert result.primary_intent is IntentCategory.POLICY
+        assert result.secondary_intent is IntentAction.CONSULT
 
     @pytest.mark.asyncio
     async def test_cache_result(self, deterministic_llm, redis_client):
