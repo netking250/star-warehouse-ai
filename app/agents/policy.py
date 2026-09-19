@@ -100,9 +100,9 @@ class PolicyAgent(BaseAgent):
         override = await self._resolve_experiment_prompt(state)
         if override:
             self._dynamic_system_prompt = override
-        question = state.get("question", "")
 
         retrieval_data = await self._retrieve_knowledge(state)
+        effective_question = retrieval_data["effective_question"]
         chunks = retrieval_data["chunks"]
         similarities = retrieval_data["similarities"]
         sources = retrieval_data["sources"]
@@ -135,12 +135,12 @@ class PolicyAgent(BaseAgent):
             "sources": sources,
         }
 
-        few_shot_examples = await self._get_few_shot_examples(question)
+        few_shot_examples = await self._get_few_shot_examples(effective_question)
         messages = self._create_messages(
-            question,
+            effective_question,
             context={"context": chunks, "sources": sources},
-            memory_context=state.get("memory_context"),
-            user_context=self._build_user_context(state.get("memory_context")),
+            memory_context=None,
+            user_context={},
             memory_context_config=state.get("memory_context_config"),
             few_shot_examples=few_shot_examples,
         )
@@ -149,7 +149,7 @@ class PolicyAgent(BaseAgent):
         response = await self._call_llm(messages, tags=["user_visible"], metadata=metadata)
 
         verification_coro = self._verify_citations(response, sources)
-        reflection_coro = self._self_reflect(question, response, chunks)
+        reflection_coro = self._self_reflect(effective_question, response, chunks)
         try:
             verification, reflection = await asyncio.gather(
                 verification_coro, reflection_coro, return_exceptions=True
@@ -204,10 +204,16 @@ class PolicyAgent(BaseAgent):
 
     async def _retrieve_knowledge(self, state: AgentState) -> dict[str, Any]:
         question = state.get("question", "")
-        results = await self.retriever.retrieve(
+        history = state.get("history")
+        memory_context = state.get("memory_context")
+        effective_question = await self.retriever.contextualize_query(
             question,
-            conversation_history=state.get("history"),
-            memory_context=state.get("memory_context"),
+            conversation_history=history,
+            memory_context=memory_context,
+        )
+        results = await self.retriever.retrieve(
+            effective_question,
+            memory_context=memory_context,
             variant_top_k=state.get("variant_retriever_top_k"),
             variant_reranker_enabled=state.get("variant_reranker_enabled"),
         )
@@ -215,6 +221,7 @@ class PolicyAgent(BaseAgent):
         if not filtered:
             logger.warning("[PolicyAgent] 所有检索结果相关性均低于 %.2f", _RELEVANCE_THRESHOLD)
             return {
+                "effective_question": effective_question,
                 "chunks": [],
                 "similarities": [],
                 "sources": [],
@@ -226,7 +233,7 @@ class PolicyAgent(BaseAgent):
                 ),
             }
 
-        grades = await self._grade_documents(question, filtered)
+        grades = await self._grade_documents(effective_question, filtered)
         graded_filtered = [
             doc
             for doc, grade in zip(filtered, grades, strict=True)
@@ -236,7 +243,7 @@ class PolicyAgent(BaseAgent):
             graded_filtered = [
                 document
                 for document in filtered
-                if _has_lexical_overlap(question, document.content)
+                if _has_lexical_overlap(effective_question, document.content)
             ]
             if graded_filtered:
                 logger.warning(
@@ -246,6 +253,7 @@ class PolicyAgent(BaseAgent):
         if not graded_filtered:
             logger.warning("[PolicyAgent] 所有文档被评分器标记为不相关")
             return {
+                "effective_question": effective_question,
                 "chunks": [],
                 "similarities": [],
                 "sources": [],
@@ -257,7 +265,7 @@ class PolicyAgent(BaseAgent):
                 ),
             }
 
-        adequacy = await self._assess_retrieval_adequacy(question, graded_filtered)
+        adequacy = await self._assess_retrieval_adequacy(effective_question, graded_filtered)
 
         chunks = [r.content for r in graded_filtered]
         similarities = [r.score for r in graded_filtered]
@@ -281,6 +289,7 @@ class PolicyAgent(BaseAgent):
                 adequacy.confidence,
             )
             return {
+                "effective_question": effective_question,
                 "chunks": [],
                 "similarities": similarities,
                 "sources": sources,
@@ -293,6 +302,7 @@ class PolicyAgent(BaseAgent):
             adequacy.adequacy,
         )
         return {
+            "effective_question": effective_question,
             "chunks": chunks,
             "similarities": similarities,
             "sources": sources,

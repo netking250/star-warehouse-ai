@@ -179,8 +179,10 @@ class _FailingExecutor:
 class _CapturingGraph:
     """Capture the initial state passed into the LangGraph adapter."""
 
-    def __init__(self) -> None:
+    def __init__(self, expected_run_id: str = "run-1") -> None:
         self.initial_state: AgentState | None = None
+        self.config: RunnableConfig | None = None
+        self.expected_run_id = expected_run_id
 
     async def astream_events(
         self,
@@ -190,7 +192,8 @@ class _CapturingGraph:
         version: str,
     ) -> AsyncIterator[dict[str, Any]]:
         self.initial_state = input
-        assert config["configurable"]["checkpoint_ns"].endswith(":run-1")
+        self.config = config
+        assert config["configurable"]["checkpoint_ns"].endswith(f":{self.expected_run_id}")
         assert version == "v2"
         yield {
             "event": "on_chain_end",
@@ -236,3 +239,49 @@ async def test_langgraph_executor_appends_current_message_once_and_preserves_his
     )
     assert str(events[-1].event_type) == "COMPLETED"
     assert events[-1].payload["answer"] == "ok"
+
+
+@pytest.mark.asyncio
+async def test_langgraph_executor_uses_run_specific_checkpoint_thread_identity() -> None:
+    first_graph = _CapturingGraph()
+    second_graph = _CapturingGraph("run-2")
+
+    await _collect(
+        LangGraphConversationExecutor(first_graph).execute(
+            ExecutionRequest(
+                tenant_id="tenant-a",
+                user_id=7,
+                conversation_id="conversation-1",
+                turn_id="turn-1",
+                run_id="run-1",
+                correlation_id="correlation-1",
+                trace_id=None,
+                question="current question",
+            )
+        )
+    )
+    await _collect(
+        LangGraphConversationExecutor(second_graph).execute(
+            ExecutionRequest(
+                tenant_id="tenant-a",
+                user_id=7,
+                conversation_id="conversation-1",
+                turn_id="turn-2",
+                run_id="run-2",
+                correlation_id="correlation-1",
+                trace_id=None,
+                question="current question",
+            )
+        )
+    )
+
+    assert first_graph.config is not None
+    assert second_graph.config is not None
+    assert (
+        first_graph.config["configurable"]["thread_id"]
+        != second_graph.config["configurable"]["thread_id"]
+    )
+    assert first_graph.initial_state is not None
+    assert second_graph.initial_state is not None
+    assert first_graph.initial_state["thread_id"] == "conversation-1"
+    assert second_graph.initial_state["thread_id"] == "conversation-1"

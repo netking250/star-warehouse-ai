@@ -29,6 +29,14 @@ class DeterministicRetriever(HybridRetriever):
     def __init__(self, results=None):
         self._results = results or []
 
+    async def contextualize_query(
+        self,
+        query: str,
+        conversation_history: list[dict] | None = None,
+        memory_context: dict | None = None,
+    ) -> str:
+        return query
+
     async def retrieve(
         self,
         query: str,

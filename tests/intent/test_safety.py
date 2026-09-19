@@ -712,6 +712,32 @@ class TestSafetyFilterCode:
 
 class TestSafetyFilterSemantic:
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "query",
+        [
+            "\u521a\u624d\u8bf4\u9519\u4e86\uff0c\u662f30\u4e2a\u6708\u3002",
+            "\u5df2\u7ecf\u4e70\u4e8610\u5929\u4e86\u3002",
+            "\u90a3\u5982\u679c\u574f\u4e86\u5462\uff1f",
+            "\u90a3\u5468\u4e00\u5f00\u59cb\u7b97\u5462\uff1f",
+        ],
+    )
+    async def test_benign_commerce_followups_do_not_depend_on_semantic_judge(self, query):
+        llm = DeterministicChatModel(
+            structured={
+                "is_safe": False,
+                "risk_level": "high",
+                "risk_type": "semantic",
+                "reason": "unsafe",
+            }
+        )
+        safety_filter = SafetyFilter(llm=llm, config=SafetyConfig())
+
+        result = await safety_filter.check(query)
+
+        assert result.is_safe is True
+        assert result.risk_type is None
+
+    @pytest.mark.asyncio
     async def test_semantic_check_short_query(self):
         llm = DeterministicChatModel(
             structured={

@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 
 from pydantic import BaseModel
 
@@ -7,6 +8,17 @@ from app.core.cache import CacheManager
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+_POLICY_CONTEXT_PATTERN = re.compile(
+    r"(?:保修|退货|退款|运费|出库|能退|warranty|return|refund|shipping|dispatch)",
+    re.IGNORECASE,
+)
+_DURATION_PATTERN = re.compile(
+    r"(?P<duration>\d+\s*(?:个?月|天|年|months?|days?|years?))",
+    re.IGNORECASE,
+)
+_CORRECTION_PATTERN = re.compile(r"(?:说错|更正|改成|actually|correction)", re.IGNORECASE)
+_WEEKDAY_PATTERN = re.compile(r"(?:周|星期)[一二三四五六日天]")
 
 
 class RetrievedChunk(BaseModel):
@@ -34,6 +46,79 @@ class HybridRetriever:
         self.rewriter = rewriter
         self.use_multi_query = use_multi_query
         self._cache = cache_manager
+
+    async def contextualize_query(
+        self,
+        query: str,
+        conversation_history: list[dict] | None = None,
+        memory_context: dict | None = None,
+    ) -> str:
+        """Rewrite an elliptical query using prior conversation messages only."""
+        if not conversation_history:
+            return query
+        prior_history = list(conversation_history)
+        latest = prior_history[-1]
+        if (
+            isinstance(latest, dict)
+            and latest.get("role") == "user"
+            and str(latest.get("content", "")).strip() == query.strip()
+        ):
+            prior_history.pop()
+        if not prior_history:
+            return query
+        deterministic = self._deterministic_follow_up_query(query, prior_history)
+        if deterministic is not None:
+            return deterministic
+        rewritten = await self.rewriter.rewrite(
+            query,
+            conversation_history=prior_history,
+            memory_context=memory_context,
+        )
+        if rewritten.strip() != query.strip():
+            return rewritten
+        return self.rewriter.condense_history(
+            prior_history,
+            query,
+            memory_context,
+        )
+
+    @staticmethod
+    def _deterministic_follow_up_query(query: str, prior_history: list[dict]) -> str | None:
+        """Resolve narrow duration and weekday follow-ups before stochastic rewriting."""
+        policy_topic = next(
+            (
+                str(message.get("content", "")).strip()
+                for message in reversed(prior_history)
+                if message.get("role") == "user"
+                and _POLICY_CONTEXT_PATTERN.search(str(message.get("content", "")))
+            ),
+            None,
+        )
+        if not policy_topic:
+            return None
+
+        duration_match = _DURATION_PATTERN.search(query)
+        if duration_match:
+            duration = duration_match.group("duration").replace(" ", "")
+            if _CORRECTION_PATTERN.search(query):
+                return (
+                    f"同一会话中的政策主题：{policy_topic}\n"
+                    f"用户更正其购买或使用时长为{duration}，以该最新时长替代之前的时长。"
+                    "请依据知识库政策判断当前是否仍符合该政策。"
+                )
+            return (
+                f"同一会话中的政策主题：{policy_topic}\n"
+                f"用户说明其购买或使用时长为{duration}。"
+                "请依据知识库政策判断当前是否仍符合该政策。"
+            )
+
+        if _WEEKDAY_PATTERN.search(query):
+            return (
+                f"同一会话中的政策主题：{policy_topic}\n"
+                f"用户追问：{query}\n"
+                "请仅陈述知识库中的正常时效，不推算或声称具体星期日期。"
+            )
+        return None
 
     @staticmethod
     def _to_chunk(point, score: float) -> RetrievedChunk:

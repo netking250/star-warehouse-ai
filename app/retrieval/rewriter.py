@@ -193,7 +193,7 @@ class QueryRewriter:
 
         contextualized_query = query
         if conversation_history:
-            contextualized_query = self._condense_history(
+            contextualized_query = self.condense_history(
                 conversation_history, query, memory_context
             )
 
@@ -266,11 +266,12 @@ class QueryRewriter:
         return "\n".join(lines) if lines else "（无历史对话）"
 
     @staticmethod
-    def _condense_history(
+    def condense_history(
         conversation_history: list[dict[str, Any]],
         current_query: str,
         memory_context: dict[str, Any] | None = None,
     ) -> str:
+        """Build a bounded deterministic query from recent conversation context."""
         parts: list[str] = []
         for turn in conversation_history[-3:]:
             role = turn.get("role", "user")

@@ -428,6 +428,279 @@ class TestCaching:
         assert result.secondary_intent is IntentAction.CONSULT
 
     @pytest.mark.asyncio
+    async def test_recognize_passes_current_query_separately_from_prior_history(
+        self, deterministic_llm, redis_client, monkeypatch
+    ):
+        service = IntentRecognitionService(llm=deterministic_llm, redis_client=redis_client)
+        query = "\u5df2\u7ecf\u4e70\u4e8610\u5929\u4e86\u3002"
+        prior_history = [
+            {"role": "user", "content": "\u6211\u7684 Aurora Chair \u80fd\u9000\u5417\uff1f"},
+            {
+                "role": "assistant",
+                "content": "\u9000\u8d27\u7a97\u53e3\u4e3a17\u4e2a\u65e5\u5386\u65e5\u3002",
+            },
+        ]
+        supplied_history = [*prior_history, {"role": "user", "content": query}]
+        processor_history: list[list[dict[str, str]] | None] = []
+        classifier_context: list[dict | None] = []
+
+        async def process(query_text, conversation_history=None, db_session=None):
+            processor_history.append(conversation_history)
+            return MultiIntentResult(is_multi_intent=False, sub_intents=[])
+
+        async def classify(query_text, context=None):
+            classifier_context.append(context)
+            return IntentResult(
+                primary_intent=IntentCategory.OTHER,
+                secondary_intent=IntentAction.CONSULT,
+                confidence=0.4,
+                raw_query=query_text,
+            )
+
+        monkeypatch.setattr(service.multi_intent_processor, "process", process)
+        monkeypatch.setattr(service.classifier, "classify", classify)
+
+        await service.recognize(
+            query=query,
+            session_id="deduplicate-current-query",
+            conversation_history=supplied_history,
+        )
+
+        assert processor_history == [prior_history]
+        assert classifier_context == [{"history": prior_history}]
+
+    @pytest.mark.asyncio
+    async def test_duration_follow_up_continues_policy_context_before_topic_switch(
+        self, deterministic_llm, redis_client, monkeypatch
+    ):
+        service = IntentRecognitionService(llm=deterministic_llm, redis_client=redis_client)
+        query = "\u5df2\u7ecf\u4e70\u4e8610\u5929\u4e86\u3002"
+        history = [
+            {"role": "user", "content": "\u6211\u7684 Aurora Chair \u80fd\u9000\u5417\uff1f"},
+            {
+                "role": "assistant",
+                "content": "\u9000\u8d27\u7a97\u53e3\u4e3a17\u4e2a\u65e5\u5386\u65e5\u3002",
+            },
+            {"role": "user", "content": query},
+        ]
+
+        async def process(query_text, conversation_history=None, db_session=None):
+            return MultiIntentResult(is_multi_intent=False, sub_intents=[])
+
+        async def classify(query_text, context=None):
+            return IntentResult(
+                primary_intent=IntentCategory.AFTER_SALES,
+                secondary_intent=IntentAction.QUERY,
+                confidence=0.9,
+                slots={"product_name": "Aurora Chair", "purchase_age_days": 10},
+                raw_query=query_text,
+            )
+
+        monkeypatch.setattr(service.multi_intent_processor, "process", process)
+        monkeypatch.setattr(service.classifier, "classify", classify)
+
+        result = await service.recognize(
+            query=query,
+            session_id="aurora-duration-follow-up",
+            conversation_history=history,
+        )
+
+        assert result.primary_intent is IntentCategory.POLICY
+        assert result.secondary_intent is IntentAction.CONSULT
+        assert result.slots is not None
+        assert result.slots["purchase_age_days"] == 10
+
+    @pytest.mark.asyncio
+    async def test_explicit_logistics_rule_outranks_policy_history_and_llm(
+        self, deterministic_llm, redis_client, monkeypatch
+    ):
+        service = IntentRecognitionService(llm=deterministic_llm, redis_client=redis_client)
+        query = "\u53e6\u5916\uff0c\u67e5\u4e00\u4e0b\u8ba2\u5355 SN649201 \u7684\u7269\u6d41\u3002"
+        history = [
+            {"role": "user", "content": "Aurora Chair \u7684\u9000\u8d27\u671f\u591a\u4e45\uff1f"},
+            {
+                "role": "assistant",
+                "content": "\u9000\u8d27\u671f\u4e3a17\u4e2a\u65e5\u5386\u65e5\u3002",
+            },
+            {"role": "user", "content": query},
+        ]
+
+        async def process(query_text, conversation_history=None, db_session=None):
+            return MultiIntentResult(is_multi_intent=False, sub_intents=[])
+
+        async def classify(query_text, context=None):
+            return IntentResult(
+                primary_intent=IntentCategory.POLICY,
+                secondary_intent=IntentAction.CONSULT,
+                confidence=0.9,
+                raw_query=query_text,
+            )
+
+        monkeypatch.setattr(service.multi_intent_processor, "process", process)
+        monkeypatch.setattr(service.classifier, "classify", classify)
+
+        result = await service.recognize(
+            query=query,
+            session_id="explicit-logistics-topic-switch",
+            conversation_history=history,
+        )
+
+        assert result.primary_intent is IntentCategory.LOGISTICS
+        assert result.secondary_intent is IntentAction.QUERY
+        assert result.slots is not None
+        assert result.slots["order_sn"] == "SN649201"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("query", "history", "slots"),
+        [
+            (
+                "\u521a\u624d\u8bf4\u9519\u4e86\uff0c\u662f30\u4e2a\u6708\u3002",
+                [
+                    {"role": "user", "content": "Nova Desk \u7684\u4fdd\u4fee\u591a\u4e45\uff1f"},
+                    {"role": "assistant", "content": "Nova Desk \u4fdd\u4fee28\u4e2a\u6708\u3002"},
+                    {"role": "user", "content": "\u6211\u4e70\u4e8626\u4e2a\u6708\u3002"},
+                ],
+                {"purchase_age_months": 30},
+            ),
+            (
+                "\u90a3\u5982\u679c\u662f\u5468\u4e00\u786e\u8ba4\u5462\uff1f",
+                [
+                    {
+                        "role": "user",
+                        "content": "East Harbor \u901a\u5e38\u591a\u4e45\u51fa\u5e93\uff1f",
+                    },
+                    {
+                        "role": "assistant",
+                        "content": "\u6b63\u5e383\u4e2a\u5de5\u4f5c\u65e5\u5185\u51fa\u5e93\u3002",
+                    },
+                ],
+                {"date_reference": "\u5468\u4e00"},
+            ),
+        ],
+    )
+    async def test_elliptical_follow_up_uses_compatible_policy_history(
+        self, deterministic_llm, redis_client, monkeypatch, query, history, slots
+    ):
+        service = IntentRecognitionService(llm=deterministic_llm, redis_client=redis_client)
+
+        async def process(query_text, conversation_history=None, db_session=None):
+            return MultiIntentResult(is_multi_intent=False, sub_intents=[])
+
+        async def classify(query_text, context=None):
+            return IntentResult(
+                primary_intent=IntentCategory.OTHER,
+                secondary_intent=IntentAction.CONSULT,
+                confidence=0.9,
+                slots=slots,
+                raw_query=query_text,
+            )
+
+        monkeypatch.setattr(service.multi_intent_processor, "process", process)
+        monkeypatch.setattr(service.classifier, "classify", classify)
+
+        result = await service.recognize(
+            query=query,
+            session_id=f"contextual-{slots}",
+            conversation_history=[*history, {"role": "user", "content": query}],
+        )
+
+        assert result.primary_intent is IntentCategory.POLICY
+        assert result.secondary_intent is IntentAction.CONSULT
+        assert result.slots == slots
+
+    @pytest.mark.asyncio
+    async def test_same_correction_without_policy_history_does_not_inherit_policy(
+        self, deterministic_llm, redis_client, monkeypatch
+    ):
+        service = IntentRecognitionService(llm=deterministic_llm, redis_client=redis_client)
+        query = "\u521a\u624d\u8bf4\u9519\u4e86\uff0c\u662f30\u4e2a\u6708\u3002"
+
+        async def process(query_text, conversation_history=None, db_session=None):
+            return MultiIntentResult(is_multi_intent=False, sub_intents=[])
+
+        async def classify(query_text, context=None):
+            return IntentResult(
+                primary_intent=IntentCategory.OTHER,
+                secondary_intent=IntentAction.CONSULT,
+                confidence=0.9,
+                raw_query=query_text,
+            )
+
+        monkeypatch.setattr(service.multi_intent_processor, "process", process)
+        monkeypatch.setattr(service.classifier, "classify", classify)
+
+        result = await service.recognize(
+            query=query,
+            session_id="unrelated-correction",
+            conversation_history=[
+                {"role": "user", "content": "\u4f60\u597d"},
+                {
+                    "role": "assistant",
+                    "content": "\u60a8\u597d\uff0c\u8bf7\u95ee\u6709\u4ec0\u4e48\u53ef\u4ee5\u5e2e\u60a8\uff1f",
+                },
+                {"role": "user", "content": query},
+            ],
+        )
+
+        assert result.primary_intent is IntentCategory.OTHER
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("query", "primary", "tertiary"),
+        [
+            (
+                "\u8ba2\u5355 SN649201 \u6211\u4e0d\u60f3\u8981\u4e86\uff0c\u5e2e\u6211\u7533\u8bf7\u9000\u8d27\u3002",
+                IntentCategory.AFTER_SALES,
+                "REFUND",
+            ),
+            (
+                "\u6211\u8981\u6295\u8bc9\uff0c\u8bf7\u5e2e\u6211\u63d0\u4ea4\u6295\u8bc9\u3002",
+                IntentCategory.COMPLAINT,
+                None,
+            ),
+        ],
+    )
+    async def test_explicit_state_change_outranks_policy_history(
+        self, deterministic_llm, redis_client, monkeypatch, query, primary, tertiary
+    ):
+        service = IntentRecognitionService(llm=deterministic_llm, redis_client=redis_client)
+
+        async def process(query_text, conversation_history=None, db_session=None):
+            return MultiIntentResult(is_multi_intent=False, sub_intents=[])
+
+        async def classify(query_text, context=None):
+            return IntentResult(
+                primary_intent=IntentCategory.POLICY,
+                secondary_intent=IntentAction.CONSULT,
+                confidence=0.9,
+                raw_query=query_text,
+            )
+
+        monkeypatch.setattr(service.multi_intent_processor, "process", process)
+        monkeypatch.setattr(service.classifier, "classify", classify)
+
+        result = await service.recognize(
+            query=query,
+            session_id=f"explicit-{primary.value.lower()}",
+            conversation_history=[
+                {
+                    "role": "user",
+                    "content": "Aurora Chair \u7684\u9000\u8d27\u671f\u591a\u4e45\uff1f",
+                },
+                {
+                    "role": "assistant",
+                    "content": "\u9000\u8d27\u671f\u4e3a17\u4e2a\u65e5\u5386\u65e5\u3002",
+                },
+                {"role": "user", "content": query},
+            ],
+        )
+
+        assert result.primary_intent is primary
+        assert result.secondary_intent is IntentAction.APPLY
+        assert result.tertiary_intent == tertiary
+
+    @pytest.mark.asyncio
     async def test_cache_result(self, deterministic_llm, redis_client):
         service = IntentRecognitionService(llm=deterministic_llm, redis_client=redis_client)
         result = IntentResult(

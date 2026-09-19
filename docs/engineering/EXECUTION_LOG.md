@@ -3558,3 +3558,39 @@ Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
   in the controls.
 - No migration, PR, push, or merge was created. The full P-UAT-03A suite was intentionally not
   run. External acceptance is required; Codex does not mark this task `PASS`.
+
+## P-UAT-03-FIX-4B - Semantic follow-up, safety, and route regression repair
+
+Started: 2026-09-19
+
+Finished: 2026-09-19
+
+Status: `AWAITING_ACCEPTANCE`
+
+Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
+
+- Recovery confirmed branch `fix/uat03-runtime-side-effects`, previous head
+  `ac6ccf554f1fd0590b59cda9f88aeea8693686ea`, and a clean starting worktree. Pre-change real
+  Bailian reproduction showed D1-D4 semantic failures despite durable history transport, stale
+  specialist completion across runs, duplicated current input at the intent boundary, and
+  benign follow-up safety/routing failures.
+- Redis/checkpoint evidence proved LangGraph stored root state under its empty namespace, so the
+  conversation-level root thread ID reused stale `sub_answers` despite a run-specific namespace.
+  The repair uses a run-specific root thread identity while preserving the durable conversation ID
+  in semantic state and all PostgreSQL history/isolation behavior.
+- Intent precedence now keeps explicit current actions and policy questions authoritative, strips
+  the current message only from classifier prior context, and resolves narrow policy duration,
+  correction, and weekday continuations before stochastic rewriting. Hard injection and credential
+  checks remain ahead of the bounded benign-follow-up safety treatment.
+- Policy/RAG uses the contextualized standalone question throughout retrieval, grading, adequacy,
+  generation, and reflection. Grounded policy answers no longer receive unrelated
+  cross-interaction memory; no RAG threshold, reranker, model, policy fact, or broad prompt changed.
+- Focused verification passed `483` broad selected regressions and `310` post-fix impacted
+  regressions. Ruff check, Ruff format check, and ty passed for all `app` and `tests` files.
+- The final real Bailian mini-suite completed all `17` turns with `RUN_COMPLETED`: D1-D4 passed,
+  the Nova 26-to-30-month correction updated the conclusion, East Harbor retained the three-day
+  policy without inventing a weekday, and the explicit logistics topic switch executed the real
+  logistics path. Refund, complaint, logistics, no-answer, and prompt-injection controls passed;
+  explicit complaint created exactly one ticket and policy turns created no business mutations.
+- No migration, PR, push, merge, or full P-UAT-03A suite was created or run. External acceptance is
+  required; Codex does not mark this task `PASS`.

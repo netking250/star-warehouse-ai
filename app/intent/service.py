@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 
 import redis.asyncio as aioredis
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -19,6 +20,19 @@ from app.intent.slot_validator import SlotValidator
 from app.intent.topic_switch import TopicSwitchDetector
 
 logger = logging.getLogger(__name__)
+
+_CONTEXTUAL_POLICY_FOLLOW_UP = re.compile(
+    r"(?:"
+    r"(?:已经|我(?:买|用)了?|买了|用了|是)\s*(?:\d+|[一二三四五六七八九十百两]+)\s*(?:天|个月|年)"
+    r"|(?:刚才说错|说错了|更正|其实|实际).*(?:\d+|[一二三四五六七八九十百两]+)\s*(?:天|个月|年)"
+    r"|(?:那|如果).*(?:周[一二三四五六日天]|星期[一二三四五六日天])"
+    r")",
+    re.IGNORECASE,
+)
+_POLICY_HISTORY_SIGNAL = re.compile(
+    r"(?:退货|退换|日历日|保修|质保|出库|工作日|return|warranty|dispatch|business days|calendar days)",
+    re.IGNORECASE,
+)
 
 
 class IntentRecognitionService:
@@ -48,11 +62,12 @@ class IntentRecognitionService:
         session_id: str,
         conversation_history: list | None = None,
     ) -> IntentResult:
+        intent_history = self._prior_intent_history(query, conversation_history)
         safety_result = await self.safety_filter.check(query)
         if not safety_result.is_safe:
             return self._create_safety_warning_result(query, safety_result)
 
-        has_conversation_context = bool(conversation_history)
+        has_conversation_context = bool(intent_history)
         cached_result = None if has_conversation_context else await self._get_cached_result(query)
         if cached_result:
             # Ensure session state exists so clarify() can resolve missing slots
@@ -65,25 +80,35 @@ class IntentRecognitionService:
 
         state = await self._load_session_state(session_id)
 
-        multi_result = await self.multi_intent_processor.process(query, conversation_history)
-        if multi_result.is_multi_intent and multi_result.sub_intents:
-            result = multi_result.sub_intents[0]
-            merged_slots = {**multi_result.shared_slots, **(result.slots or {})}
-            result.slots = merged_slots
-            if len(multi_result.sub_intents) > 1:
-                result.slots["pending_intents"] = [
-                    {
-                        "primary_intent": si.primary_intent.value,
-                        "secondary_intent": si.secondary_intent.value,
-                        "slots": si.slots,
-                    }
-                    for si in multi_result.sub_intents[1:]
-                ]
+        rule_result = self.classifier._classify_with_rules(query)
+        if self._is_authoritative_current_rule(rule_result):
+            result = rule_result
         else:
-            context = {"history": conversation_history} if conversation_history else None
-            result = await self.classifier.classify(query, context)
+            multi_result = await self.multi_intent_processor.process(query, intent_history)
+            if multi_result.is_multi_intent and multi_result.sub_intents:
+                result = multi_result.sub_intents[0]
+                merged_slots = {**multi_result.shared_slots, **(result.slots or {})}
+                result.slots = merged_slots
+                if len(multi_result.sub_intents) > 1:
+                    result.slots["pending_intents"] = [
+                        {
+                            "primary_intent": si.primary_intent.value,
+                            "secondary_intent": si.secondary_intent.value,
+                            "slots": si.slots,
+                        }
+                        for si in multi_result.sub_intents[1:]
+                    ]
+            else:
+                context = {"history": intent_history} if intent_history else None
+                result = await self.classifier.classify(query, context)
 
         previous_result = state.current_intent if state else None
+        result = self._resolve_contextual_follow_up(
+            query,
+            intent_history,
+            result,
+            previous_result,
+        )
         switch_result = self.topic_switch_detector.detect(result, previous_result, query)
         if switch_result.is_switch and switch_result.should_reset_context:
             state = ClarificationState(session_id=session_id)
@@ -101,6 +126,78 @@ class IntentRecognitionService:
         if not has_conversation_context:
             await self._cache_result(query, result)
         return result
+
+    @staticmethod
+    def _prior_intent_history(query: str, conversation_history: list | None) -> list | None:
+        """Return prior messages without duplicating the separately supplied query."""
+        if not conversation_history:
+            return None
+        history = list(conversation_history)
+        latest = history[-1]
+        if (
+            isinstance(latest, dict)
+            and latest.get("role") == "user"
+            and str(latest.get("content", "")).strip() == query.strip()
+        ):
+            history.pop()
+        return history or None
+
+    @staticmethod
+    def _is_authoritative_current_rule(result: IntentResult) -> bool:
+        """Return whether an unambiguous current-turn rule must outrank context."""
+        slots = result.slots or {}
+        return bool(
+            (
+                result.primary_intent == IntentCategory.POLICY
+                and result.secondary_intent == IntentAction.CONSULT
+            )
+            or (
+                result.primary_intent == IntentCategory.COMPLAINT
+                and result.secondary_intent == IntentAction.APPLY
+            )
+            or (
+                result.primary_intent == IntentCategory.LOGISTICS
+                and result.secondary_intent == IntentAction.QUERY
+                and slots.get("order_sn")
+            )
+            or (
+                result.primary_intent == IntentCategory.AFTER_SALES
+                and result.secondary_intent == IntentAction.APPLY
+                and result.tertiary_intent == "REFUND"
+                and slots.get("order_sn")
+            )
+        )
+
+    @staticmethod
+    def _resolve_contextual_follow_up(
+        query: str,
+        conversation_history: list | None,
+        result: IntentResult,
+        previous_result: IntentResult | None,
+    ) -> IntentResult:
+        """Resolve narrow policy follow-ups before topic-switch handling."""
+        if not conversation_history or not _CONTEXTUAL_POLICY_FOLLOW_UP.search(query.strip()):
+            return result
+        previous_is_policy = bool(
+            previous_result and previous_result.primary_intent == IntentCategory.POLICY
+        )
+        history_text = "\n".join(
+            str(message.get("content", ""))
+            for message in conversation_history
+            if isinstance(message, dict)
+        )
+        if not previous_is_policy and not _POLICY_HISTORY_SIGNAL.search(history_text):
+            return result
+        return result.model_copy(
+            update={
+                "primary_intent": IntentCategory.POLICY,
+                "secondary_intent": IntentAction.CONSULT,
+                "confidence": max(result.confidence, 0.8),
+                "missing_slots": [],
+                "needs_clarification": False,
+                "clarification_question": None,
+            }
+        )
 
     async def clarify(self, session_id: str, user_response: str) -> ClarificationResponse:
         state = await self._load_session_state(session_id)

@@ -2,15 +2,52 @@
 schema_version: 1
 project: Star Warehouse AI
 phase: ENTERPRISE_HARDENING
-current_task: P-UAT-03-FIX-4
+current_task: P-UAT-03-FIX-4B
 current_status: AWAITING_ACCEPTANCE
 execution_stage: EXTERNAL_ACCEPTANCE_PENDING
 last_accepted_task: P-UAT-03-FIX-3
-next_task: P-UAT-03
+next_task: P-UAT-03-FIX-4B
 acceptance_owner: external
 maintenance_task: M02
 maintenance_status: PASS
 ---
+
+# P-UAT-03-FIX-4B Current State
+
+P-UAT-03-FIX-4B is `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` on
+`fix/uat03-runtime-side-effects` from head
+`ac6ccf554f1fd0590b59cda9f88aeea8693686ea`. It preserves FIX-4's PostgreSQL-authoritative
+bounded history transport and owns only semantic follow-up resolution, benign-follow-up safety,
+explicit-current-intent precedence, and a proven run-checkpoint isolation defect.
+
+The pre-change real Bailian reproduction used fresh UTF-8 conversations. D1 initially selected
+`AFTER_SALES/order_agent`; D2/D3 follow-ups selected incompatible transaction domains; D4 retained
+the prior 17-day answer rather than answering verified-defect shipping. Two turns skipped the
+specialist because Supervisor saw an old same-iteration `sub_answers` entry and reported `All
+agents completed`. Redis evidence showed root checkpoints persisted under the conversation
+thread's `__empty__` namespace even though the executor supplied a run-specific `checkpoint_ns`,
+so prior graph state could be resumed across isolated durable runs.
+
+The minimal repair gives each graph run a run-specific root thread identity while retaining the
+durable conversation ID in semantic state, strips the trailing current message only at the intent
+boundary, restores narrow authoritative policy/action precedence, and resolves bounded duration,
+correction, and weekday follow-ups before stochastic rewriting. Hard security checks still run
+before the narrow benign-follow-up safety exemption. Policy generation uses canonical knowledge
+evidence and same-conversation contextualization without injecting unrelated cross-interaction
+memory.
+
+Final focused verification passed `483` broad selected regressions and `310` post-fix impacted
+regressions, with optional real-model tests deselected. Ruff check, Ruff format check, and
+`ty check --error-on-warning` passed. The final real Bailian suite completed `17/17` turns with
+`RUN_COMPLETED`: D1-D4, correction, explicit topic switch, refund, complaint, logistics,
+no-answer, and prompt-injection controls all passed. Graph logs showed D1-D4 as
+`POLICY -> policy_agent`, the explicit topic switch as `LOGISTICS -> logistics`, refund as
+`AFTER_SALES -> order_agent`, and complaint as `COMPLAINT -> complaint`. Only the explicit
+complaint created a new ticket; policy conversations created zero complaints, refunds, or audits.
+No recursion, terminal provider error, migration, PR, push, merge, or full P-UAT-03A run occurred.
+
+The active plan is
+[`docs/exec-plans/active/P-UAT-03-FIX-4B.md`](../exec-plans/active/P-UAT-03-FIX-4B.md).
 
 # P-UAT-03-FIX-4 Current State
 

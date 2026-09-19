@@ -102,6 +102,20 @@ def test_rule_matching_aurora_policy_consultation(classifier):
     assert result.secondary_intent == IntentAction.CONSULT
 
 
+def test_rule_matching_product_return_eligibility_is_policy_not_refund_apply(classifier):
+    result = classifier._classify_with_rules("\u6211\u7684 Aurora Chair \u80fd\u9000\u5417\uff1f")
+
+    assert result.primary_intent == IntentCategory.POLICY
+    assert result.secondary_intent == IntentAction.CONSULT
+
+
+def test_rule_matching_product_return_period_duration_is_policy(classifier):
+    result = classifier._classify_with_rules("Aurora Chair 的退货期多久？")
+
+    assert result.primary_intent == IntentCategory.POLICY
+    assert result.secondary_intent == IntentAction.CONSULT
+
+
 @pytest.mark.parametrize(
     "query",
     [

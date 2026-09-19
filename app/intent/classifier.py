@@ -82,6 +82,8 @@ class IntentClassifier:
             r"\b(?:what|how long|who pays|which party)\b.*\b(?:return window|return policy|return shipping|warranty|shipping policy|dispatch time|refund policy|refund conditions|refund eligibility)\b",
             r"\b(?:return window|return policy|warranty|return shipping|dispatch time|shipping policy)\b",
             r"\b(?:if|when)\b.*\b(?:verified defect|defect|defective)\b.*\b(?:who pays|shipping|return)\b",
+            r"^(?!.*SN\d+)(?!.*(?:帮我|申请|提交|办理)).{0,50}(?:能退|可以退|能不能退|可不可以退)(?:货)?(?:吗|嘛|么)?[？?]?$",
+            r"(?:退货期|退货期限|退货窗口).*(?:多久|几天|时间)",
             r"(?:买回来|收货|签收).*(?:多久|几天|几个月|以内).*(?:退|退货)",
             r"(?:退货|退换货|退款|换货).*(?:运费|邮费|快递费).*(?:谁|由谁|承担|谁出)",
             r"(?:\u4e0d\u662f\u8d28\u91cf\u95ee\u9898|\u4e0d\u559c\u6b22|\u4e0d\u60f3\u8981|\u6539\u53d8\u4e3b\u610f).*(?:\u9000|\u9000\u8d27).*(?:\u8fd0\u8d39|\u90ae\u8d39|\u5feb\u9012\u8d39).*(?:\u600e\u4e48\u529e|\u8c01|\u7531\u8c01|\u627f\u62c5|\u8c01\u51fa)",
