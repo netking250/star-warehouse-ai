@@ -154,15 +154,29 @@ class IntentRecognitionService:
                 cached_result = IntentResult.model_validate(cached)
                 rule_result = self.classifier._classify_with_rules(query)
                 if (
-                    rule_result.primary_intent == IntentCategory.COMPLAINT
-                    and rule_result.secondary_intent == IntentAction.APPLY
-                ) or (
-                    rule_result.primary_intent == IntentCategory.POLICY
-                    and rule_result.secondary_intent == IntentAction.CONSULT
+                    (
+                        rule_result.primary_intent == IntentCategory.COMPLAINT
+                        and rule_result.secondary_intent == IntentAction.APPLY
+                    )
+                    or (
+                        rule_result.primary_intent == IntentCategory.POLICY
+                        and rule_result.secondary_intent == IntentAction.CONSULT
+                    )
+                    or (
+                        rule_result.primary_intent == IntentCategory.LOGISTICS
+                        and rule_result.secondary_intent == IntentAction.QUERY
+                        and bool((rule_result.slots or {}).get("order_sn"))
+                    )
+                    or (
+                        rule_result.primary_intent == IntentCategory.AFTER_SALES
+                        and rule_result.secondary_intent == IntentAction.APPLY
+                        and rule_result.tertiary_intent == "REFUND"
+                        and bool((rule_result.slots or {}).get("order_sn"))
+                    )
                 ):
-                    # A deterministic read-only policy rule, like the existing
-                    # explicit complaint rule, must not be replaced by a stale
-                    # transaction classification from Redis.
+                    # Deterministic high-signal routes must not be replaced by
+                    # a stale classification from Redis. This protects both
+                    # read-only policy routes and explicit business actions.
                     return rule_result
                 return cached_result
         except Exception as e:

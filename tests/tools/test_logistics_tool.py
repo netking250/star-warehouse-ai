@@ -51,6 +51,49 @@ async def test_logistics_tool_found(logistics_tool, db_session):
 
 
 @pytest.mark.asyncio(loop_scope="session")
+async def test_logistics_tool_does_not_cross_user_orders(logistics_tool, db_session):
+    owner = User(
+        username="logistics_owner",
+        password_hash="hashed_password",
+        email="logistics-owner@example.com",
+        full_name="Logistics Owner",
+    )
+    requester = User(
+        username="logistics_requester",
+        password_hash="hashed_password",
+        email="logistics-requester@example.com",
+        full_name="Logistics Requester",
+    )
+    db_session.add_all([owner, requester])
+    await db_session.flush()
+    await db_session.refresh(owner)
+    await db_session.refresh(requester)
+    assert owner.id is not None
+    assert requester.id is not None
+
+    db_session.add(
+        Order(
+            order_sn="SN20240003",
+            user_id=owner.id,
+            total_amount=Decimal("300.0"),
+            shipping_address="Beijing",
+            tracking_number="OWNER-TRACKING-ONLY",
+        )
+    )
+    await db_session.flush()
+
+    state = make_agent_state(
+        question="查询物流",
+        user_id=requester.id,
+        slots={"order_sn": "SN20240003"},
+    )
+    result = await logistics_tool.execute(state, session=db_session)
+
+    assert set(result.output) == {"status"}
+    assert "tracking_number" not in result.output
+
+
+@pytest.mark.asyncio(loop_scope="session")
 async def test_logistics_tool_not_found(logistics_tool, db_session):
     user = User(
         username="logistics_user2",

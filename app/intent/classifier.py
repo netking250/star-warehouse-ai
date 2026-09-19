@@ -21,6 +21,7 @@ from app.intent.few_shot_loader import (
 )
 from app.intent.models import IntentAction, IntentCategory, IntentResult
 from app.model_gateway.factory import create_model_client
+from app.utils.order_utils import extract_order_sn
 
 logger = logging.getLogger(__name__)
 
@@ -93,9 +94,13 @@ class IntentClassifier:
             r"\b(?:will|could|does)\b.*\b(?:discount|sale|restock|repair fee|price drop)\b",
         ],
         ("LOGISTICS", "QUERY"): [
+            r"(?:查询|查(?:一下)?|查看|帮我查)?\s*(?:订单\s*)?SN\d+\s*(?:的)?\s*(?:物流|快递|包裹)(?:.*)?",
+            r"\b(?:track|tracking|check|where is|status)\b.*\bSN\d+\b.*\b(?:logistics|shipping|tracking|parcel|package)\b",
             r"(?:订单|单号)?\s*SN\d+.*(?:物流|快递|包裹).*(?:哪|状态|进度)",
         ],
         ("AFTER_SALES", "APPLY"): [
+            r"(?=.*SN\d+)(?=.*(?:退货|退款|退订单|换货|维修))(?=.*(?:申请|提交|办理|帮我|我要|请帮我)).*",
+            r"(?=.*\bSN\d+\b)(?=.*\b(?:refund|return)\b)(?=.*\b(?:please|help|submit|apply|request|want\s+to)\b).*",
             r"(?:我要|我想|帮我|请帮我|请).*(?:退订单|申请退款|提交退款|退货申请|换货申请|退款申请)",
         ],
     }
@@ -267,6 +272,21 @@ class IntentClassifier:
                 for pattern in patterns:
                     if pattern.search(query_lower):
                         slots: dict[str, Any] = {"matched_pattern": pattern.pattern}
+                        order_sn = extract_order_sn(query)
+                        tertiary_intent: str | None = None
+                        if primary == "LOGISTICS" and order_sn:
+                            slots["order_sn"] = order_sn
+                        elif (
+                            primary == "AFTER_SALES"
+                            and secondary == "APPLY"
+                            and order_sn
+                            and re.search(
+                                r"(?:退货|退款|退订单)|\b(?:refund|return)\b", query_lower
+                            )
+                        ):
+                            slots["order_sn"] = order_sn
+                            slots["action_type"] = "REFUND"
+                            tertiary_intent = "REFUND"
                         if primary == "CART" and secondary in (
                             "ADD",
                             "REMOVE",
@@ -282,6 +302,7 @@ class IntentClassifier:
                         return IntentResult(
                             primary_intent=IntentCategory[primary],
                             secondary_intent=IntentAction[secondary],
+                            tertiary_intent=tertiary_intent,
                             confidence=confidence,
                             slots=slots,
                             raw_query=query,

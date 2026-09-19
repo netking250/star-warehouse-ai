@@ -3478,3 +3478,44 @@ Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
   date example; this remains outside FIX-2's routing scope.
 - The exact disposable database `test_uat03fix2` was verified and removed. No migration, PR, push,
   or merge was created. External acceptance is required; Codex does not mark this task `PASS`.
+
+## P-UAT-03-FIX-3 - Business-tool routing and refund approval boundary
+
+Started: 2026-09-19
+
+Finished: 2026-09-19
+
+Status: `AWAITING_ACCEPTANCE`
+
+Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
+
+- Recovery confirmed branch `fix/uat03-runtime-side-effects`, previous head
+  `76ac105435236eff3286a787201c5dc46dcd65e1`, accepted main
+  `92a67ecec12d4cae00c31d70cf5a0b6664d393af`, and a clean starting worktree. The real Bailian
+  customer-path reproductions were completed before source changes: E2 selected `ORDER/QUERY`
+  and returned an order card, while E3/F1/F2 also selected `ORDER/QUERY` and created no refund or
+  audit records.
+- The primary cause was deterministic rule precedence. The concrete-order logistics wording did
+  not match the narrow logistics rule, and generic order/SN rules won. The explicit return request
+  likewise fell through to the generic `SN\d+` order rule. Router mappings, LogisticsTool,
+  OrderService, RefundService, eligibility, risk thresholds, outbox, and approval code were
+  already present and were not changed.
+- The minimal implementation adds narrow concrete-order Chinese/English logistics and explicit
+  refund/return action rules, extracts the existing `order_sn` slot and `REFUND` tertiary action,
+  and protects these high-signal deterministic results from stale Redis intent-cache entries.
+  A focused cross-user known-order logistics negative test was added. No prompt, model, RAG,
+  multi-turn, business-rule, schema, migration, PR, push, or merge change was made.
+- Focused verification passed: intent classifier/service `82 passed, 7 skipped`; router,
+  supervisor, and logistics agent `21 passed`; LogisticsTool `4 passed`; OrderService refund
+  entry/ownership `7 passed`; RefundService `12 passed`; refund tasks/outbox/audit `12 passed`; conversation
+  idempotency `2 passed`; FIX-1 summary-cache regression `1 passed`. Ruff check, format check,
+  and ty passed for all changed Python files.
+- The real Bailian fixed seven-case mini-suite completed all seven turns with `RUN_COMPLETED` and
+  no provider failures. Graph logs recorded `LOGISTICS -> logistics`, `ORDER -> order_agent`,
+  three `AFTER_SALES -> order_agent` refund paths, `POLICY -> policy_agent`, and
+  `COMPLAINT -> complaint`. Tenant A durable deltas were three `PENDING` refund applications,
+  two `PENDING` MEDIUM/HIGH audits, two `refund.notify_admin` outbox intents, zero payment
+  outbox/receipts, and one explicit complaint ticket. Policy consultation caused no refund,
+  audit, or complaint mutation.
+- No migration, PR, push, or merge was created. The full P-UAT-03A suite was intentionally not
+  run. External acceptance is required; Codex does not mark this task `PASS`.

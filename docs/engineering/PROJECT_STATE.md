@@ -2,15 +2,33 @@
 schema_version: 1
 project: Star Warehouse AI
 phase: ENTERPRISE_HARDENING
-current_task: P-UAT-03-FIX-2
+current_task: P-UAT-03-FIX-3
 current_status: AWAITING_ACCEPTANCE
 execution_stage: EXTERNAL_ACCEPTANCE_PENDING
-last_accepted_task: P-UAT-03-FIX-1B
-next_task: P-UAT-03-FIX-3
+last_accepted_task: P-UAT-03-FIX-2
+next_task: P-UAT-03
 acceptance_owner: external
 maintenance_task: M02
 maintenance_status: PASS
 ---
+
+# P-UAT-03-FIX-3 Current State
+
+P-UAT-03-FIX-3 is `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` on
+`fix/uat03-runtime-side-effects`, based on the externally accepted FIX-2 head
+`76ac105435236eff3286a787201c5dc46dcd65e1`. This focused repair owns only real logistics-tool
+routing, explicit refund application flow, risk audit creation, approval boundary, and same-key
+idempotency. It preserves policy/RAG routing, complaint guards, memory/cache serialization, and
+no-answer safety. Multi-turn memory and general response style remain out of scope.
+
+The required E2/E3/F1/F2 red reproductions were completed before source changes. The minimal fix
+adds deterministic concrete-order logistics/refund rules, extracts the existing order slot and
+refund tertiary action, and prevents stale intent-cache results from overriding those high-signal
+routes. No router, agent, tool, service, eligibility, risk threshold, approval, prompt, model, RAG,
+or schema implementation was changed. The real Bailian seven-case mini-suite and focused tests
+passed; exact database/outbox/payment evidence is recorded in the active plan.
+
+The active plan is [`docs/exec-plans/active/P-UAT-03-FIX-3.md`](../exec-plans/active/P-UAT-03-FIX-3.md).
 
 # P-UAT-03-FIX-2 Current State
 
