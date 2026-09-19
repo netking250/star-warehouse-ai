@@ -13,6 +13,90 @@ class DeterministicRewriter:
     async def rewrite_multi(self, query, **kwargs):
         return [query, f"variant:{query}"]
 
+    def condense_history(self, conversation_history, query, memory_context=None):
+        del memory_context
+        history_text = " ".join(str(message.get("content", "")) for message in conversation_history)
+        return f"{history_text} 当前问题：{query}"
+
+
+class UnchangedRewriter(DeterministicRewriter):
+    async def rewrite(self, query, **kwargs):
+        return query
+
+
+class UnexpectedRewrite(DeterministicRewriter):
+    async def rewrite(self, query, **kwargs):
+        raise AssertionError("deterministic follow-ups must precede model rewriting")
+
+
+@pytest.mark.asyncio
+async def test_contextualize_query_passes_prior_history_without_current_duplicate():
+    class CapturingRewriter(DeterministicRewriter):
+        def __init__(self):
+            self.history = None
+
+        async def rewrite(self, query, **kwargs):
+            self.history = kwargs.get("conversation_history")
+            return "Aurora Chair 有质量问题时，退货运费由谁承担？"
+
+    rewriter = CapturingRewriter()
+    retriever = HybridRetriever(None, None, None, None, rewriter)
+    query = "那如果坏了呢？"
+    prior_history = [
+        {"role": "user", "content": "Aurora Chair 的退货期多久？"},
+        {"role": "assistant", "content": "退货期是17个日历日。"},
+    ]
+
+    result = await retriever.contextualize_query(
+        query,
+        conversation_history=[*prior_history, {"role": "user", "content": query}],
+    )
+
+    assert result == "Aurora Chair 有质量问题时，退货运费由谁承担？"
+    assert rewriter.history == prior_history
+
+
+@pytest.mark.asyncio
+async def test_contextualize_query_condenses_history_when_model_keeps_elliptical_query():
+    rewriter = UnexpectedRewrite()
+    retriever = HybridRetriever(None, None, None, None, rewriter)
+    query = "刚才说错了，是30个月。"
+
+    result = await retriever.contextualize_query(
+        query,
+        conversation_history=[
+            {"role": "user", "content": "Nova Desk 的保修多久？"},
+            {"role": "assistant", "content": "保修期限为28个月。"},
+            {"role": "user", "content": "我买了26个月。"},
+            {"role": "assistant", "content": "26个月仍在保修期内。"},
+            {"role": "user", "content": query},
+        ],
+    )
+
+    assert "Nova Desk 的保修多久" in result
+    assert "购买或使用时长为30个月" in result
+    assert "替代之前" in result
+
+
+@pytest.mark.asyncio
+async def test_contextualize_weekday_follow_up_avoids_unsupported_calendar_projection():
+    rewriter = UnexpectedRewrite()
+    retriever = HybridRetriever(None, None, None, None, rewriter)
+    query = "那如果是周一确认呢？"
+
+    result = await retriever.contextualize_query(
+        query,
+        conversation_history=[
+            {"role": "user", "content": "East Harbor 的订单通常多久出库？"},
+            {"role": "assistant", "content": "订单确认后3个工作日内出库。"},
+            {"role": "user", "content": query},
+        ],
+    )
+
+    assert "East Harbor 的订单通常多久出库" in result
+    assert "不推算" in result
+    assert "具体星期日期" in result
+
 
 class DeterministicDenseEmbedder:
     async def aembed_query(self, text):

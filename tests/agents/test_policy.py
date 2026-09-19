@@ -70,6 +70,76 @@ async def test_policy_agent_uses_retriever(mock_load_config):
 
 
 @pytest.mark.asyncio
+async def test_policy_agent_uses_contextualized_question_for_follow_up(mock_load_config):
+    class ContextualRetriever(DeterministicRetriever):
+        def __init__(self):
+            super().__init__([_Result("NOVA DESK 保修期为28个月", "nova.md", 0.95)])
+            self.retrieved_query = None
+
+        async def contextualize_query(self, query, conversation_history=None, memory_context=None):
+            return "Nova Desk 已购买30个月，是否超过28个月保修期？"
+
+        async def retrieve(
+            self,
+            query,
+            conversation_history=None,
+            memory_context=None,
+            variant_top_k=None,
+            variant_reranker_enabled=None,
+        ):
+            self.retrieved_query = query
+            return self._results
+
+    retriever = ContextualRetriever()
+    agent = PolicyAgent(retriever=retriever, llm=_make_self_rag_llm())
+    state = make_agent_state(
+        question="刚才说错了，是30个月。",
+        history=[
+            {"role": "user", "content": "Nova Desk 的保修多久？"},
+            {"role": "assistant", "content": "NOVA DESK 的保修期限为28个月。"},
+            {"role": "user", "content": "刚才说错了，是30个月。"},
+        ],
+    )
+
+    data = await agent._retrieve_knowledge(state)
+
+    assert retriever.retrieved_query == "Nova Desk 已购买30个月，是否超过28个月保修期？"
+    assert data["effective_question"] == "Nova Desk 已购买30个月，是否超过28个月保修期？"
+    assert data["chunks"] == ["NOVA DESK 保修期为28个月"]
+
+
+@pytest.mark.asyncio
+async def test_policy_agent_excludes_cross_interaction_memory_from_grounded_answer(
+    mock_load_config, monkeypatch
+):
+    retriever = DeterministicRetriever(
+        results=[_Result("NOVA DESK 保修期为28个月", "nova.md", 0.95)]
+    )
+    agent = PolicyAgent(retriever=retriever, llm=_make_self_rag_llm())
+    captured = {}
+    original_create_messages = agent._create_messages
+
+    def capture_messages(user_message, **kwargs):
+        captured.update(kwargs)
+        return original_create_messages(user_message, **kwargs)
+
+    monkeypatch.setattr(agent, "_create_messages", capture_messages)
+    state = make_agent_state(
+        question="Nova Desk 的保修多久？",
+        memory_context={
+            "structured_facts": [
+                {"fact_text": "Unrelated Aurora Chair return discussion from another thread"}
+            ]
+        },
+    )
+
+    await agent.process(state)
+
+    assert captured["memory_context"] is None
+    assert captured["user_context"] == {}
+
+
+@pytest.mark.asyncio
 async def test_process_with_rag_context(mock_load_config):
     retriever = DeterministicRetriever(
         results=[

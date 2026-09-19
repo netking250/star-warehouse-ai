@@ -91,7 +91,7 @@ class LangGraphConversationExecutor(ConversationExecutor):
             tags=["conversation_runtime"],
         )
         config["configurable"] = {
-            "thread_id": request.conversation_id,
+            "thread_id": f"{request.conversation_id}:run:{request.run_id}",
             "checkpoint_ns": f"{settings.CHECKPOINT_SCHEMA_VERSION}:{request.run_id}",
         }
         initial_state = make_agent_state(

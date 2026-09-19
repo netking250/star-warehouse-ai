@@ -22,6 +22,16 @@ logger = logging.getLogger(__name__)
 RiskLevel = Literal["low", "medium", "high"]
 RiskType = Literal["keyword", "injection", "code", "semantic"]
 
+_BENIGN_COMMERCE_FOLLOW_UP_PATTERNS = tuple(
+    re.compile(pattern, re.IGNORECASE)
+    for pattern in (
+        r"^(?:刚才说错了?|更正一下|其实|实际)[，,：:\s]*(?:是)?\s*(?:\d+|[一二三四五六七八九十百两]+)\s*(?:天|个月|年)(?:了)?[。.!！?？]?$",
+        r"^(?:已经|我)?(?:买|用)了?\s*(?:\d+|[一二三四五六七八九十百两]+)\s*(?:天|个月|年)(?:了)?[。.!！?？]?$",
+        r"^(?:那)?如果(?:有)?(?:质量问题|坏了?|故障)(?:呢)?[。.!！?？]?$",
+        r"^那(?:从)?(?:周|星期)[一二三四五六日天](?:开始)?(?:算)?(?:呢)?[。.!！?？]?$",
+    )
+)
+
 
 def _default_sensitive_keywords() -> list[str]:
     return [
@@ -586,6 +596,18 @@ class SafetyFilter:
         if not code_result.is_safe:
             self.metrics.record_code()
             return code_result
+
+        # These bounded commerce continuations are unambiguously benign. Static
+        # keyword, injection, adversarial, and code checks have already run, so
+        # this avoids stochastic semantic false positives without weakening them.
+        if any(pattern.fullmatch(query.strip()) for pattern in _BENIGN_COMMERCE_FOLLOW_UP_PATTERNS):
+            return SafetyCheckResult(
+                is_safe=True,
+                risk_level="low",
+                risk_type=None,
+                reason="明确的正常商业续问",
+                sanitized_query=sanitized_query if sanitized_query != query else None,
+            )
 
         # 5. LLM语义安全检测（仅对较长查询）
         if len(query) >= 10:

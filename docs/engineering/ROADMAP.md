@@ -51,6 +51,7 @@ Codex may set a completed implementation to `AWAITING_ACCEPTANCE` only. `PASS` a
 | P-UAT-03-FIX-2 | Knowledge-policy routing and grounded RAG | AWAITING_ACCEPTANCE |
 | P-UAT-03-FIX-3 | Business-tool routing and refund approval boundary | AWAITING_ACCEPTANCE |
 | P-UAT-03-FIX-4 | Durable multi-turn context and correction handling | AWAITING_ACCEPTANCE |
+| P-UAT-03-FIX-4B | Semantic follow-ups, safety, and transaction-route regression repair | AWAITING_ACCEPTANCE |
 
 P-UAT-03-FIX-1 repaired the reproduced recent-summary cache `datetime` serialization blocker and
 added defense-in-depth authorization before complaint-ticket persistence. P-UAT-03-FIX-1B then
@@ -80,6 +81,14 @@ multi-turn expectations because pre-existing PRODUCT/OTHER routing, safety filte
 switch/tool routing failures remained. No complaint/refund mutation occurred in the regression
 controls. The active plan is
 [`docs/exec-plans/active/P-UAT-03-FIX-4.md`](../exec-plans/active/P-UAT-03-FIX-4.md).
+
+P-UAT-03-FIX-4B is awaiting external acceptance after repairing the semantic gate rejected in
+FIX-4. It preserves the accepted durable history transport while adding narrow current-intent
+precedence, contextual policy continuation, benign-follow-up safety, and effective per-run
+checkpoint isolation. Focused deterministic tests, static checks, and the final 17-turn real
+Bailian mini-suite passed. No durable schema, model, retrieval threshold, tool business rule,
+frontend, PR, merge, or full P-UAT-03A change occurred. The active plan is
+[`docs/exec-plans/active/P-UAT-03-FIX-4B.md`](../exec-plans/active/P-UAT-03-FIX-4B.md).
 
 P-UAT-02-FIX repaired the reproduced chat-runtime blocker where an inherited LangGraph event
 callback caused LangChain to consume the adapter's streaming implementation during an `ainvoke`,
