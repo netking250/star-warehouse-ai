@@ -49,6 +49,7 @@ Codex may set a completed implementation to `AWAITING_ACCEPTANCE` only. `PASS` a
 | P-UAT-03-FIX-1 | Runtime determinism and complaint side-effect guard | PASS |
 | P-UAT-03-FIX-1B | Explicit complaint end-to-end routing | PASS |
 | P-UAT-03-FIX-2 | Knowledge-policy routing and grounded RAG | AWAITING_ACCEPTANCE |
+| P-UAT-03-FIX-3 | Business-tool routing and refund approval boundary | AWAITING_ACCEPTANCE |
 
 P-UAT-03-FIX-1 repaired the reproduced recent-summary cache `datetime` serialization blocker and
 added defense-in-depth authorization before complaint-ticket persistence. P-UAT-03-FIX-1B then

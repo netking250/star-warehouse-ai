@@ -155,6 +155,32 @@ def test_rule_matching_transaction_controls_keep_stateful_actions(classifier):
     assert order_refund_status.primary_intent != IntentCategory.POLICY
 
 
+def test_rule_matching_logistics_request_with_order_number_extracts_order_sn(classifier):
+    result = classifier._classify_with_rules(
+        "\u67e5\u4e00\u4e0b\u8ba2\u5355 SN649201 \u7684\u7269\u6d41\u3002"
+    )
+
+    assert (result.primary_intent, result.secondary_intent) == (
+        IntentCategory.LOGISTICS,
+        IntentAction.QUERY,
+    )
+    assert result.slots["order_sn"] == "SN649201"
+
+
+def test_rule_matching_refund_request_with_order_number_is_authoritative(classifier):
+    result = classifier._classify_with_rules(
+        "\u8ba2\u5355 SN649201 \u6211\u4e0d\u60f3\u8981\u4e86\uff0c\u5e2e\u6211\u7533\u8bf7\u9000\u8d27\u3002"
+    )
+
+    assert (result.primary_intent, result.secondary_intent) == (
+        IntentCategory.AFTER_SALES,
+        IntentAction.APPLY,
+    )
+    assert result.tertiary_intent == "REFUND"
+    assert result.slots["order_sn"] == "SN649201"
+    assert result.slots["action_type"] == "REFUND"
+
+
 def test_rule_matching_return_shipping_fee_consult(classifier):
     result = classifier._classify_with_rules("退货运费由谁承担？")
 

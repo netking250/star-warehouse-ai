@@ -119,6 +119,34 @@ async def test_handle_refund_request_success(order_service: OrderService, db_ses
 
 
 @pytest.mark.asyncio
+async def test_handle_refund_request_does_not_cross_user_order(
+    order_service: OrderService, db_session
+):
+    owner = await _create_test_user(db_session, "refund_owner")
+    requester = await _create_test_user(db_session, "refund_requester")
+    assert owner.id is not None
+    assert requester.id is not None
+    await _create_test_order(
+        db_session,
+        owner.id,
+        "SN20240003",
+        status=OrderStatus.DELIVERED,
+        total_amount=Decimal("1888.0"),
+        created_at=datetime.now(UTC) - timedelta(days=1),
+    )
+
+    result = await order_service.handle_refund_request(
+        "Refund order SN20240003",
+        user_id=requester.id,
+        session=db_session,
+    )
+
+    assert result["updated_state"]["refund_flow_active"] is False
+    refunds = list((await db_session.exec(select(RefundApplication))).all())
+    assert refunds == []
+
+
+@pytest.mark.asyncio
 async def test_handle_refund_request_commits_a_sanitized_pending_audit_event(
     order_service: OrderService, db_session
 ) -> None:

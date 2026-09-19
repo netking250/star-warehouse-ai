@@ -293,6 +293,41 @@ class TestCaching:
         assert result.secondary_intent == IntentAction.CONSULT
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("query", "primary", "secondary"),
+        [
+            (
+                "\u67e5\u4e00\u4e0b\u8ba2\u5355 SN649201 \u7684\u7269\u6d41\u3002",
+                IntentCategory.LOGISTICS,
+                IntentAction.QUERY,
+            ),
+            (
+                "\u8ba2\u5355 SN649201 \u6211\u4e0d\u60f3\u8981\u4e86\uff0c\u5e2e\u6211\u7533\u8bf7\u9000\u8d27\u3002",
+                IntentCategory.AFTER_SALES,
+                IntentAction.APPLY,
+            ),
+        ],
+    )
+    async def test_deterministic_transaction_route_overrides_stale_cache(
+        self, deterministic_llm, redis_client, query, primary, secondary
+    ):
+        service = IntentRecognitionService(llm=deterministic_llm, redis_client=redis_client)
+        stale = IntentResult(
+            primary_intent=IntentCategory.ORDER,
+            secondary_intent=IntentAction.QUERY,
+            confidence=0.95,
+            raw_query=query,
+        )
+        key = namespaced_key(service._cache._intent_key(query))
+        await redis_client.setex(key, 300, stale.model_dump_json())
+
+        result = await service._get_cached_result(query)
+
+        assert result is not None
+        assert result.primary_intent == primary
+        assert result.secondary_intent == secondary
+
+    @pytest.mark.asyncio
     async def test_policy_consultation_overrides_stale_session_and_cache(
         self, deterministic_llm, redis_client
     ):
