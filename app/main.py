@@ -87,6 +87,7 @@ async def lifespan(app: FastAPI):
     from app.memory.vector_manager import VectorMemoryManager
     from app.model_gateway.factory import create_model_client, get_model_gateway
     from app.retrieval import create_retriever
+    from app.retrieval.embeddings import create_embedding_model
     from app.services.order_service import OrderService
     from app.tools import (
         AccountTool,
@@ -116,8 +117,12 @@ async def lifespan(app: FastAPI):
         router_agent = IntentRouterAgent(
             intent_service=intent_service, llm=llm, structured_manager=structured_manager
         )
+        embedding_model = create_embedding_model()
         retriever = create_retriever(
-            llm=llm, redis_client=redis_client, cache_manager=cache_manager
+            llm=llm,
+            redis_client=redis_client,
+            cache_manager=cache_manager,
+            dense_embedder=embedding_model,
         )
         adapters = build_adapters(redis_client, rewriter=retriever.rewriter)
 
@@ -162,7 +167,7 @@ async def lifespan(app: FastAPI):
         complaint_agent = ComplaintAgent(llm=llm)
         supervisor_agent = SupervisorAgent(llm=llm)
         evaluator = ConfidenceEvaluator(llm=eval_llm)
-        vector_manager = VectorMemoryManager(cache_manager=cache_manager)
+        vector_manager = VectorMemoryManager(embedder=embedding_model, cache_manager=cache_manager)
 
         # Fail fast on Qdrant connectivity and ensure manual uvicorn startup has
         # all collections even when the Docker seed command was not used.

@@ -52,6 +52,7 @@ Codex may set a completed implementation to `AWAITING_ACCEPTANCE` only. `PASS` a
 | P-UAT-03-FIX-3 | Business-tool routing and refund approval boundary | AWAITING_ACCEPTANCE |
 | P-UAT-03-FIX-4 | Durable multi-turn context and correction handling | AWAITING_ACCEPTANCE |
 | P-UAT-03-FIX-4B | Semantic follow-ups, safety, and transaction-route regression repair | AWAITING_ACCEPTANCE |
+| P-UAT-03-FINAL-FIX | Remaining P-UAT-03A failures and UAT environment repair | AWAITING_ACCEPTANCE |
 
 P-UAT-03-FIX-1 repaired the reproduced recent-summary cache `datetime` serialization blocker and
 added defense-in-depth authorization before complaint-ticket persistence. P-UAT-03-FIX-1B then
@@ -89,6 +90,14 @@ checkpoint isolation. Focused deterministic tests, static checks, and the final 
 Bailian mini-suite passed. No durable schema, model, retrieval threshold, tool business rule,
 frontend, PR, merge, or full P-UAT-03A change occurred. The active plan is
 [`docs/exec-plans/active/P-UAT-03-FIX-4B.md`](../exec-plans/active/P-UAT-03-FIX-4B.md).
+
+P-UAT-03-FINAL-FIX is awaiting external acceptance. Narrow routing, complaint-copy, contextual
+retrieval, bounded embedding failure reuse, and disposable UAT identity/session fixes repaired the
+eight preserved P-UAT-03A-RETEST failures. Focused tests/static checks, real Bailian 8/8 proof,
+transaction/audit/outbox verification, controls, and Customer UI manual proof completed. Ownership,
+RLS, model/RAG/approval thresholds, payment-before-approval, and production authentication remain
+unchanged. The final 30-case retest, PR, and merge were not run. The active plan is
+[`docs/exec-plans/active/P-UAT-03-FINAL-FIX.md`](../exec-plans/active/P-UAT-03-FINAL-FIX.md).
 
 P-UAT-02-FIX repaired the reproduced chat-runtime blocker where an inherited LangGraph event
 callback caused LangChain to consume the adapter's streaming implementation during an `ainvoke`,

@@ -63,7 +63,8 @@ async def test_complaint_agent_ticket_creation_fails(agent):
         )
         result = await agent.process(state)
 
-    assert "客服团队会尽快与您联系" in result["response"]
+    assert "投诉请求未能提交" in result["response"]
+    assert "联系您" not in result["response"]
 
 
 @pytest.mark.asyncio
@@ -117,7 +118,9 @@ async def test_complaint_agent_parse_fallback(agent):
         )
         result = await agent.process(state)
 
-    assert result["response"] == "不是有效JSON"
+    assert "#1" in result["response"]
+    assert "已记录并提交处理" in result["response"]
+    assert "不是有效JSON" not in result["response"]
 
 
 @pytest.fixture
@@ -176,3 +179,31 @@ async def test_complaint_agent_does_not_create_ticket_for_policy_consultation(ag
     create_ticket.assert_not_awaited()
     assert "未创建投诉工单" in result["response"]
     assert "99" not in result["response"]
+
+
+@pytest.mark.asyncio
+async def test_complaint_agent_reports_only_confirmed_ticket_facts(agent):
+    with (
+        patch(
+            "app.agents.config_loader.get_effective_system_prompt", new=AsyncMock(return_value=None)
+        ),
+        patch.object(
+            agent._tool,
+            "create_ticket",
+            new=AsyncMock(return_value={"created": True, "ticket_id": 73, "status": "open"}),
+        ),
+    ):
+        state = make_agent_state(
+            question="我收到的商品有质量问题，我想投诉并转人工客服。",
+            intent_result={"primary_intent": "COMPLAINT", "secondary_intent": "APPLY"},
+        )
+        result = await agent.process(state)
+
+    response = result["response"]
+    assert "73" in response
+    assert "open" in response
+    assert "24小时" not in response
+    assert "退款" not in response
+    assert "换货" not in response
+    assert "赔偿" not in response
+    assert "联系您" not in response

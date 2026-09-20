@@ -8,7 +8,12 @@ from app.retrieval.rewriter import QueryRewriter
 from app.retrieval.sparse_embedder import SparseTextEmbedder
 
 
-def create_retriever(llm, redis_client=None, cache_manager=None) -> HybridRetriever:
+def create_retriever(
+    llm,
+    redis_client=None,
+    cache_manager=None,
+    dense_embedder=None,
+) -> HybridRetriever:
     _ = llm
     return HybridRetriever(
         qdrant_client=QdrantKnowledgeClient(
@@ -16,7 +21,7 @@ def create_retriever(llm, redis_client=None, cache_manager=None) -> HybridRetrie
             collection_name=settings.QDRANT_COLLECTION_NAME,
             api_key=settings.QDRANT_API_KEY.get_secret_value(),
         ),
-        dense_embedder=create_embedding_model(),
+        dense_embedder=dense_embedder or create_embedding_model(),
         sparse_embedder=SparseTextEmbedder(),
         reranker=QwenReranker(
             api_key=settings.DASHSCOPE_API_KEY.get_secret_value(),

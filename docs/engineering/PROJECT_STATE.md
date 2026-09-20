@@ -2,15 +2,47 @@
 schema_version: 1
 project: Star Warehouse AI
 phase: ENTERPRISE_HARDENING
-current_task: P-UAT-03-FIX-4B
+current_task: P-UAT-03-FINAL-FIX
 current_status: AWAITING_ACCEPTANCE
 execution_stage: EXTERNAL_ACCEPTANCE_PENDING
 last_accepted_task: P-UAT-03-FIX-3
-next_task: P-UAT-03-FIX-4B
+next_task: P-UAT-03A-RETEST
 acceptance_owner: external
 maintenance_task: M02
 maintenance_status: PASS
 ---
+
+# P-UAT-03-FINAL-FIX Current State
+
+P-UAT-03-FINAL-FIX is `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` on
+`fix/uat03-runtime-side-effects` from the accepted local head
+`49a97ffb7b5b0c04f8db6f8a3f9cf9128fb1573d`. It owns only the eight failures preserved by
+P-UAT-03A-RETEST: B3, C4, D2, D4, E2, E4, F1, and F2.
+
+The final focused repair adds only narrow informational dispatch/repair-fee and explicit refund
+wording, contextual defect-policy resolution, confirmed-facts-only complaint copy, and bounded
+embedding failure reuse. One shared embedding adapter now coalesces duplicate same-query work and
+prevents memory and retrieval from repeatedly paying the same known provider timeout. The 45-second
+application SSE deadline, provider deadlines, RAG thresholds, Self-RAG, model routes, authorization,
+RLS, refund thresholds, and approval boundary are unchanged.
+
+The disposable UAT preflight now fails before scored provider calls unless SN649201-SN649203 all
+match the single benchmark identity. Evidence confirms `tenant-a` user `2` owns all three orders.
+Focused real Bailian proof completed all eight original failed scenarios with durable
+`RUN_COMPLETED`, zero `RUN_FAILED`, zero missing terminal events, and the required grounded/tool
+answers. F1/F2 created exactly one PENDING refund each, MEDIUM/HIGH PENDING audits, and one
+`refund.notify_admin` intent each; no payment execution or completed refund occurred. E4 created
+one ticket and made no SLA or outcome promise. The requested control matrix also completed safely.
+
+Focused verification passed `223` tests with `10` optional real-model tests deselected. Ruff check,
+Ruff format check, and ty passed. Tenant-aware browser-session login and the Customer UI knowledge,
+no-answer, D2 correction, logistics, refund-idempotency, and complaint paths were manually verified;
+streaming terminated without duplicate/truncated text or application 4xx/5xx. Screenshots are kept
+only under the OS temporary UAT artifact directory. The final 30-case retest was not run. No PR,
+push, merge, migration, or production authentication change was made.
+
+The active plan is
+[`docs/exec-plans/active/P-UAT-03-FINAL-FIX.md`](../exec-plans/active/P-UAT-03-FINAL-FIX.md).
 
 # P-UAT-03-FIX-4B Current State
 

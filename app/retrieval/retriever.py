@@ -19,6 +19,8 @@ _DURATION_PATTERN = re.compile(
 )
 _CORRECTION_PATTERN = re.compile(r"(?:说错|更正|改成|actually|correction)", re.IGNORECASE)
 _WEEKDAY_PATTERN = re.compile(r"(?:周|星期)[一二三四五六日天]")
+_DEFECT_PATTERN = re.compile(r"(?:质量问题|缺陷|瑕疵|损坏|defect|defective|damaged)", re.IGNORECASE)
+_RETURN_POLICY_PATTERN = re.compile(r"(?:退货|return)", re.IGNORECASE)
 
 
 class RetrievedChunk(BaseModel):
@@ -84,7 +86,7 @@ class HybridRetriever:
 
     @staticmethod
     def _deterministic_follow_up_query(query: str, prior_history: list[dict]) -> str | None:
-        """Resolve narrow duration and weekday follow-ups before stochastic rewriting."""
+        """Resolve narrow policy follow-ups before stochastic rewriting."""
         policy_topic = next(
             (
                 str(message.get("content", "")).strip()
@@ -117,6 +119,12 @@ class HybridRetriever:
                 f"同一会话中的政策主题：{policy_topic}\n"
                 f"用户追问：{query}\n"
                 "请仅陈述知识库中的正常时效，不推算或声称具体星期日期。"
+            )
+        if _DEFECT_PATTERN.search(query) and _RETURN_POLICY_PATTERN.search(policy_topic):
+            return (
+                f"同一会话中的政策主题：{policy_topic}\n"
+                f"用户追问：{query}\n"
+                "请检索商品存在质量问题时的退货政策，以及退货运费由谁承担。"
             )
         return None
 

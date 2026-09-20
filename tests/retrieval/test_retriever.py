@@ -57,6 +57,26 @@ async def test_contextualize_query_passes_prior_history_without_current_duplicat
 
 
 @pytest.mark.asyncio
+async def test_contextualize_defect_follow_up_requests_return_shipping_policy():
+    rewriter = UnexpectedRewrite()
+    retriever = HybridRetriever(None, None, None, None, rewriter)
+    query = "那如果是质量问题呢？"
+
+    result = await retriever.contextualize_query(
+        query,
+        conversation_history=[
+            {"role": "user", "content": "Aurora Chair 退货窗口多久？"},
+            {"role": "assistant", "content": "退货窗口为17个日历日。"},
+            {"role": "user", "content": query},
+        ],
+    )
+
+    assert "Aurora Chair 退货窗口多久" in result
+    assert "质量问题" in result
+    assert "退货运费由谁承担" in result
+
+
+@pytest.mark.asyncio
 async def test_contextualize_query_condenses_history_when_model_keeps_elliptical_query():
     rewriter = UnexpectedRewrite()
     retriever = HybridRetriever(None, None, None, None, rewriter)
