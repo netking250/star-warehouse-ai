@@ -305,7 +305,8 @@ When modifying code in a scoped directory, check whether the nearest `AGENTS.md`
 - **TypeScript**: Follow strict mode. No implicit `any`.
 - **Return types**: Explicit return types on all custom hooks and utility functions.
 - **Components**: Prefer functional components with explicit prop interfaces.
-- **Styling**: Use Tailwind CSS utilities. For dark mode, rely on `dark:` prefixes with `dark-mode: class` strategy.
+- **Styling**: Use Tailwind CSS utilities and the semantic light/dark tokens in `frontend/src/globals.css`; do not introduce page-local hard-coded colors when an equivalent token exists.
+- **Theme**: Use the shared `ThemeProvider`, shell primitives, and `ThemeToggle`. Only the visual theme preference may be persisted in browser preference storage; authentication and CSRF material remain out of storage.
 
 ## Testing Guidance
 

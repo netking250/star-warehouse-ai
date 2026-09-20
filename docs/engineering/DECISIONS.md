@@ -193,3 +193,13 @@ The existing [`docs/reference/adr.md`](../reference/adr.md) contains earlier pro
 - **Decision:** PostgreSQL is the source of truth for structured memory and Qdrant is a derived index. A memory command writes the structured record or tombstone and a minimal versioned Outbox event in one database transaction. The reliable consumer reloads authoritative content by tenant and memory ID, then applies a stable-ID Qdrant upsert or delete. Duplicate external execution is allowed and safe; stale versions are ignored. No distributed transaction or global exactly-once guarantee is claimed.
 - **Reason:** Preserve atomic business intent while allowing Qdrant outages, retries, duplicate delivery, and reconciliation without orphaning authoritative state.
 - **Consequences:** Structured-memory writers must not call Qdrant directly. Events contain identity/version/operation rather than memory text. Reads retain PostgreSQL memory and explicitly mark vector recall degraded when Qdrant fails. Conversation-turn vector writes remain a documented compatibility path outside structured-memory commands.
+
+## ADR-023 — V1.1 Shared Enterprise Visual Foundation
+
+- **Date:** 2026-09-20
+- **Status:** ACCEPTED
+- **Supersedes:** The frontend's page-local light-only color convention; it does not supersede existing route, transport, authentication, or business behavior decisions.
+- **Context:** Admin and Customer used separate hard-coded visual treatments without an adaptive theme or a shared premium product identity. CR-UI-01 freezes a staged V1.1 visual upgrade.
+- **Decision:** Use one CSS-variable semantic token system and class-based light/dark theme shared by both Vite entries. Resolve a saved visual preference before first paint, otherwise follow the system preference, and expose an accessible manual toggle. Use system fonts, reusable shell/brand primitives, CSS/SVG ambient motion, and a session-scoped opening experience that respects reduced motion. Add no animation runtime dependency and never persist authentication/session material with the theme preference.
+- **Reason:** Establish a calm, consistent enterprise visual language without a second UI framework or a product rewrite.
+- **Consequences:** New frontend surfaces use semantic tokens and shared theme/shell primitives. UI-02 and UI-03 may refine page interiors only after UI-01 acceptance; routes, transports, and business contracts remain stable.

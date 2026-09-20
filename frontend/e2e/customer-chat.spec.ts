@@ -81,12 +81,13 @@ test('customer browser session uses HttpOnly cookie, CSRF, and server logout', a
     (cookie) => cookie.name === 'star_warehouse_session'
   )
   expect(authCookie?.httpOnly).toBe(true)
-  expect(
-    await page.evaluate(() => ({
-      local: Object.values(localStorage),
-      session: Object.values(sessionStorage),
-    }))
-  ).toEqual({ local: [], session: [] })
+  const browserStorage = await page.evaluate(() => ({
+    local: Object.entries(localStorage),
+    session: Object.entries(sessionStorage),
+  }))
+  expect(browserStorage.session).toEqual([['star-warehouse-opening-seen', 'true']])
+  expect(browserStorage.local).toEqual([])
+  expect(JSON.stringify(browserStorage)).not.toMatch(/opaque-e2e-session|customer-e2e-csrf/i)
 
   await page.locator('textarea').fill('hello')
   await page.locator('textarea').press('Enter')

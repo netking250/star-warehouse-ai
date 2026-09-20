@@ -19,22 +19,23 @@ Customer-facing chat SPA. Vite multi-page entry via `index.html`, served by Fast
 
 ## Key Files
 
-| Task           | File                                                         | Notes                                                                                                             |
-| -------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| Page routing   | `@frontend/src/apps/customer/App.tsx`                        | Single-route chat interface (React Router)                                                                        |
-| App mount      | `@frontend/src/apps/customer/main.tsx`                       | Vite multi-page mount point                                                                                       |
-| Chat logic     | `@frontend/src/apps/customer/hooks/useChat.ts`               | SSE streaming, terminal-state handling, logical cancellation, and message state management                        |
-| Message list   | `@frontend/src/apps/customer/components/ChatMessageList.tsx` | Message rendering                                                                                                 |
-| Chat input     | `@frontend/src/apps/customer/components/ChatInput.tsx`       | User input box                                                                                                    |
-| User feedback  | `@frontend/src/apps/customer/components/FeedbackWidget.tsx`  | User feedback widget for chat messages (thumbs up/down, rating)                                                   |
-| Shared UI      | `@frontend/src/components/ui/`                               | shadcn/ui components (Button, Input, ScrollArea, etc.)                                                            |
-| Brand UI       | `@frontend/src/components/brand/StarWarehouseLogo.tsx`       | Shared 星仓 AI mark; reuse instead of duplicating logos                                                           |
-| API wrapper    | `@frontend/src/lib/api.ts`                                   | Canonical cookie-session transport with CSRF, cancellation, timeouts, normalized errors, and bounded safe retries |
-| SSE parser     | `@frontend/src/lib/streaming.ts`                             | Shared SSE event-boundary reader for streaming HTTP responses                                                     |
-| Query client   | `@frontend/src/lib/query-client.ts`                          | TanStack Query client configuration                                                                               |
-| Risk utilities | `@frontend/src/lib/risk.ts`                                  | Risk assessment utilities                                                                                         |
-| Utils          | `@frontend/src/lib/utils.ts`                                 | General utility functions                                                                                         |
-| Shared types   | `@frontend/src/types/index.ts`                               | Message types and common TypeScript types                                                                         |
+| Task              | File                                                                 | Notes                                                                                                             |
+| ----------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Page routing      | `@frontend/src/apps/customer/App.tsx`                                | Single-route chat interface (React Router)                                                                        |
+| App mount         | `@frontend/src/apps/customer/main.tsx`                               | Vite multi-page mount point                                                                                       |
+| Chat logic        | `@frontend/src/apps/customer/hooks/useChat.ts`                       | SSE streaming, terminal-state handling, logical cancellation, and message state management                        |
+| Message list      | `@frontend/src/apps/customer/components/ChatMessageList.tsx`         | Message rendering                                                                                                 |
+| Chat input        | `@frontend/src/apps/customer/components/ChatInput.tsx`               | User input box                                                                                                    |
+| User feedback     | `@frontend/src/apps/customer/components/FeedbackWidget.tsx`          | User feedback widget for chat messages (thumbs up/down, rating)                                                   |
+| Shared UI         | `@frontend/src/components/ui/`                                       | shadcn/ui components (Button, Input, ScrollArea, etc.)                                                            |
+| Brand UI          | `@frontend/src/components/brand/StarWarehouseLogo.tsx`               | Shared 星仓 AI mark; reuse instead of duplicating logos                                                           |
+| Visual foundation | `@frontend/src/components/theme/`, `@frontend/src/components/shell/` | Shared theme preference, opening experience, ambient background, and shell primitives                             |
+| API wrapper       | `@frontend/src/lib/api.ts`                                           | Canonical cookie-session transport with CSRF, cancellation, timeouts, normalized errors, and bounded safe retries |
+| SSE parser        | `@frontend/src/lib/streaming.ts`                                     | Shared SSE event-boundary reader for streaming HTTP responses                                                     |
+| Query client      | `@frontend/src/lib/query-client.ts`                                  | TanStack Query client configuration                                                                               |
+| Risk utilities    | `@frontend/src/lib/risk.ts`                                          | Risk assessment utilities                                                                                         |
+| Utils             | `@frontend/src/lib/utils.ts`                                         | General utility functions                                                                                         |
+| Shared types      | `@frontend/src/types/index.ts`                                       | Message types and common TypeScript types                                                                         |
 
 ## Commands
 
@@ -85,6 +86,7 @@ General frontend rules are defined in the root `AGENTS.md`. Customer-specific co
 - **Type reuse**: Message types are defined in `@frontend/src/types/index.ts`.
 - **Single source of truth**: All chat-related state (message list, loading, error) is managed in `hooks/useChat.ts`.
 - **Brand consistency**: Reuse `StarWarehouseLogo` and the shared brand tokens in `globals.css` for customer-facing identity.
+- **Theme consistency**: Use semantic tokens and the shared theme/shell components; do not persist chat, auth, session, or CSRF data alongside the visual preference.
 
 ## State Management
 

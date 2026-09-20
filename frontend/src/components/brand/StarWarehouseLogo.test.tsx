@@ -7,12 +7,12 @@ describe('StarWarehouseLogo', () => {
     render(<StarWarehouseLogo />)
 
     expect(screen.getByLabelText('星仓 AI 智能客服')).toBeInTheDocument()
-    expect(screen.getByText('智能客服')).toBeInTheDocument()
+    expect(screen.getByText('Intelligent Service')).toBeInTheDocument()
   })
 
   it('hides the wordmark in compact mode', () => {
     render(<StarWarehouseLogo compact />)
 
-    expect(screen.queryByText('智能客服')).not.toBeInTheDocument()
+    expect(screen.queryByText('Intelligent Service')).not.toBeInTheDocument()
   })
 })
