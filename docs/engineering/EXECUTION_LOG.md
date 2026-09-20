@@ -3632,3 +3632,37 @@ Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
 - No full 30-case retest, migration, PR, push, merge, authorization/RLS weakening, model change,
   RAG threshold change, refund-threshold change, approval redesign, or broad prompt rewrite occurred.
   External acceptance is required; Codex does not mark this task `PASS`.
+
+## P-UAT-03-PR-FIX - Hosted refund-test isolation and AnyIO critical-CVE repair
+
+Started: 2026-09-20
+
+Finished: 2026-09-20
+
+Status: `AWAITING_ACCEPTANCE`
+
+Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
+
+- Recovery confirmed the requested branch, clean starting worktree, and PR #13 head
+  `98e64fb6e6a385105874be610be8a962ae2bd7ee`. P-UAT-03A-FINAL-RETEST is externally reported
+  `PASS`; this repair changes no accepted product behavior.
+- Hosted backend evidence showed one order-dependent test defect: the cross-user request correctly
+  returned `refund_flow_active=False`, but the test asserted that the entire shared refund table was
+  empty. A red regression with one legitimate unrelated refund reproduced that failure. The final
+  test queries the protected target order and requester, asserts no new matching refund, and proves
+  the unrelated row remains. Production `OrderService` and all application source are unchanged.
+- Dependency inspection showed AnyIO `4.13.0` was transitive through the existing async/network
+  stack without a conflicting upper bound. The repository-standard AnyIO-only lock upgrade resolved
+  `4.14.2`; no `pyproject.toml` constraint was required and no other dependency changed. Lock check,
+  frozen sync, and installed metadata verification passed.
+- Final local verification passed the target test, the 27-test order/refund suite, Ruff, Ruff format
+  (`477` files), and ty with `--error-on-warning`. The full backend suite and 30-case product UAT were
+  intentionally not run.
+- The CI-shaped application image built as non-root with AnyIO `4.14.2`; application import and
+  Docker `/health` startup passed. One bounded real DashScope/Bailian `qwen-plus` request returned
+  the exact connectivity sentinel.
+- Trivy `0.59.1` scanned the saved image tar with hosted `HIGH,CRITICAL` semantics and reported
+  `critical=0`, `high=81`, `high_with_fix=37`; CVE-2026-63374 is absent. No suppression, waiver,
+  allowlist, base-image churn, workflow permission, or severity change was added.
+- The remaining acceptance boundary is one normal push to the existing PR branch and terminal
+  new-head hosted checks. PR #13 must remain open and unmerged; Codex does not mark the task `PASS`.
