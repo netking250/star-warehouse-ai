@@ -140,6 +140,33 @@ def test_rule_matching_known_policy_questions_as_read_only_consultation(classifi
     assert result.secondary_intent == IntentAction.CONSULT
 
 
+@pytest.mark.parametrize(
+    "query",
+    [
+        "我是东港仓发货，大概什么时候能出？",
+        "East Harbor 一般什么时候发货？",
+        "How long does East Harbor normally take to dispatch?",
+        "Nova Desk 上门维修费用是多少？",
+    ],
+)
+def test_remaining_informational_policy_phrasings_are_read_only(classifier, query):
+    result = classifier._classify_with_rules(query)
+
+    assert result.primary_intent == IntentCategory.POLICY
+    assert result.secondary_intent == IntentAction.CONSULT
+
+
+@pytest.mark.parametrize("order_sn", ["SN649202", "SN649203"])
+def test_original_refund_wording_is_explicit_after_sales_apply(classifier, order_sn):
+    result = classifier._classify_with_rules(f"我想退货，订单 {order_sn}，商品有问题。")
+
+    assert result.primary_intent == IntentCategory.AFTER_SALES
+    assert result.secondary_intent == IntentAction.APPLY
+    assert result.tertiary_intent == "REFUND"
+    assert result.slots["order_sn"] == order_sn
+    assert result.slots["action_type"] == "REFUND"
+
+
 def test_rule_matching_transaction_controls_keep_stateful_actions(classifier):
     order = classifier._classify_with_rules("查一下订单 SN649201")
     logistics = classifier._classify_with_rules("订单 SN649201 的物流到哪了？")

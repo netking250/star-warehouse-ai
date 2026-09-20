@@ -94,6 +94,10 @@ class IntentClassifier:
             r"\bwhen\b.*\b(?:normally\s+)?(?:dispatch|ship|ships|ship out)\b",
             r"(?:下周|下个|未来|会不会|能不能).*(?:降价|打折|优惠|补货|维修费|维修费用|上门维修)",
             r"\b(?:will|could|does)\b.*\b(?:discount|sale|restock|repair fee|price drop)\b",
+            r"^(?!.*SN\d+)(?=.*(?:一般|通常|大概|多久|什么时候))(?=.*(?:发货|出库|能出)).*$",
+            r"\b(?:how long|when)\b.*\b(?:normally\s+)?(?:take\s+to\s+)?(?:dispatch|ship|ship out)\b",
+            r"^(?!.*(?:申请|预约|安排|办理|帮我|我要|我想)).*(?:上门)?维修(?:费|费用).*(?:多少|多少钱|怎么收|收费).*$",
+            r"^(?!.*\b(?:apply|book|schedule|request)\b).*\b(?:repair fee|service charge)\b.*\b(?:what|how much|cost|price)\b.*$",
         ],
         ("LOGISTICS", "QUERY"): [
             r"(?:查询|查(?:一下)?|查看|帮我查)?\s*(?:订单\s*)?SN\d+\s*(?:的)?\s*(?:物流|快递|包裹)(?:.*)?",
@@ -101,7 +105,7 @@ class IntentClassifier:
             r"(?:订单|单号)?\s*SN\d+.*(?:物流|快递|包裹).*(?:哪|状态|进度)",
         ],
         ("AFTER_SALES", "APPLY"): [
-            r"(?=.*SN\d+)(?=.*(?:退货|退款|退订单|换货|维修))(?=.*(?:申请|提交|办理|帮我|我要|请帮我)).*",
+            r"(?=.*SN\d+)(?=.*(?:退货|退款|退订单|换货|维修))(?=.*(?:申请|提交|办理|帮我|我要|我想|请帮我)).*",
             r"(?=.*\bSN\d+\b)(?=.*\b(?:refund|return)\b)(?=.*\b(?:please|help|submit|apply|request|want\s+to)\b).*",
             r"(?:我要|我想|帮我|请帮我|请).*(?:退订单|申请退款|提交退款|退货申请|换货申请|退款申请)",
         ],

@@ -25,7 +25,9 @@ class ComplaintClassification(BaseModel):
     expected_resolution: str = Field(
         description="期望解决方案: refund, exchange, apology, compensation"
     )
-    empathetic_response: str = Field(description="对用户的同理心回复，包含工单号占位符 {ticket_id}")
+    empathetic_response: str = Field(
+        description="Internal empathy draft only; it must not promise an SLA or business outcome"
+    )
 
 
 _COMPLAINT_SYSTEM_PROMPT = """你是专业的用户投诉处理专家。
@@ -36,6 +38,7 @@ _COMPLAINT_SYSTEM_PROMPT = """你是专业的用户投诉处理专家。
 3. 对于涉及订单、退款、物流的投诉，给出可行的处理建议
 4. 如果问题超出权限范围，安抚用户并告知会升级给人工客服处理
 5. 语气真诚、专业、耐心
+6. 不得承诺联系时限、退款、换货、赔偿或其他尚未确认的处理结果
 
 输出要求：
 - 请分析用户投诉并返回 JSON 格式：
@@ -44,7 +47,7 @@ _COMPLAINT_SYSTEM_PROMPT = """你是专业的用户投诉处理专家。
   "urgency": "low | medium | high",
   "summary": "投诉摘要",
   "expected_resolution": "refund | exchange | apology | compensation",
-  "empathetic_response": "对用户的温暖回复，可包含 {ticket_id} 占位符"
+  "empathetic_response": "不含时限或处理结果承诺的同理心草稿"
 }"""
 
 
@@ -117,12 +120,15 @@ class ComplaintAgent(BaseAgent):
                 response_text = COMPLAINT_TICKET_NOT_CREATED_RESPONSE
             else:
                 ticket_id = ticket.get("ticket_id", "N/A")
-                response_text = classification.empathetic_response.replace(
-                    "{ticket_id}", str(ticket_id)
+                status = ticket.get("status")
+                status_text = f"，当前状态：{status}" if status else ""
+                response_text = (
+                    f"非常抱歉给您带来不好的体验。投诉工单 #{ticket_id} 已创建"
+                    f"{status_text}，您的请求已记录并提交处理。"
                 )
         except (SQLAlchemyError, ConnectionError, OSError, RuntimeError):
             logger.exception("Failed to create complaint ticket")
-            response_text = f"{COMPLAINT_TICKET_NOT_CREATED_RESPONSE}客服团队会尽快与您联系。"
+            response_text = f"{COMPLAINT_TICKET_NOT_CREATED_RESPONSE}投诉请求未能提交，请稍后重试。"
 
         return {
             "response": response_text,

@@ -3594,3 +3594,41 @@ Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
   explicit complaint created exactly one ticket and policy turns created no business mutations.
 - No migration, PR, push, merge, or full P-UAT-03A suite was created or run. External acceptance is
   required; Codex does not mark this task `PASS`.
+
+## P-UAT-03-FINAL-FIX - Remaining UAT failures and disposable environment repair
+
+Started: 2026-09-20
+
+Finished: 2026-09-20
+
+Status: `AWAITING_ACCEPTANCE`
+
+Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
+
+- Recovery confirmed `fix/uat03-runtime-side-effects`, accepted starting head
+  `49a97ffb7b5b0c04f8db6f8a3f9cf9128fb1573d`, and a clean starting worktree. The complete preserved
+  P-UAT-03A-RETEST artifact supplied the exact B3/C4/D2/D4/E2/E4/F1/F2 wording and durable evidence.
+- Narrow deterministic semantics now distinguish general dispatch policy from concrete tracking,
+  informational repair-fee questions from repair applications, defect-policy follow-ups from explicit
+  complaint actions, and `我想退货` from generic order queries. D4 contextualization explicitly asks
+  retrieval for verified-defect return shipping responsibility without hard-coding product facts.
+- Complaint success copy now reports only confirmed ticket ID/status/submission facts. One shared
+  embedding adapter coalesces concurrent same-query work and uses a bounded failure cooldown so
+  memory and retrieval do not repeatedly pay a known 10-second embedding outage. The application
+  SSE deadline remains 45 seconds; provider/model/reranker deadlines and failure policy are unchanged.
+- Disposable UAT helpers enforce one E/F identity and fail before model calls unless SN649201-203
+  match it. Real preflight proved `tenant-a/2` owns all three. The supported tenant-aware browser
+  login endpoint established the Customer UI session; production authentication was unchanged.
+- Focused deterministic verification passed `223` tests with `10` optional real-model tests
+  deselected. Ruff, format, and ty passed. Real Bailian focused evidence is `8/8` with durable
+  `RUN_COMPLETED`, zero failed/missing/provider-terminal runs, correct B3/C4/D2/D4/E2/E4 answers,
+  and correct F1/F2 state. D2 correction completed twice in `31.257s` and `24.042s`.
+- Database evidence shows refund `5` PENDING + audit `3` MEDIUM/PENDING and refund `6` PENDING +
+  audit `4` HIGH/PENDING, exactly one notify-admin intent per audit, zero payment execution, and no
+  completed refund. E4 created exactly ticket `20`; policy cases created no complaint/refund/audit.
+- Requested controls and Customer UI manual proof passed. Streaming completed without duplicate or
+  truncated text; loading terminated; feedback controls were reachable; no application 4xx/5xx was
+  observed. Screenshots remain OS-temp only.
+- No full 30-case retest, migration, PR, push, merge, authorization/RLS weakening, model change,
+  RAG threshold change, refund-threshold change, approval redesign, or broad prompt rewrite occurred.
+  External acceptance is required; Codex does not mark this task `PASS`.

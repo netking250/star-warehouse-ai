@@ -953,6 +953,41 @@ class TestEdgeCases:
         assert result.secondary_intent in (IntentAction.QUERY, IntentAction.CONSULT)
 
 
+@pytest.mark.asyncio
+async def test_defect_only_follow_up_stays_in_prior_policy_context(
+    deterministic_llm, redis_client, monkeypatch
+):
+    service = IntentRecognitionService(llm=deterministic_llm, redis_client=redis_client)
+    query = "那如果是质量问题呢？"
+
+    async def process(query_text, conversation_history=None, db_session=None):
+        return MultiIntentResult(is_multi_intent=False, sub_intents=[])
+
+    async def classify(query_text, context=None):
+        return IntentResult(
+            primary_intent=IntentCategory.COMPLAINT,
+            secondary_intent=IntentAction.QUERY,
+            confidence=0.9,
+            raw_query=query_text,
+        )
+
+    monkeypatch.setattr(service.multi_intent_processor, "process", process)
+    monkeypatch.setattr(service.classifier, "classify", classify)
+
+    result = await service.recognize(
+        query=query,
+        session_id="aurora-defect-policy-follow-up",
+        conversation_history=[
+            {"role": "user", "content": "Aurora Chair 退货窗口多久？"},
+            {"role": "assistant", "content": "退货窗口为17个日历日。"},
+            {"role": "user", "content": query},
+        ],
+    )
+
+    assert result.primary_intent is IntentCategory.POLICY
+    assert result.secondary_intent is IntentAction.CONSULT
+
+
 class TestRealLLM:
     @pytest.fixture
     def real_service(self, real_llm, redis_client):
