@@ -2,15 +2,47 @@
 schema_version: 1
 project: Star Warehouse AI
 phase: ENTERPRISE_HARDENING
-current_task: P-UAT-03-FINAL-FIX
+current_task: P-UAT-03-PR-FIX
 current_status: AWAITING_ACCEPTANCE
 execution_stage: EXTERNAL_ACCEPTANCE_PENDING
-last_accepted_task: P-UAT-03-FIX-3
-next_task: P-UAT-03A-RETEST
+last_accepted_task: P-UAT-03A-FINAL-RETEST
+next_task: P-UAT-03-PR-FIX external acceptance
 acceptance_owner: external
 maintenance_task: M02
 maintenance_status: PASS
 ---
+
+# P-UAT-03-PR-FIX Current State
+
+P-UAT-03-PR-FIX is `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` on
+`fix/uat03-runtime-side-effects` from PR #13
+head `98e64fb6e6a385105874be610be8a962ae2bd7ee`. P-UAT-03A-FINAL-RETEST is externally reported
+`PASS`; this repair must preserve that accepted product-quality result.
+
+Hosted PR evidence identifies two isolated blockers: the cross-user refund test asserts that the
+entire shared `refund_applications` table is empty even though earlier tests may legitimately leave
+unrelated rows, and the application image resolves AnyIO `4.13.0`, which is affected by
+CVE-2026-63374 and fixed in `4.14.2`. The repair scope is limited to an order-scoped test assertion,
+a deterministic polluted-state regression, the narrowest reproducible AnyIO dependency update,
+and execution evidence. Production product, authorization, tenant/RLS, AI, prompt, frontend,
+refund, approval, and workflow behavior must remain unchanged.
+
+The focused repair now creates a deterministic unrelated refund inside the cross-user regression,
+queries only the protected target order and requester after the rejected attempt, and proves that
+the unrelated row remains. The production `OrderService` is unchanged. `uv lock --upgrade-package
+anyio` changed only AnyIO from `4.13.0` to `4.14.2`; `pyproject.toml` and all other dependencies are
+unchanged. Lock check, frozen sync, installed-version inspection, the target test, the 27-test
+order/refund suite, Ruff, format, and ty pass.
+
+The CI-shaped image builds with AnyIO `4.14.2`, imports the application as the non-root user, and
+passes `/health` on the existing disposable UAT network. The repository-pinned Trivy policy reports
+`critical=0`, `high=81`, `high_with_fix=37`, with CVE-2026-63374 absent and no suppression. One
+bounded real DashScope/Bailian `qwen-plus` request returned the requested connectivity sentinel.
+The single focused commit, normal push, and new-head hosted PR checks remain the external acceptance
+boundary; PR #13 must remain open and unmerged.
+
+The active plan is
+[`docs/exec-plans/active/P-UAT-03-PR-FIX.md`](../exec-plans/active/P-UAT-03-PR-FIX.md).
 
 # P-UAT-03-FINAL-FIX Current State
 

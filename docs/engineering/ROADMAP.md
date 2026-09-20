@@ -53,6 +53,18 @@ Codex may set a completed implementation to `AWAITING_ACCEPTANCE` only. `PASS` a
 | P-UAT-03-FIX-4 | Durable multi-turn context and correction handling | AWAITING_ACCEPTANCE |
 | P-UAT-03-FIX-4B | Semantic follow-ups, safety, and transaction-route regression repair | AWAITING_ACCEPTANCE |
 | P-UAT-03-FINAL-FIX | Remaining P-UAT-03A failures and UAT environment repair | AWAITING_ACCEPTANCE |
+| P-UAT-03A-FINAL-RETEST | Final 30-case product-quality retest | PASS |
+| P-UAT-03-PR-FIX | PR #13 hosted test and AnyIO critical-CVE repair | AWAITING_ACCEPTANCE |
+
+P-UAT-03-PR-FIX is awaiting external acceptance on PR #13 from head
+`98e64fb6e6a385105874be610be8a962ae2bd7ee` after P-UAT-03A-FINAL-RETEST was externally reported
+`PASS`. The cross-user test now scopes its assertions to the protected order/requester while
+retaining a deterministic unrelated refund row. The lock resolves only AnyIO from `4.13.0` to
+`4.14.2`; local focused/static/runtime/image verification passes with zero CRITICAL findings and
+CVE-2026-63374 absent. Product behavior, production authorization, tenant/RLS controls, AI behavior,
+frontend behavior, and CI security policy remain unchanged. Normal push and new-head hosted checks
+are the remaining external acceptance boundary. The active plan is
+[`docs/exec-plans/active/P-UAT-03-PR-FIX.md`](../exec-plans/active/P-UAT-03-PR-FIX.md).
 
 P-UAT-03-FIX-1 repaired the reproduced recent-summary cache `datetime` serialization blocker and
 added defense-in-depth authorization before complaint-ticket persistence. P-UAT-03-FIX-1B then

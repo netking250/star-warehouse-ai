@@ -124,9 +124,11 @@ async def test_handle_refund_request_does_not_cross_user_order(
 ):
     owner = await _create_test_user(db_session, "refund_owner")
     requester = await _create_test_user(db_session, "refund_requester")
+    unrelated_user = await _create_test_user(db_session, "refund_unrelated")
     assert owner.id is not None
     assert requester.id is not None
-    await _create_test_order(
+    assert unrelated_user.id is not None
+    target_order = await _create_test_order(
         db_session,
         owner.id,
         "SN20240003",
@@ -134,6 +136,25 @@ async def test_handle_refund_request_does_not_cross_user_order(
         total_amount=Decimal("1888.0"),
         created_at=datetime.now(UTC) - timedelta(days=1),
     )
+    unrelated_order = await _create_test_order(
+        db_session,
+        unrelated_user.id,
+        "SN20240004",
+        status=OrderStatus.DELIVERED,
+        total_amount=Decimal("199.0"),
+        created_at=datetime.now(UTC) - timedelta(days=1),
+    )
+    assert target_order.id is not None
+    assert unrelated_order.id is not None
+    unrelated_refund = RefundApplication(
+        order_id=unrelated_order.id,
+        user_id=unrelated_user.id,
+        reason_detail="Existing unrelated refund",
+        refund_amount=unrelated_order.total_amount,
+    )
+    db_session.add(unrelated_refund)
+    await db_session.flush()
+    assert unrelated_refund.id is not None
 
     result = await order_service.handle_refund_request(
         "Refund order SN20240003",
@@ -142,8 +163,30 @@ async def test_handle_refund_request_does_not_cross_user_order(
     )
 
     assert result["updated_state"]["refund_flow_active"] is False
-    refunds = list((await db_session.exec(select(RefundApplication))).all())
-    assert refunds == []
+    target_refunds = list(
+        (
+            await db_session.exec(
+                select(RefundApplication).where(RefundApplication.order_id == target_order.id)
+            )
+        ).all()
+    )
+    requester_refunds = list(
+        (
+            await db_session.exec(
+                select(RefundApplication).where(RefundApplication.user_id == requester.id)
+            )
+        ).all()
+    )
+    unrelated_refunds = list(
+        (
+            await db_session.exec(
+                select(RefundApplication).where(RefundApplication.order_id == unrelated_order.id)
+            )
+        ).all()
+    )
+    assert target_refunds == []
+    assert requester_refunds == []
+    assert [refund.id for refund in unrelated_refunds] == [unrelated_refund.id]
 
 
 @pytest.mark.asyncio
