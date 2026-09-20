@@ -35,10 +35,10 @@ export class ErrorBoundary extends Component<Props, State> {
         return this.props.fallback
       }
       return (
-        <div className="min-h-screen flex items-center justify-center p-4">
-          <div className="max-w-md w-full text-center space-y-4">
+        <div className="flex min-h-screen items-center justify-center bg-background p-4 text-foreground">
+          <div className="w-full max-w-md space-y-4 text-center">
             <h1 className="text-xl font-semibold">出错了</h1>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-muted-foreground">
               {this.state.error?.message || '页面加载时发生了意外错误'}
             </p>
             <Button onClick={this.handleReset}>重试</Button>

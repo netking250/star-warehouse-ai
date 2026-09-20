@@ -82,7 +82,7 @@ export function FeedbackWidget({
   return (
     <div className="flex flex-col gap-2">
       {isLowConfidence && (
-        <div className="flex items-center gap-1.5 text-amber-600 text-xs">
+        <div className="flex items-center gap-1.5 text-xs text-warning">
           <AlertTriangle className="h-3 w-3" />
           <span>此回复置信度较低，请帮助我们改进</span>
         </div>
@@ -94,8 +94,8 @@ export function FeedbackWidget({
           size="icon"
           className={`h-7 w-7 ${
             selectedSentiment === 'up'
-              ? 'text-blue-600 bg-blue-50 hover:bg-blue-100'
-              : 'text-gray-400 hover:text-gray-600'
+              ? 'bg-primary/10 text-primary hover:bg-primary/15'
+              : 'text-muted-foreground hover:text-foreground'
           }`}
           onClick={() => handleSentimentClick('up')}
           aria-label="点赞"
@@ -108,8 +108,8 @@ export function FeedbackWidget({
           size="icon"
           className={`h-7 w-7 ${
             selectedSentiment === 'down'
-              ? 'text-red-600 bg-red-50 hover:bg-red-100'
-              : 'text-gray-400 hover:text-gray-600'
+              ? 'bg-danger/10 text-danger hover:bg-danger/15'
+              : 'text-muted-foreground hover:text-foreground'
           }`}
           onClick={() => handleSentimentClick('down')}
           aria-label="点踩"
@@ -120,9 +120,9 @@ export function FeedbackWidget({
       </div>
 
       {isExpanded && selectedSentiment && (
-        <div className="flex flex-col gap-3 p-3 bg-gray-50 rounded-lg border animate-in fade-in slide-in-from-top-1 duration-200">
+        <div className="animate-in fade-in slide-in-from-top-1 flex flex-col gap-3 rounded-lg border border-border-subtle bg-surface-elevated p-3 duration-200">
           <div className="space-y-2">
-            <Label className="text-xs font-medium text-gray-700">反馈类别（可选）</Label>
+            <Label className="text-xs font-medium text-foreground">反馈类别（可选）</Label>
             <div className="flex flex-wrap gap-2">
               {CATEGORIES.map((cat) => (
                 <button
@@ -133,8 +133,8 @@ export function FeedbackWidget({
                   }
                   className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
                     selectedCategory === cat.value
-                      ? 'bg-blue-100 border-blue-300 text-blue-700'
-                      : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                      ? 'border-primary/30 bg-primary/10 text-primary'
+                      : 'border-border-subtle bg-surface text-muted-foreground hover:border-border'
                   }`}
                   aria-pressed={selectedCategory === cat.value}
                 >
@@ -147,7 +147,7 @@ export function FeedbackWidget({
           <div className="space-y-2">
             <Label
               htmlFor={`feedback-comment-${messageId}`}
-              className="text-xs font-medium text-gray-700"
+              className="text-xs font-medium text-foreground"
             >
               详细说明（可选）
             </Label>
@@ -159,7 +159,7 @@ export function FeedbackWidget({
               className="min-h-[60px] text-xs resize-none"
               maxLength={500}
             />
-            <div className="text-xs text-gray-400 text-right">{comment.length}/500</div>
+            <div className="text-right text-xs text-muted-foreground">{comment.length}/500</div>
           </div>
 
           <div className="flex items-center justify-end gap-2">

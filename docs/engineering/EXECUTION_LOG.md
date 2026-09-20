@@ -3666,3 +3666,35 @@ Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
   allowlist, base-image churn, workflow permission, or severity change was added.
 - The remaining acceptance boundary is one normal push to the existing PR branch and terminal
   new-head hosted checks. PR #13 must remain open and unmerged; Codex does not mark the task `PASS`.
+
+## UI-01 - V1.1 enterprise visual foundation
+
+Started: 2026-09-20
+
+Finished: 2026-09-20
+
+Status: `AWAITING_ACCEPTANCE`
+
+Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
+
+- Recovery confirmed protected main and branch base
+  `0a502933dd3502c97bfff72f66bad89a84735d08`, then created
+  `feat/ui-v1.1-enterprise-visual` without changing main. CR-UI-01 and the V1.1 frozen visual scope
+  are recorded without reopening V1.0 product acceptance.
+- One shared OKLCH semantic token system now serves both frontend entries. Saved visual preference
+  takes precedence over the OS preference and is applied before the SPA mounts; the accessible
+  toggle persists only `light` or `dark`. Authentication, session, and CSRF data remain out of
+  browser storage.
+- Shared shell/brand primitives provide the abstract Star + data-grid + AI-core mark, subtle
+  ambient field, layered surfaces, typography, focus treatment, and a deterministic session-scoped
+  opening. Motion is CSS/SVG-only, has no continuous JavaScript loop, and shortens to 180ms under
+  reduced motion.
+- Admin and Customer shell/login framing now use the same foundation. Existing routes, server-
+  authoritative authorization, cookie session, CSRF, SSE, WebSocket, query, and business behavior
+  remain unchanged. No runtime dependency, backend file, migration, API, fake data, or heavy visual
+  asset was added.
+- Clean-install, format, lint, 58 unit tests, production build, and all 8 Playwright tests passed.
+  Playwright covered Customer/Admin light and dark shells, persistence across reload, opening
+  completion/non-replay, primary navigation, console errors, and unexpected application 4xx/5xx.
+  Temporary screenshots were visually reviewed and remain ignored under `frontend/test-results/`.
+- No PR or merge was created. UI-02/UI-03 were not started; external acceptance remains required.

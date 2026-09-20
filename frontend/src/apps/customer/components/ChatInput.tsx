@@ -28,14 +28,14 @@ export function ChatInput({
   }
 
   return (
-    <div className="relative z-20 shrink-0 bg-gradient-to-t from-[#f5f7fb] via-[#f5f7fb] to-transparent px-4 pb-4 pt-3 sm:px-8 sm:pb-6">
+    <div className="relative z-20 shrink-0 bg-gradient-to-t from-background via-background/95 to-transparent px-4 pb-4 pt-3 sm:px-8 sm:pb-6">
       <div className="mx-auto max-w-4xl">
-        <div className="glass-panel flex items-end gap-2 rounded-2xl border border-white p-2 shadow-[0_16px_50px_-22px_rgba(15,23,42,0.28)] ring-1 ring-slate-200/70 transition focus-within:ring-2 focus-within:ring-indigo-300">
+        <div className="glass-panel flex items-end gap-2 rounded-2xl border p-2 shadow-lg transition focus-within:ring-2 focus-within:ring-ring/35">
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            className="mb-0.5 shrink-0 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-indigo-600"
+            className="mb-0.5 shrink-0 rounded-xl text-muted-foreground hover:bg-muted hover:text-primary"
             aria-label="添加附件"
             disabled
             title="附件能力将在知识增强版本开放"
@@ -55,7 +55,7 @@ export function ChatInput({
             onClick={isLoading ? onCancel : onSend}
             disabled={!isLoading && !value.trim()}
             aria-label="发送消息"
-            className="mb-0.5 h-10 w-10 shrink-0 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 p-0 shadow-md shadow-indigo-200"
+            className="mb-0.5 h-10 w-10 shrink-0 rounded-xl bg-[image:var(--gradient-primary)] p-0 shadow-md"
           >
             {isLoading ? (
               onCancel ? (
@@ -68,8 +68,8 @@ export function ChatInput({
             )}
           </Button>
         </div>
-        <div className="mt-2 flex items-center justify-center gap-1.5 text-[10px] text-slate-400 sm:text-xs">
-          <ShieldCheck className="h-3 w-3 text-emerald-500" />
+        <div className="mt-2 flex items-center justify-center gap-1.5 text-[10px] text-muted-foreground sm:text-xs">
+          <ShieldCheck className="h-3 w-3 text-success" />
           星仓 AI 可能会出错，重要操作请核对确认 · Enter 发送
         </div>
       </div>

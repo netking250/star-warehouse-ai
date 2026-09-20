@@ -56,6 +56,23 @@ Codex may set a completed implementation to `AWAITING_ACCEPTANCE` only. `PASS` a
 | P-UAT-03A-FINAL-RETEST | Final 30-case product-quality retest | PASS |
 | P-UAT-03-PR-FIX | PR #13 hosted test and AnyIO critical-CVE repair | AWAITING_ACCEPTANCE |
 
+## V1.1 Enterprise Visual Experience Upgrade
+
+CR-UI-01 approves and freezes the V1.1 visual scope. Each stage requires implementation,
+verification, and external acceptance before the next stage starts.
+
+| Task | Name | Status |
+| --- | --- | --- |
+| UI-01 | Design system, adaptive theme, global shells, and opening experience | AWAITING_ACCEPTANCE |
+| UI-02 | Admin page visual redesign | NOT_STARTED |
+| UI-03 | Customer chat visual redesign | NOT_STARTED |
+
+UI-01 provides shared semantic tokens, early light/dark resolution, manual persisted preference,
+the abstract Star Warehouse AI identity, CSS-only ambient/opening motion, and unified Admin/Customer
+shells. Existing application contracts and business behavior remain unchanged. UI-02/UI-03 are
+explicitly gated on external UI-01 acceptance. The active plan is
+[`docs/exec-plans/active/UI-01.md`](../exec-plans/active/UI-01.md).
+
 P-UAT-03-PR-FIX is awaiting external acceptance on PR #13 from head
 `98e64fb6e6a385105874be610be8a962ae2bd7ee` after P-UAT-03A-FINAL-RETEST was externally reported
 `PASS`. The cross-user test now scopes its assertions to the protected order/requester while

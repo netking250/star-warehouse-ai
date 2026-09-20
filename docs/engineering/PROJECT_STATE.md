@@ -1,16 +1,38 @@
 ---
 schema_version: 1
 project: Star Warehouse AI
-phase: ENTERPRISE_HARDENING
-current_task: P-UAT-03-PR-FIX
+phase: V1_1_ENTERPRISE_VISUAL_UPGRADE
+current_task: UI-01
 current_status: AWAITING_ACCEPTANCE
 execution_stage: EXTERNAL_ACCEPTANCE_PENDING
-last_accepted_task: P-UAT-03A-FINAL-RETEST
-next_task: P-UAT-03-PR-FIX external acceptance
+last_accepted_task: P-UAT-03
+next_task: UI-01 external acceptance
 acceptance_owner: external
 maintenance_task: M02
 maintenance_status: PASS
 ---
+
+# UI-01 Current State
+
+CR-UI-01 establishes the approved `V1.1 / FROZEN — Enterprise Visual Experience Upgrade` baseline.
+UI-01 is `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` on
+`feat/ui-v1.1-enterprise-visual`, based on protected main
+`0a502933dd3502c97bfff72f66bad89a84735d08`.
+
+The implementation adds one shared semantic light/dark token system, saved-preference and system
+theme resolution before first paint, theme controls, a reusable Star + data-grid + AI-core mark,
+CSS-only ambient effects, and a deterministic session-scoped opening experience with a reduced-
+motion path. Admin and Customer consume the same visual foundation while retaining their existing
+routes, authentication, CSRF, SSE, WebSocket, API, permissions, and business behavior. No runtime
+dependency, backend change, migration, or fake product data was added.
+
+Focused theme/opening tests, the full frontend unit suite, lint, format, production build, and
+Playwright Customer/Admin smoke pass. Browser screenshots cover both themes and the opening frame;
+they remain under ignored Playwright output only. UI-02 and UI-03 have not started. External
+acceptance is required before either follow-up stage.
+
+The active plan is
+[`docs/exec-plans/active/UI-01.md`](../exec-plans/active/UI-01.md).
 
 # P-UAT-03-PR-FIX Current State
 

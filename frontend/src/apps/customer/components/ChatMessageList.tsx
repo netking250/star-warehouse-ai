@@ -63,14 +63,14 @@ export const ChatMessageList = forwardRef<HTMLDivElement, ChatMessageListProps>(
           {messages.length === 1 && (
             <section className="mb-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
               <div className="mb-5 flex items-center gap-3">
-                <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-lg shadow-indigo-200">
+                <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[image:var(--gradient-primary)] text-primary-foreground shadow-md">
                   <Sparkles className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-indigo-500">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
                     智能服务已就绪
                   </p>
-                  <h2 className="mt-1 text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">
+                  <h2 className="mt-1 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
                     今天想先处理什么？
                   </h2>
                 </div>
@@ -81,13 +81,13 @@ export const ChatMessageList = forwardRef<HTMLDivElement, ChatMessageListProps>(
                     key={title}
                     type="button"
                     onClick={() => onQuickTask?.(prompt)}
-                    className="group rounded-2xl border border-slate-200/80 bg-white/90 p-4 text-left shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-lg hover:shadow-indigo-100/70"
+                    className="group rounded-2xl border border-border-subtle bg-surface/88 p-4 text-left shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:bg-surface-elevated hover:shadow-md"
                   >
-                    <div className="grid h-9 w-9 place-items-center rounded-xl bg-slate-100 text-slate-500 transition group-hover:bg-indigo-50 group-hover:text-indigo-600">
+                    <div className="grid h-9 w-9 place-items-center rounded-xl bg-muted text-muted-foreground transition group-hover:bg-primary/10 group-hover:text-primary">
                       <Icon className="h-4 w-4" />
                     </div>
-                    <p className="mt-4 text-sm font-semibold text-slate-900">{title}</p>
-                    <p className="mt-1 text-xs text-slate-500">{description}</p>
+                    <p className="mt-4 text-sm font-semibold text-foreground">{title}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{description}</p>
                   </button>
                 ))}
               </div>
@@ -107,13 +107,13 @@ export const ChatMessageList = forwardRef<HTMLDivElement, ChatMessageListProps>(
                   <Avatar
                     className={`h-9 w-9 shrink-0 border shadow-sm ${
                       message.role === 'user'
-                        ? 'border-slate-200 bg-white'
-                        : 'border-indigo-100 bg-gradient-to-br from-indigo-500 to-violet-600 text-white'
+                        ? 'border-border-subtle bg-surface-elevated'
+                        : 'border-primary/15 bg-[image:var(--gradient-primary)] text-primary-foreground'
                     }`}
                   >
                     <AvatarFallback className="bg-transparent">
                       {message.role === 'user' ? (
-                        <User className="h-4 w-4 text-slate-500" />
+                        <User className="h-4 w-4 text-muted-foreground" />
                       ) : (
                         <Bot className="h-4 w-4" />
                       )}
@@ -123,11 +123,11 @@ export const ChatMessageList = forwardRef<HTMLDivElement, ChatMessageListProps>(
                     <div
                       className={`flex items-center gap-2 ${message.role === 'user' ? 'justify-end' : ''}`}
                     >
-                      <span className="text-xs font-medium text-slate-500">
+                      <span className="text-xs font-medium text-muted-foreground">
                         {message.role === 'user' ? '你' : '星仓 AI'}
                       </span>
                       {isAssistant && (
-                        <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600">
+                        <span className="inline-flex items-center gap-1 text-[10px] text-success">
                           <ShieldCheck className="h-3 w-3" /> 安全响应
                         </span>
                       )}
@@ -135,19 +135,19 @@ export const ChatMessageList = forwardRef<HTMLDivElement, ChatMessageListProps>(
                     <div
                       className={`whitespace-pre-wrap rounded-2xl px-4 py-3 text-[14px] leading-7 shadow-sm sm:px-5 ${
                         message.role === 'user'
-                          ? 'rounded-tr-md bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-indigo-100'
-                          : 'rounded-tl-md border border-slate-200/80 bg-white text-slate-700'
+                          ? 'rounded-tr-md bg-[image:var(--gradient-primary)] text-primary-foreground'
+                          : 'rounded-tl-md border border-border-subtle bg-surface-elevated text-foreground'
                       }`}
                     >
                       {message.content}
                       {message.isStreaming && (
-                        <span className="ml-1 inline-block h-4 w-1.5 animate-pulse rounded-full bg-indigo-400" />
+                        <span className="ml-1 inline-block h-4 w-1.5 animate-pulse rounded-full bg-primary" />
                       )}
                     </div>
 
                     {isAssistant && !message.isStreaming && message.id !== 'welcome' && (
-                      <div className="flex items-center gap-1 text-[10px] text-slate-400">
-                        <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+                      <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                        <CheckCircle2 className="h-3 w-3 text-success" />
                         已完成本次智能分析
                       </div>
                     )}
@@ -161,8 +161,8 @@ export const ChatMessageList = forwardRef<HTMLDivElement, ChatMessageListProps>(
                               size="icon"
                               className={`h-7 w-7 ${
                                 message.feedbackSentiment === 'up'
-                                  ? 'bg-indigo-50 text-indigo-600'
-                                  : 'text-slate-300'
+                                  ? 'bg-primary/10 text-primary'
+                                  : 'text-muted-foreground'
                               }`}
                               disabled
                               aria-label="已点赞"
@@ -174,8 +174,8 @@ export const ChatMessageList = forwardRef<HTMLDivElement, ChatMessageListProps>(
                               size="icon"
                               className={`h-7 w-7 ${
                                 message.feedbackSentiment === 'down'
-                                  ? 'bg-red-50 text-red-600'
-                                  : 'text-slate-300'
+                                  ? 'bg-danger/10 text-danger'
+                                  : 'text-muted-foreground'
                               }`}
                               disabled
                               aria-label="已点踩"
@@ -204,14 +204,14 @@ export const ChatMessageList = forwardRef<HTMLDivElement, ChatMessageListProps>(
 
             {isLoading && messages[messages.length - 1]?.role === 'user' && (
               <div className="flex gap-4">
-                <Avatar className="h-9 w-9 border border-indigo-100 bg-gradient-to-br from-indigo-500 to-violet-600 text-white">
+                <Avatar className="h-9 w-9 border border-primary/15 bg-[image:var(--gradient-primary)] text-primary-foreground">
                   <AvatarFallback className="bg-transparent">
                     <Bot className="h-4 w-4" />
                   </AvatarFallback>
                 </Avatar>
-                <div className="flex items-center gap-2 rounded-2xl rounded-tl-md border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                  <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
-                  <span className="text-sm text-slate-500">正在理解并连接相关服务...</span>
+                <div className="flex items-center gap-2 rounded-2xl rounded-tl-md border border-border-subtle bg-surface-elevated px-4 py-3 shadow-sm">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  <span className="text-sm text-muted-foreground">正在理解并连接相关服务...</span>
                 </div>
               </div>
             )}
