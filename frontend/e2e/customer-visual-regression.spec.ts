@@ -1,4 +1,15 @@
+import { mkdir } from 'node:fs/promises'
+import path from 'node:path'
 import { expect, test, type Page, type TestInfo } from '@playwright/test'
+
+const finalEvidenceDirectory = path.resolve(process.cwd(), 'test-results', 'ui-v1.1-final')
+const finalEvidenceNames: Readonly<Record<string, string>> = {
+  'login-light.png': '02-customer-login-light.png',
+  'login-dark.png': '03-customer-login-dark.png',
+  'empty-light.png': '04-customer-empty-light.png',
+  'active-conversation-dark.png': '05-customer-conversation-dark.png',
+  'mobile-active-conversation-dark.png': '06-customer-mobile.png',
+}
 
 const customerSession = {
   user_id: 42,
@@ -11,8 +22,13 @@ const customerSession = {
   session_id: 'ui-03-visual-session',
 }
 
-function observeRuntime(page: Page): { consoleErrors: string[]; failedResponses: string[] } {
+function observeRuntime(page: Page): {
+  consoleErrors: string[]
+  pageErrors: string[]
+  failedResponses: string[]
+} {
   const consoleErrors: string[] = []
+  const pageErrors: string[] = []
   const failedResponses: string[] = []
   page.on('console', (message) => {
     if (message.type() === 'error') consoleErrors.push(message.text())
@@ -20,7 +36,8 @@ function observeRuntime(page: Page): { consoleErrors: string[]; failedResponses:
   page.on('response', (response) => {
     if (response.status() >= 400) failedResponses.push(`${response.status()} ${response.url()}`)
   })
-  return { consoleErrors, failedResponses }
+  page.on('pageerror', (error) => pageErrors.push(error.message))
+  return { consoleErrors, pageErrors, failedResponses }
 }
 
 async function installBrowserFixture(page: Page): Promise<void> {
@@ -139,6 +156,14 @@ async function capture(page: Page, testInfo: TestInfo, name: string): Promise<vo
   if (viewport) await page.mouse.move(viewport.width - 4, viewport.height - 4)
   await page.waitForTimeout(180)
   await page.screenshot({ path: testInfo.outputPath(name), fullPage: true })
+  const finalEvidenceName = finalEvidenceNames[name]
+  if (finalEvidenceName) {
+    await mkdir(finalEvidenceDirectory, { recursive: true })
+    await page.screenshot({
+      path: path.join(finalEvidenceDirectory, finalEvidenceName),
+      fullPage: true,
+    })
+  }
 }
 
 async function login(page: Page): Promise<void> {
@@ -236,13 +261,15 @@ test('customer journey remains functional across premium login, chat, feedback, 
 
   await page.setViewportSize({ width: 1280, height: 900 })
   await capture(page, testInfo, 'empty-1280-dark.png')
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false)
   await page.setViewportSize({ width: 1024, height: 850 })
   await capture(page, testInfo, 'empty-1024-dark.png')
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false)
 
   await page.setViewportSize({ width: 390, height: 844 })
   await capture(page, testInfo, 'mobile-chat-dark.png')
   await page.getByRole('button', { name: '打开菜单' }).click()
-  await expect(page.getByLabel('客户服务导航')).toBeVisible()
+  await expect(page.getByRole('dialog', { name: '客户服务导航' })).toBeVisible()
   await capture(page, testInfo, 'mobile-sidebar-dark.png')
   await page.getByRole('button', { name: '关闭菜单' }).last().click()
   await page.getByRole('textbox', { name: '消息输入' }).fill('查询订单')
@@ -258,6 +285,7 @@ test('customer journey remains functional across premium login, chat, feedback, 
   await page.getByTestId('logout-button').click()
   await expect(page.getByRole('heading', { name: '登录客户服务' })).toBeVisible()
   expect(runtime.consoleErrors).toEqual([])
+  expect(runtime.pageErrors).toEqual([])
   expect(runtime.failedResponses).toEqual([])
 })
 
@@ -300,5 +328,23 @@ test('customer login and empty workspace remain balanced at 390 and 360 pixels',
   const bodyOverflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)
   expect(bodyOverflow).toBe(false)
   expect(runtime.consoleErrors).toEqual([])
+  expect(runtime.pageErrors).toEqual([])
   expect(runtime.failedResponses).toEqual([])
+})
+
+test('customer mobile navigation is a focus-managed drawer', async ({ page }) => {
+  await installBrowserFixture(page)
+  await installCustomerApi(page)
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/')
+  await login(page)
+
+  const trigger = page.getByRole('button', { name: '打开菜单' })
+  await trigger.click()
+  const drawer = page.getByRole('dialog', { name: '客户服务导航' })
+  await expect(drawer).toBeVisible()
+
+  await page.keyboard.press('Escape')
+  await expect(drawer).toHaveCount(0)
+  await expect(trigger).toBeFocused()
 })

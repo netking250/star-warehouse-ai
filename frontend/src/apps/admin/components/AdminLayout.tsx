@@ -11,10 +11,10 @@ import {
   Menu,
   MessageSquare,
   ShieldCheck,
-  X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { StarWarehouseLogo } from '@/components/brand/StarWarehouseLogo'
 import { AppBackground, PageContainer, PageTransition } from '@/components/shell/AppShell'
 import { ThemeToggle } from '@/components/theme/ThemeToggle'
@@ -247,116 +247,106 @@ export function AdminLayout(): React.ReactElement {
   )
 
   return (
-    <div
-      ref={shellRef}
-      data-testid="admin-console-shell"
-      className="relative min-h-screen bg-background text-foreground"
-    >
-      <AppBackground />
-      <aside className="glass-panel fixed inset-y-0 left-0 z-30 hidden w-72 flex-col border-r border-border-subtle px-4 py-5 lg:flex">
-        <div className="flex items-center border-b border-border-subtle px-2 pb-5">
-          <StarWarehouseLogo />
-        </div>
-        <div className="min-h-0 flex-1 overflow-y-auto py-6">
-          <NavContent user={user} />
-        </div>
-        <div className="border-t border-border-subtle pt-4">
-          <div className="rounded-lg border border-success/15 bg-success/[0.055] p-3">
-            <div className="flex items-center gap-2 text-xs text-success">
-              <span className="h-2 w-2 rounded-full bg-success" aria-hidden="true" />
-              Session protected
-            </div>
-            <p className="mt-1.5 text-[11px] text-muted-foreground">Server-authoritative access</p>
+    <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+      <div
+        ref={shellRef}
+        data-testid="admin-console-shell"
+        className="relative min-h-screen bg-background text-foreground"
+      >
+        <AppBackground />
+        <aside className="glass-panel fixed inset-y-0 left-0 z-30 hidden w-72 flex-col border-r border-border-subtle px-4 py-5 lg:flex">
+          <div className="flex items-center border-b border-border-subtle px-2 pb-5">
+            <StarWarehouseLogo />
           </div>
-        </div>
-      </aside>
+          <div className="min-h-0 flex-1 overflow-y-auto py-6">
+            <NavContent user={user} />
+          </div>
+          <div className="border-t border-border-subtle pt-4">
+            <div className="rounded-lg border border-success/15 bg-success/[0.055] p-3">
+              <div className="flex items-center gap-2 text-xs text-success">
+                <span className="h-2 w-2 rounded-full bg-success" aria-hidden="true" />
+                Session protected
+              </div>
+              <p className="mt-1.5 text-[11px] text-muted-foreground">
+                Server-authoritative access
+              </p>
+            </div>
+          </div>
+        </aside>
 
-      {mobileOpen && (
-        <div className="fixed inset-0 z-40 lg:hidden">
-          <button
-            type="button"
-            aria-label="Close navigation"
-            className="absolute inset-0 bg-background/75 backdrop-blur-sm"
-            onClick={() => setMobileOpen(false)}
-          />
-          <aside className="glass-panel relative flex h-full w-80 max-w-[85vw] flex-col border-r border-border-subtle px-4 py-5 shadow-lg">
-            <div className="flex items-center justify-between border-b border-border-subtle px-2 pb-5">
-              <StarWarehouseLogo />
+        <SheetContent
+          aria-describedby={undefined}
+          closeLabel="Close navigation"
+          className="glass-panel left-0 right-auto flex w-80 max-w-[85vw] flex-col gap-0 border-l-0 border-r border-border-subtle px-4 py-5 shadow-lg data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left sm:max-w-[20rem] lg:hidden"
+        >
+          <SheetTitle className="sr-only">Enterprise console navigation</SheetTitle>
+          <div className="flex items-center border-b border-border-subtle px-2 pb-5">
+            <StarWarehouseLogo />
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto py-6">
+            <NavContent user={user} onNavigate={() => setMobileOpen(false)} />
+          </div>
+        </SheetContent>
+
+        <div className="relative z-10 lg:pl-72">
+          <header className="glass-panel sticky top-0 z-20 flex h-[72px] items-center justify-between border-b border-border-subtle px-4 sm:px-6">
+            <div className="flex min-w-0 items-center gap-3">
+              <SheetTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="lg:hidden"
+                  aria-label="Open navigation"
+                >
+                  <Menu className="h-5 w-5" aria-hidden="true" />
+                </Button>
+              </SheetTrigger>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold tracking-tight text-foreground">
+                  Enterprise console
+                </p>
+                <p className="truncate text-xs text-muted-foreground">
+                  Operate Star Warehouse AI with explainable controls
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 sm:gap-4">
+              <div className="hidden items-center gap-2 text-right sm:flex">
+                <p className="max-w-32 truncate text-sm font-medium text-foreground">
+                  {user?.full_name || user?.username}
+                </p>
+                <Badge variant="secondary" className="capitalize">
+                  {currentRole}
+                </Badge>
+                <p className="text-[11px] text-muted-foreground">
+                  Tenant {user?.tenant_id ?? 'current'}
+                </p>
+              </div>
+              <ThemeToggle />
+              <NotificationBell user={user} />
               <Button
                 type="button"
                 variant="ghost"
-                size="icon"
-                className="text-muted-foreground hover:text-foreground"
-                aria-label="Close navigation"
-                onClick={() => setMobileOpen(false)}
+                size="sm"
+                data-testid="logout-button"
+                onClick={() => void logout()}
               >
-                <X className="h-4 w-4" aria-hidden="true" />
+                <LogOut className="h-4 w-4" aria-hidden="true" />
+                <span className="hidden sm:inline">Sign out</span>
               </Button>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto py-6">
-              <NavContent user={user} onNavigate={() => setMobileOpen(false)} />
-            </div>
-          </aside>
+          </header>
+
+          <main className="admin-content min-h-[calc(100vh-72px)] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+            <PageContainer>
+              <PageTransition key={location.pathname}>
+                <Outlet />
+              </PageTransition>
+            </PageContainer>
+          </main>
         </div>
-      )}
-
-      <div className="relative z-10 lg:pl-72">
-        <header className="glass-panel sticky top-0 z-20 flex h-[72px] items-center justify-between border-b border-border-subtle px-4 sm:px-6">
-          <div className="flex min-w-0 items-center gap-3">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="lg:hidden"
-              aria-label="Open navigation"
-              onClick={() => setMobileOpen(true)}
-            >
-              <Menu className="h-5 w-5" aria-hidden="true" />
-            </Button>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold tracking-tight text-foreground">
-                Enterprise console
-              </p>
-              <p className="truncate text-xs text-muted-foreground">
-                Operate Star Warehouse AI with explainable controls
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 sm:gap-4">
-            <div className="hidden items-center gap-2 text-right sm:flex">
-              <p className="max-w-32 truncate text-sm font-medium text-foreground">
-                {user?.full_name || user?.username}
-              </p>
-              <Badge variant="secondary" className="capitalize">
-                {currentRole}
-              </Badge>
-              <p className="text-[11px] text-muted-foreground">
-                Tenant {user?.tenant_id ?? 'current'}
-              </p>
-            </div>
-            <ThemeToggle />
-            <NotificationBell user={user} />
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              data-testid="logout-button"
-              onClick={() => void logout()}
-            >
-              <LogOut className="h-4 w-4" aria-hidden="true" />
-              <span className="hidden sm:inline">Sign out</span>
-            </Button>
-          </div>
-        </header>
-
-        <main className="admin-content min-h-[calc(100vh-72px)] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-          <PageContainer>
-            <PageTransition key={location.pathname}>
-              <Outlet />
-            </PageTransition>
-          </PageContainer>
-        </main>
       </div>
-    </div>
+    </Sheet>
   )
 }

@@ -89,6 +89,7 @@ General frontend rules are defined in the root `AGENTS.md`. Customer-specific co
 - **Single source of truth**: All chat-related state (message list, loading, error) is managed in `hooks/useChat.ts`.
 - **Brand consistency**: Reuse `StarWarehouseLogo` and the shared brand tokens in `globals.css` for customer-facing identity.
 - **Theme consistency**: Use semantic tokens and the shared theme/shell components; do not persist chat, auth, session, or CSRF data alongside the visual preference.
+- **Mobile navigation**: Use the shared Radix-backed `Sheet` so focus is contained, Escape closes the drawer, and focus returns to the trigger.
 
 ## State Management
 

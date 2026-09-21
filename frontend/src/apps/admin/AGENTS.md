@@ -104,6 +104,7 @@ General frontend rules are defined in the root `AGENTS.md`. Admin-specific conve
 - **Merge requirements**: All merges require `npm run build`, `npm run lint`, `npm run format`, and `npm run test:e2e` to pass.
 - **Brand consistency**: Reuse `StarWarehouseLogo` and shared brand tokens; keep the operations workspace information-dense and responsive.
 - **Theme consistency**: Build shell surfaces from semantic tokens in `globals.css`; keep theme controls in `AdminLayout`/login and do not create page-specific theme stores.
+- **Mobile navigation**: Use the shared Radix-backed `Sheet` so focus is contained, Escape closes the drawer, and focus returns to the trigger.
 
 ## State Management
 
