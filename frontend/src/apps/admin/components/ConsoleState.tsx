@@ -1,8 +1,8 @@
 import { AlertCircle, Inbox, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getConsoleErrorMessage } from '@/lib/console-errors'
+import { DataPanel } from './AdminPrimitives'
 
 export function ConsolePageSkeleton(): React.ReactElement {
   return (
@@ -30,10 +30,12 @@ export function ConsoleEmptyState({
   description: string
 }): React.ReactElement {
   return (
-    <div className="flex min-h-40 flex-col items-center justify-center rounded-xl border border-dashed bg-white/60 px-6 text-center">
-      <Inbox className="mb-3 h-5 w-5 text-slate-400" aria-hidden="true" />
-      <p className="text-sm font-medium text-slate-700">{title}</p>
-      <p className="mt-1 max-w-md text-sm text-slate-500">{description}</p>
+    <div className="flex min-h-40 flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 px-6 text-center">
+      <span className="mb-3 grid h-9 w-9 place-items-center rounded-md border border-border-subtle bg-surface-elevated text-muted-foreground">
+        <Inbox className="h-4 w-4" aria-hidden="true" />
+      </span>
+      <p className="text-sm font-medium text-foreground">{title}</p>
+      <p className="mt-1 max-w-md text-sm text-muted-foreground">{description}</p>
     </div>
   )
 }
@@ -46,23 +48,23 @@ export function ConsoleErrorState({
   onRetry?: () => void
 }): React.ReactElement {
   return (
-    <Card className="border-red-200 bg-red-50/60">
-      <CardHeader className="flex-row items-start gap-3 space-y-0">
-        <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" aria-hidden="true" />
+    <DataPanel className="border-danger/20 bg-danger/[0.055] p-5">
+      <div className="flex items-start gap-3">
+        <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-danger" aria-hidden="true" />
         <div>
-          <CardTitle className="text-base text-red-950">Unable to load this view</CardTitle>
-          <p className="mt-1 text-sm text-red-800">{getConsoleErrorMessage(error)}</p>
+          <p className="text-sm font-semibold text-foreground">Unable to load this view</p>
+          <p className="mt-1 text-sm text-danger">{getConsoleErrorMessage(error)}</p>
         </div>
-      </CardHeader>
+      </div>
       {onRetry && (
-        <CardContent className="pt-0">
+        <div className="mt-4 pl-8">
           <Button type="button" variant="outline" size="sm" onClick={onRetry}>
             <RefreshCw className="h-4 w-4" aria-hidden="true" />
             Retry
           </Button>
-        </CardContent>
+        </div>
       )}
-    </Card>
+    </DataPanel>
   )
 }
 
@@ -72,6 +74,6 @@ export function ConsoleSectionLabel({
   children: React.ReactNode
 }): React.ReactElement {
   return (
-    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{children}</p>
+    <p className="text-caption uppercase tracking-[0.18em] text-muted-foreground">{children}</p>
   )
 }

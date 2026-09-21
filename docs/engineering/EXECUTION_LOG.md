@@ -3698,3 +3698,35 @@ Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
   completion/non-replay, primary navigation, console errors, and unexpected application 4xx/5xx.
   Temporary screenshots were visually reviewed and remain ignored under `frontend/test-results/`.
 - No PR or merge was created. UI-02/UI-03 were not started; external acceptance remains required.
+
+## UI-01 external acceptance and UI-02 start
+
+Started: 2026-09-21
+
+Finished: 2026-09-21
+
+Status: `AWAITING_ACCEPTANCE`
+
+Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
+
+- UI-01 was externally accepted `PASS_WITH_NOTES` at
+  `5c70565db2985fa943314a3f69d72948ec65dee8`; its plan moved to completed without changing the
+  accepted implementation or reopening V1.0 evidence.
+- Recovery confirmed a clean `feat/ui-v1.1-enterprise-visual` worktree at the exact accepted head.
+  UI-02 now redesigns only the eight active Admin routes and shared Admin visual primitives.
+- UI-03 remains not started. API, auth, authorization, tenant, backend, and business behavior are
+  outside UI-02 scope.
+- Added a focused Admin visual system with shared operational headers, panels, metrics, statuses,
+  filters, tables, and loading/empty/error language. Overview, Operations, AI Runtime, Security,
+  Compliance, Knowledge, Feedback, and Metrics now share the accepted UI-01 Light/Dark foundation;
+  the temporary legacy theme bridge is removed and Grafana follows the active theme.
+- No real hooks, API contracts, capability gates, mutations, auth/session behavior, fake data,
+  customer UI, backend source, migration, workflow, or dependency changed.
+- `npm --prefix frontend ci`, Prettier, ESLint, 14 unit files / 58 tests, the 1929-module production
+  build, and all 9 Playwright tests passed. Playwright retained login/logout, navigation, theme,
+  protected-route, 401/403, approval/CSRF, and customer regression coverage.
+- The new visual matrix captured all eight active routes at 1440px in Light and Dark and Overview,
+  Operations, and Knowledge at 1024px. Screenshots were visually reviewed for hierarchy, density,
+  contrast, overflow, and continuity and remain in ignored `frontend/test-results/`; the matrix
+  reported no console errors or unexpected HTTP 4xx/5xx.
+- UI-02 remains for external acceptance. No PR or merge was created, and UI-03 was not started.

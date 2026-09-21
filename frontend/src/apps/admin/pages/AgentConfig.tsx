@@ -42,10 +42,11 @@ import {
 import type { AgentConfig, RoutingRule, AgentConfigVersion } from '@/types'
 import { AgentConfigEditor } from '../components/AgentConfigEditor'
 import { ConfirmDialog } from '../components/ConfirmDialog'
-import { ConsoleErrorState } from '../components/ConsoleState'
+import { ConsoleEmptyState, ConsoleErrorState } from '../components/ConsoleState'
 import { hasCapability } from '@/lib/authorization'
 import { getConsoleErrorMessage } from '@/lib/console-errors'
 import { useAuthStore } from '@/stores/auth'
+import { MetricCard, PageHeader, StatusBadge } from '../components/AdminPrimitives'
 
 function VersionMetrics({ agentName, versionId }: { agentName: string; versionId: number }) {
   const { data: metrics, isLoading } = useAgentVersionMetrics(agentName, versionId)
@@ -184,7 +185,7 @@ function PromptEffectReportList({ agentName }: { agentName: string }) {
   )
 }
 
-export function AgentConfig() {
+export function AgentConfig(): React.ReactElement {
   const { user } = useAuthStore()
   const canManage = hasCapability(user, 'operations.manage')
   const {
@@ -283,7 +284,7 @@ export function AgentConfig() {
   }
 
   if (isLoading) {
-    return <div className="p-4 text-sm text-muted-foreground">Loading AI configuration...</div>
+    return <div className="p-4 text-sm text-muted-foreground">Loading AI configuration…</div>
   }
 
   if (error) {
@@ -291,251 +292,293 @@ export function AgentConfig() {
   }
 
   return (
-    <div className="h-full overflow-auto bg-gray-100 p-4">
-      <div className="mx-auto max-w-6xl space-y-6">
-        <div className="flex items-center gap-2">
-          <Settings className="h-5 w-5 text-muted-foreground" />
-          <h1 className="text-xl font-semibold">Agent 配置中心</h1>
-        </div>
+    <div className="space-y-7">
+      <PageHeader
+        eyebrow="AI runtime"
+        title="Agent orchestration"
+        description="Operate real agent configuration, routing policy, version history, and quality evidence without changing runtime contracts."
+        status={
+          <StatusBadge tone={agents.every((agent) => agent.enabled) ? 'success' : 'warning'}>
+            {agents.filter((agent) => agent.enabled).length} of {agents.length} agents active
+          </StatusBadge>
+        }
+      />
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Bot className="h-5 w-5 text-muted-foreground" />
-              <CardTitle>Agent 列表</CardTitle>
+      <div className="grid gap-4 md:grid-cols-3">
+        <MetricCard
+          label="Configured agents"
+          value={agents.length}
+          detail="Existing runtime configurations"
+          icon={Bot}
+        />
+        <MetricCard
+          label="Active agents"
+          value={agents.filter((agent) => agent.enabled).length}
+          detail="Enabled by current configuration"
+          icon={Settings}
+          tone="success"
+        />
+        <MetricCard
+          label="Routing rules"
+          value={routingRules.length}
+          detail="Existing intent-to-agent rules"
+          icon={Route}
+          tone="info"
+        />
+      </div>
+
+      <Card className="border-border-subtle bg-surface/88 shadow-sm">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Bot className="h-5 w-5 text-muted-foreground" />
+            <div>
+              <CardTitle className="text-section-title">Agent configuration</CardTitle>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Runtime state, thresholds, retries, and supported edit controls.
+              </p>
             </div>
-            <Badge variant="secondary">共 {agents.length} 个</Badge>
+          </div>
+          <Badge variant="secondary">共 {agents.length} 个</Badge>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              加载中...
+            </div>
+          ) : agents.length === 0 ? (
+            <ConsoleEmptyState
+              title="No agent configuration"
+              description="The existing configuration endpoint returned no agents."
+            />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Agent 名称</TableHead>
+                  <TableHead>状态</TableHead>
+                  <TableHead>置信度阈值</TableHead>
+                  <TableHead>最大重试</TableHead>
+                  <TableHead>更新时间</TableHead>
+                  <TableHead className="text-right">操作</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {agents.map((agent) => (
+                  <TableRow key={agent.agent_name}>
+                    <TableCell className="font-medium">{agent.agent_name}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={agent.enabled}
+                          onCheckedChange={(checked) => {
+                            void handleToggle(agent, checked)
+                          }}
+                          disabled={!canManage || isUpdating}
+                        />
+                        <span className="text-xs">
+                          {agent.enabled ? (
+                            <StatusBadge tone="success">Active</StatusBadge>
+                          ) : (
+                            <StatusBadge>Disabled</StatusBadge>
+                          )}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {agent.confidence_threshold != null
+                        ? agent.confidence_threshold.toFixed(2)
+                        : '-'}
+                    </TableCell>
+                    <TableCell>{agent.max_retries}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {formatDate(agent.updated_at)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEdit(agent)}
+                        disabled={!canManage}
+                      >
+                        <Edit className="mr-1 h-4 w-4" />
+                        编辑
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-border-subtle bg-surface/88 shadow-sm">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Route className="h-5 w-5 text-muted-foreground" />
+            <div>
+              <CardTitle className="text-section-title">Model and agent routing</CardTitle>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Intent categories mapped to existing runtime agents.
+              </p>
+            </div>
+          </div>
+          <Button size="sm" variant="outline" onClick={openCreateRule} disabled={!canManage}>
+            <Plus className="mr-1 h-4 w-4" />
+            Add rule
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {routingRules.length === 0 ? (
+            <ConsoleEmptyState
+              title="No routing rules"
+              description="Create a rule only when an existing intent needs an explicit target agent."
+            />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Intent category</TableHead>
+                  <TableHead>Target agent</TableHead>
+                  <TableHead>Priority</TableHead>
+                  <TableHead>Condition</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {routingRules.map((rule) => (
+                  <TableRow key={rule.id}>
+                    <TableCell className="font-medium">{rule.intent_category}</TableCell>
+                    <TableCell>{rule.target_agent}</TableCell>
+                    <TableCell>{rule.priority}</TableCell>
+                    <TableCell className="max-w-xs truncate text-muted-foreground">
+                      {rule.condition_json ? JSON.stringify(rule.condition_json) : '-'}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button variant="ghost" size="sm" onClick={() => openEditRule(rule)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-danger hover:bg-danger/10 hover:text-danger"
+                          onClick={() => setPendingDeleteRuleId(rule.id)}
+                          disabled={!canManage || isDeletingRule}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {selectedAgent && (
+        <Card className="border-border-subtle bg-surface/88 shadow-sm">
+          <CardHeader className="flex flex-row items-center gap-2">
+            <History className="h-5 w-5 text-muted-foreground" />
+            <CardTitle>Quality reports · {selectedAgent.agent_name}</CardTitle>
           </CardHeader>
           <CardContent>
-            {isLoading ? (
+            <PromptEffectReportList agentName={selectedAgent.agent_name} />
+          </CardContent>
+        </Card>
+      )}
+
+      {selectedAgent && (
+        <Card className="border-border-subtle bg-surface/88 shadow-sm">
+          <CardHeader className="flex flex-row items-center gap-2">
+            <History className="h-5 w-5 text-muted-foreground" />
+            <CardTitle>Version history · {selectedAgent.agent_name}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoadingVersions ? (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 加载中...
               </div>
-            ) : agents.length === 0 ? (
-              <div className="text-sm text-muted-foreground">暂无 Agent 配置</div>
+            ) : !versions || versions.length === 0 ? (
+              <div className="text-sm text-muted-foreground">暂无版本记录</div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Agent 名称</TableHead>
-                    <TableHead>状态</TableHead>
-                    <TableHead>置信度阈值</TableHead>
-                    <TableHead>最大重试</TableHead>
-                    <TableHead>更新时间</TableHead>
-                    <TableHead className="text-right">操作</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {agents.map((agent) => (
-                    <TableRow key={agent.agent_name}>
-                      <TableCell className="font-medium">{agent.agent_name}</TableCell>
-                      <TableCell>
+              <div className="space-y-2">
+                {versions.map((version, index) => {
+                  const previous = index < versions.length - 1 ? versions[index + 1] : null
+                  const diffs = computeDiff(version, previous)
+                  const isExpanded = expandedVersionId === version.id
+                  return (
+                    <div key={version.id} className="rounded-md border px-3 py-2 text-sm">
+                      <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <Switch
-                            checked={agent.enabled}
-                            onCheckedChange={(checked) => {
-                              void handleToggle(agent, checked)
-                            }}
-                            disabled={!canManage || isUpdating}
-                          />
-                          <span className="text-xs">
-                            {agent.enabled ? (
-                              <span className="text-green-600">启用</span>
-                            ) : (
-                              <span className="text-gray-500">禁用</span>
-                            )}
-                          </span>
+                          <span className="font-medium">版本 #{version.id}</span>
+                          <Badge variant="outline" className="text-xs">
+                            {diffs.join(' · ')}
+                          </Badge>
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        {agent.confidence_threshold != null
-                          ? agent.confidence_threshold.toFixed(2)
-                          : '-'}
-                      </TableCell>
-                      <TableCell>{agent.max_retries}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {formatDate(agent.updated_at)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEdit(agent)}
-                          disabled={!canManage}
-                        >
-                          <Edit className="mr-1 h-4 w-4" />
-                          编辑
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Route className="h-5 w-5 text-muted-foreground" />
-              <CardTitle>路由规则</CardTitle>
-            </div>
-            <Button size="sm" variant="outline" onClick={openCreateRule} disabled={!canManage}>
-              <Plus className="mr-1 h-4 w-4" />
-              新增规则
-            </Button>
-          </CardHeader>
-          <CardContent>
-            {routingRules.length === 0 ? (
-              <div className="text-sm text-muted-foreground">暂无路由规则</div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>意图类别</TableHead>
-                    <TableHead>目标 Agent</TableHead>
-                    <TableHead>优先级</TableHead>
-                    <TableHead>条件</TableHead>
-                    <TableHead className="text-right">操作</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {routingRules.map((rule) => (
-                    <TableRow key={rule.id}>
-                      <TableCell className="font-medium">{rule.intent_category}</TableCell>
-                      <TableCell>{rule.target_agent}</TableCell>
-                      <TableCell>{rule.priority}</TableCell>
-                      <TableCell className="max-w-xs truncate text-muted-foreground">
-                        {rule.condition_json ? JSON.stringify(rule.condition_json) : '-'}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button variant="ghost" size="sm" onClick={() => openEditRule(rule)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">
+                            {formatDate(version.created_at)}
+                          </span>
                           <Button
                             variant="ghost"
-                            size="sm"
-                            className="text-red-600"
-                            onClick={() => setPendingDeleteRuleId(rule.id)}
-                            disabled={!canManage || isDeletingRule}
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => setExpandedVersionId(isExpanded ? null : version.id)}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            {isExpanded ? (
+                              <ChevronUp className="h-4 w-4" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4" />
+                            )}
                           </Button>
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-
-        {selectedAgent && (
-          <Card>
-            <CardHeader className="flex flex-row items-center gap-2">
-              <History className="h-5 w-5 text-muted-foreground" />
-              <CardTitle>效果报告 — {selectedAgent.agent_name}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <PromptEffectReportList agentName={selectedAgent.agent_name} />
-            </CardContent>
-          </Card>
-        )}
-
-        {selectedAgent && (
-          <Card>
-            <CardHeader className="flex flex-row items-center gap-2">
-              <History className="h-5 w-5 text-muted-foreground" />
-              <CardTitle>版本历史 — {selectedAgent.agent_name}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isLoadingVersions ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  加载中...
-                </div>
-              ) : !versions || versions.length === 0 ? (
-                <div className="text-sm text-muted-foreground">暂无版本记录</div>
-              ) : (
-                <div className="space-y-2">
-                  {versions.map((version, index) => {
-                    const previous = index < versions.length - 1 ? versions[index + 1] : null
-                    const diffs = computeDiff(version, previous)
-                    const isExpanded = expandedVersionId === version.id
-                    return (
-                      <div key={version.id} className="rounded-md border px-3 py-2 text-sm">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">版本 #{version.id}</span>
-                            <Badge variant="outline" className="text-xs">
-                              {diffs.join(' · ')}
-                            </Badge>
+                      </div>
+                      {isExpanded && (
+                        <div className="mt-2 space-y-2 border-t pt-2">
+                          {selectedAgent && (
+                            <VersionMetrics
+                              agentName={selectedAgent.agent_name}
+                              versionId={version.id}
+                            />
+                          )}
+                          <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground">
+                            <div>置信度: {version.confidence_threshold}</div>
+                            <div>重试: {version.max_retries}</div>
+                            <div>状态: {version.enabled ? '启用' : '禁用'}</div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-muted-foreground">
-                              {formatDate(version.created_at)}
-                            </span>
+                          <div className="rounded bg-muted/40 p-2 text-xs whitespace-pre-wrap">
+                            {version.system_prompt || '（无系统提示词）'}
+                          </div>
+                          <div className="flex justify-end gap-2">
                             <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6"
-                              onClick={() => setExpandedVersionId(isExpanded ? null : version.id)}
+                              size="sm"
+                              variant="outline"
+                              disabled={!canManage || isRollingBackToVersion}
+                              onClick={() => {
+                                void rollbackToVersion({
+                                  agentName: selectedAgent.agent_name,
+                                  versionId: version.id,
+                                })
+                              }}
                             >
-                              {isExpanded ? (
-                                <ChevronUp className="h-4 w-4" />
-                              ) : (
-                                <ChevronDown className="h-4 w-4" />
-                              )}
+                              回滚到此版本
                             </Button>
                           </div>
                         </div>
-                        {isExpanded && (
-                          <div className="mt-2 space-y-2 border-t pt-2">
-                            {selectedAgent && (
-                              <VersionMetrics
-                                agentName={selectedAgent.agent_name}
-                                versionId={version.id}
-                              />
-                            )}
-                            <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground">
-                              <div>置信度: {version.confidence_threshold}</div>
-                              <div>重试: {version.max_retries}</div>
-                              <div>状态: {version.enabled ? '启用' : '禁用'}</div>
-                            </div>
-                            <div className="rounded bg-muted/40 p-2 text-xs whitespace-pre-wrap">
-                              {version.system_prompt || '（无系统提示词）'}
-                            </div>
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                disabled={!canManage || isRollingBackToVersion}
-                                onClick={() => {
-                                  void rollbackToVersion({
-                                    agentName: selectedAgent.agent_name,
-                                    versionId: version.id,
-                                  })
-                                }}
-                              >
-                                回滚到此版本
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-      </div>
-
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
       <AgentConfigEditor
         agent={selectedAgent}
         open={editorOpen}
@@ -549,7 +592,7 @@ export function AgentConfig() {
       {mutationError && (
         <p
           role="alert"
-          className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+          className="rounded-md border border-danger/20 bg-danger/10 px-4 py-3 text-sm text-danger"
         >
           {getConsoleErrorMessage(mutationError)}
         </p>

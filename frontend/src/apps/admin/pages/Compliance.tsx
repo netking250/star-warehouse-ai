@@ -1,8 +1,6 @@
 import { useState } from 'react'
 import { ClipboardCheck, Database, ShieldCheck } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAuthStore } from '@/stores/auth'
 import { hasCapability } from '@/lib/authorization'
 import { getConsoleErrorMessage } from '@/lib/console-errors'
@@ -17,6 +15,15 @@ import {
   ConsolePageSkeleton,
 } from '../components/ConsoleState'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import {
+  adminTableClassName,
+  DataPanel,
+  DataTableShell,
+  FilterBar,
+  PageHeader,
+  SectionHeader,
+  StatusBadge,
+} from '../components/AdminPrimitives'
 
 const RETENTION_DATASETS = [
   'message_cards',
@@ -79,18 +86,12 @@ export function Compliance(): React.ReactElement {
 
   return (
     <div className="space-y-7">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-600">
-          Compliance
-        </p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
-          Approvals and lifecycle controls
-        </h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-          Handle only the exact approval metadata and bounded retention operations exposed by the
-          backend. Export content is never rendered in this queue.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Compliance"
+        title="Approvals and lifecycle controls"
+        description="Govern sensitive operations and bounded retention using auditable backend controls. Export content is never rendered in this queue."
+        status={<StatusBadge tone="info">Evidence-first governance</StatusBadge>}
+      />
 
       {!canRead ? (
         <ConsoleEmptyState
@@ -100,27 +101,23 @@ export function Compliance(): React.ReactElement {
       ) : approvals.error ? (
         <ConsoleErrorState error={approvals.error} onRetry={() => void approvals.refetch()} />
       ) : (
-        <Card>
-          <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <ClipboardCheck className="h-5 w-5 text-indigo-600" aria-hidden="true" />
-                Sensitive-operation approvals
-              </CardTitle>
-              <p className="mt-1 text-sm text-slate-500">
-                Requester, type, hash, expiry, status, and decision metadata only.
-              </p>
-            </div>
-            <Badge variant="outline">
-              {approvals.data?.filter((approval) => approval.status === 'PENDING').length ?? 0}{' '}
-              pending
-            </Badge>
-          </CardHeader>
-          <CardContent>
+        <DataPanel className="p-5">
+          <SectionHeader
+            title="Sensitive-operation approvals"
+            description="Requester, type, hash, expiry, status, and decision metadata only."
+            icon={ClipboardCheck}
+            action={
+              <StatusBadge tone="warning">
+                {approvals.data?.filter((approval) => approval.status === 'PENDING').length ?? 0}{' '}
+                pending
+              </StatusBadge>
+            }
+          />
+          <div className="mt-5">
             {approvals.data?.length ? (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[880px] text-left text-sm">
-                  <thead className="border-b text-xs uppercase tracking-wide text-slate-500">
+              <DataTableShell>
+                <table className={`${adminTableClassName} min-w-[880px]`}>
+                  <thead>
                     <tr>
                       <th className="px-3 py-3">Operation</th>
                       <th className="px-3 py-3">Requester</th>
@@ -134,28 +131,41 @@ export function Compliance(): React.ReactElement {
                     {approvals.data.map((approval) => (
                       <tr key={approval.id} className="border-b last:border-0">
                         <td className="px-3 py-4">
-                          <p className="font-medium text-slate-800">{approval.operation_type}</p>
-                          <p className="mt-1 font-mono text-[10px] text-slate-400">{approval.id}</p>
+                          <p className="font-medium text-foreground">{approval.operation_type}</p>
+                          <p className="mt-1 font-mono text-[10px] text-muted-foreground">
+                            {approval.id}
+                          </p>
                         </td>
-                        <td className="px-3 py-4 text-slate-600">
+                        <td className="text-muted-foreground">
                           User #{approval.requester_user_id}
                         </td>
                         <td className="px-3 py-4">
-                          <Badge variant={approval.status === 'PENDING' ? 'secondary' : 'outline'}>
+                          <StatusBadge
+                            tone={
+                              approval.status === 'PENDING'
+                                ? 'warning'
+                                : approval.status === 'APPROVED'
+                                  ? 'success'
+                                  : 'neutral'
+                            }
+                          >
                             {approval.status}
-                          </Badge>
+                          </StatusBadge>
                         </td>
-                        <td className="px-3 py-4 text-xs text-slate-500">
+                        <td className="numeric text-xs text-muted-foreground">
                           <div>{new Date(approval.requested_at).toLocaleString()}</div>
                           <div className="mt-1">
                             Expires {new Date(approval.expires_at).toLocaleString()}
                           </div>
                         </td>
                         <td className="px-3 py-4">
-                          <span className="font-mono text-xs text-slate-500" title="Payload hash">
+                          <span
+                            className="font-mono text-xs text-muted-foreground"
+                            title="Payload hash"
+                          >
                             {approval.operation_payload_hash.slice(0, 12)}…
                           </span>
-                          <span className="ml-2 text-xs text-slate-400">
+                          <span className="ml-2 text-xs text-muted-foreground">
                             {Object.keys(approval.operation_parameters).length} safe parameter
                             fields
                           </span>
@@ -192,7 +202,7 @@ export function Compliance(): React.ReactElement {
                               </Button>
                             </div>
                           ) : (
-                            <span className="text-xs text-slate-400">
+                            <span className="text-xs text-muted-foreground">
                               {canApprove ? 'No action' : 'Read only'}
                             </span>
                           )}
@@ -201,31 +211,26 @@ export function Compliance(): React.ReactElement {
                     ))}
                   </tbody>
                 </table>
-              </div>
+              </DataTableShell>
             ) : (
               <ConsoleEmptyState
                 title="No approvals returned"
                 description="The tenant approval queue is empty. New requests must come from the accepted export-request flow."
               />
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </DataPanel>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Database className="h-5 w-5 text-indigo-600" aria-hidden="true" />
-            Bounded retention operation
-          </CardTitle>
-          <p className="mt-1 text-sm text-slate-500">
-            Preview eligibility first. Execution is tenant-bound, batch-limited, audited, and
-            available only to compliance.manage.
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-            <label className="text-sm font-medium text-slate-700">
+      <DataPanel className="p-5">
+        <SectionHeader
+          title="Bounded retention operation"
+          description="Preview eligibility first. Execution is tenant-bound, batch-limited, audited, and available only to compliance.manage."
+          icon={Database}
+        />
+        <div className="mt-5 space-y-4">
+          <FilterBar>
+            <label className="text-sm font-medium text-foreground">
               Dataset
               <select
                 aria-label="Retention dataset"
@@ -262,21 +267,21 @@ export function Compliance(): React.ReactElement {
                 Execute bounded batch
               </Button>
             </div>
-          </div>
+          </FilterBar>
           {canManageRetention && !hasRetentionPreview && (
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
               Run a preview for the selected dataset before execution is enabled.
             </p>
           )}
           {!canManageRetention && (
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
               Execution controls are hidden from sessions without compliance.manage.
             </p>
           )}
           {retentionResult && (
             <div
               role="status"
-              className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900"
+              className="rounded-md border border-success/20 bg-success/10 p-4 text-sm text-foreground"
             >
               <div className="flex items-center gap-2 font-medium">
                 <ShieldCheck className="h-4 w-4" aria-hidden="true" />
@@ -292,18 +297,18 @@ export function Compliance(): React.ReactElement {
           {retentionMutation.error && (
             <p
               role="alert"
-              className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+              className="rounded-md border border-danger/20 bg-danger/10 px-4 py-3 text-sm text-danger"
             >
               {getConsoleErrorMessage(retentionMutation.error)}
             </p>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </DataPanel>
 
       {decisionMutation.error && (
         <p
           role="alert"
-          className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+          className="rounded-md border border-danger/20 bg-danger/10 px-4 py-3 text-sm text-danger"
         >
           {getConsoleErrorMessage(decisionMutation.error)}
         </p>

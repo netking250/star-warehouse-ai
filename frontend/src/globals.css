@@ -466,44 +466,6 @@
   }
 }
 
-/* Temporary theme bridge for page interiors scheduled for the UI-02 redesign. */
-.dark .admin-content :is(.text-slate-950, .text-slate-900, .text-gray-900) {
-  color: oklch(var(--foreground));
-}
-
-.dark .admin-content :is(.text-slate-800, .text-slate-700, .text-gray-800, .text-gray-700) {
-  color: oklch(var(--foreground) / 0.88);
-}
-
-.dark .admin-content :is(.text-slate-600, .text-gray-600) {
-  color: oklch(var(--foreground) / 0.72);
-}
-
-.dark .admin-content :is(.text-slate-500, .text-slate-400, .text-gray-500, .text-gray-400) {
-  color: oklch(var(--muted-foreground));
-}
-
-.dark .admin-content :is(.bg-white, .bg-white\/60, .bg-white\/90) {
-  background-color: oklch(var(--surface) / 0.9);
-}
-
-.dark .admin-content :is(.bg-slate-50, .bg-gray-50) {
-  background-color: oklch(var(--surface-elevated));
-}
-
-.dark .admin-content :is(.bg-slate-100, .bg-gray-100) {
-  background-color: oklch(var(--muted));
-}
-
-.dark .admin-content :is(.border-slate-200, .border-slate-200\/80, .border-gray-200) {
-  border-color: oklch(var(--border-subtle));
-}
-
-.dark .admin-content .hover\:bg-slate-50:hover,
-.dark .admin-content .hover\:bg-gray-50:hover {
-  background-color: oklch(var(--muted));
-}
-
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

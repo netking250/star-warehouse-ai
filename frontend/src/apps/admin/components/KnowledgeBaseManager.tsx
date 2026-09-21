@@ -1,61 +1,44 @@
 import { useRef, useState } from 'react'
-import {
-  AlertCircle,
-  CheckCircle,
-  FileText,
-  Loader2,
-  RefreshCw,
-  Trash2,
-  Upload,
-  Play,
-} from 'lucide-react'
+import { FileText, Loader2, Play, Trash2, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useKnowledgeBase, useSyncStatus } from '@/hooks/useKnowledgeBase'
+import {
+  adminTableClassName,
+  DataPanel,
+  DataTableShell,
+  PageHeader,
+  SectionHeader,
+  StatusBadge,
+  type StatusTone,
+} from './AdminPrimitives'
+import { ConsoleEmptyState, ConsolePageSkeleton } from './ConsoleState'
 
-function formatBytes(bytes: number | null) {
-  if (bytes == null) return '-'
+function formatBytes(bytes: number | null): string {
+  if (bytes == null) return '—'
   if (bytes === 0) return '0 Bytes'
-  const k = 1024
-  const sizes = ['Bytes', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return `${parseFloat((bytes / k ** i).toFixed(2))} ${sizes[i]}`
+  const index = Math.floor(Math.log(bytes) / Math.log(1024))
+  return `${parseFloat((bytes / 1024 ** index).toFixed(2))} ${['Bytes', 'KB', 'MB', 'GB'][index]}`
 }
 
-function SyncBadge({ status }: { status: string }) {
-  if (status === 'done') {
-    return (
-      <span className="inline-flex items-center gap-1 text-sm text-green-600">
-        <CheckCircle className="h-4 w-4" />
-        已同步
-      </span>
-    )
-  }
+function statusPresentation(status: string): { tone: StatusTone; label: string; loading: boolean } {
+  if (status === 'done') return { tone: 'success', label: 'Synced', loading: false }
   if (status === 'running' || status === 'STARTED' || status === 'PENDING') {
-    return (
-      <span className="inline-flex items-center gap-1 text-sm text-blue-600">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        同步中
-      </span>
-    )
+    return { tone: 'info', label: 'Processing', loading: true }
   }
-  if (status === 'failed') {
-    return (
-      <span className="inline-flex items-center gap-1 text-sm text-red-600">
-        <AlertCircle className="h-4 w-4" />
-        失败
-      </span>
-    )
-  }
+  if (status === 'failed') return { tone: 'danger', label: 'Failed', loading: false }
+  return { tone: 'neutral', label: status || 'Unknown', loading: false }
+}
+
+function SyncBadge({ status }: { status: string }): React.ReactElement {
+  const view = statusPresentation(status)
   return (
-    <span className="inline-flex items-center gap-1 text-sm text-gray-500">
-      <RefreshCw className="h-4 w-4" />
-      {status}
-    </span>
+    <StatusBadge tone={view.tone} pulse={view.loading}>
+      {view.label}
+    </StatusBadge>
   )
 }
 
-export function KnowledgeBaseManager() {
+export function KnowledgeBaseManager(): React.ReactElement {
   const {
     documents,
     isLoading,
@@ -70,8 +53,8 @@ export function KnowledgeBaseManager() {
   const { data: syncStatus } = useSyncStatus(lastTaskId)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
+    const file = event.target.files?.[0]
     if (!file) return
     try {
       const result = await uploadDocument(file)
@@ -81,86 +64,167 @@ export function KnowledgeBaseManager() {
     }
   }
 
+  if (isLoading) return <ConsolePageSkeleton />
+  const activeSync = syncStatus?.status === 'PENDING' || syncStatus?.status === 'STARTED'
+
   return (
-    <div className="h-full overflow-auto p-4">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>知识库管理</CardTitle>
-          <div className="flex items-center gap-2">
-            <input
-              type="file"
-              ref={fileInputRef}
-              className="hidden"
-              onChange={(e) => void handleUpload(e)}
-              accept=".txt,.md,.json,.pdf"
-            />
-            <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
-              <Upload className="mr-1 h-4 w-4" />
-              {isUploading ? '上传中...' : '上传文档'}
-            </Button>
+    <div className="space-y-7">
+      <PageHeader
+        eyebrow="Knowledge"
+        title="Knowledge inventory"
+        description="Ingest, inspect, and synchronize tenant knowledge sources through the existing storage and indexing workflow."
+        status={
+          <StatusBadge tone={activeSync ? 'info' : 'success'} pulse={activeSync}>
+            {activeSync ? 'Indexing in progress' : `${documents.length} sources available`}
+          </StatusBadge>
+        }
+        actions={
+          <Button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+          >
+            {isUploading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Upload className="h-4 w-4" />
+            )}
+            {isUploading ? 'Uploading…' : 'Add source'}
+          </Button>
+        }
+      />
+
+      <input
+        type="file"
+        ref={fileInputRef}
+        className="sr-only"
+        onChange={(event) => void handleUpload(event)}
+        accept=".txt,.md,.json,.pdf"
+        aria-label="Upload knowledge document"
+      />
+
+      <DataPanel className="overflow-hidden">
+        <div className="border-b border-border-subtle p-5">
+          <SectionHeader
+            title="Ingestion workspace"
+            description="Accepted formats: TXT, Markdown, JSON, and PDF. Uploaded sources keep their real processing state."
+            icon={Upload}
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isUploading}
+          className="group m-5 flex min-h-28 w-[calc(100%-2.5rem)] items-center justify-center gap-4 rounded-lg border border-dashed border-primary/25 bg-primary/[0.035] px-5 text-left transition-[background-color,border-color] hover:border-primary/45 hover:bg-primary/[0.065] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-md border border-primary/15 bg-surface-elevated text-primary shadow-sm">
+            <Upload className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <span>
+            <span className="block text-sm font-semibold text-foreground">
+              Choose a knowledge source
+            </span>
+            <span className="mt-1 block text-xs text-muted-foreground">
+              Processing begins through the existing tenant-bound upload API.
+            </span>
+          </span>
+        </button>
+        {activeSync && syncStatus && (
+          <div
+            className="mx-5 mb-5 flex items-center gap-3 rounded-md border border-info/20 bg-info/10 px-4 py-3 text-sm text-info"
+            role="status"
+          >
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            Sync task <span className="font-mono text-xs">{syncStatus.task_id}</span> is processing.
           </div>
-        </CardHeader>
-        <CardContent>
-          {syncStatus && (syncStatus.status === 'PENDING' || syncStatus.status === 'STARTED') && (
-            <div className="mb-4 text-sm text-blue-600">
-              同步任务 {syncStatus.task_id} 进行中...
-            </div>
-          )}
-          {isLoading ? (
-            <div className="text-sm text-gray-500">加载中...</div>
-          ) : documents.length === 0 ? (
-            <div className="text-sm text-gray-500">暂无文档</div>
+        )}
+      </DataPanel>
+
+      <DataPanel className="p-5">
+        <SectionHeader
+          title="Document inventory"
+          description="Current source metadata, indexing state, and supported actions."
+          icon={FileText}
+          action={<StatusBadge>{documents.length} documents</StatusBadge>}
+        />
+        <div className="mt-5">
+          {documents.length === 0 ? (
+            <ConsoleEmptyState
+              title="No knowledge sources yet"
+              description="Add a supported document to begin the existing ingestion workflow."
+            />
           ) : (
-            <div className="space-y-2">
-              {documents.map((doc) => (
-                <div
-                  key={doc.id}
-                  className="flex items-center justify-between rounded-md border p-3"
-                >
-                  <div className="flex items-center gap-3">
-                    <FileText className="h-5 w-5 text-gray-400" />
-                    <div>
-                      <div className="text-sm font-medium">{doc.filename}</div>
-                      <div className="text-xs text-gray-500">
-                        {formatBytes(doc.doc_size_bytes)} · {doc.content_type}
-                      </div>
-                      {doc.sync_message && (
-                        <div className="text-xs text-gray-400">{doc.sync_message}</div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <SyncBadge status={doc.sync_status} />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        void syncDocument(doc.id).then((result) => {
-                          if (result.task_id) setLastTaskId(result.task_id)
-                        })
-                      }}
-                      disabled={isSyncing}
-                      title="同步到 Qdrant"
-                    >
-                      <Play className="h-4 w-4 text-blue-500" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        void deleteDocument(doc.id)
-                      }}
-                      disabled={isDeleting}
-                    >
-                      <Trash2 className="h-4 w-4 text-red-500" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <DataTableShell>
+              <table className={`${adminTableClassName} min-w-[720px]`}>
+                <thead>
+                  <tr>
+                    <th>Source</th>
+                    <th>Type</th>
+                    <th>Size</th>
+                    <th>Status</th>
+                    <th>Processing detail</th>
+                    <th className="text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {documents.map((document) => (
+                    <tr key={document.id}>
+                      <td>
+                        <div className="flex items-center gap-3">
+                          <span className="grid h-8 w-8 place-items-center rounded-md bg-muted text-muted-foreground">
+                            <FileText className="h-4 w-4" aria-hidden="true" />
+                          </span>
+                          <span className="font-medium text-foreground">{document.filename}</span>
+                        </div>
+                      </td>
+                      <td className="text-muted-foreground">{document.content_type}</td>
+                      <td className="numeric text-muted-foreground">
+                        {formatBytes(document.doc_size_bytes)}
+                      </td>
+                      <td>
+                        <SyncBadge status={document.sync_status} />
+                      </td>
+                      <td className="max-w-xs text-xs text-muted-foreground">
+                        {document.sync_message || '—'}
+                      </td>
+                      <td>
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() =>
+                              void syncDocument(document.id).then(
+                                (result) => result.task_id && setLastTaskId(result.task_id)
+                              )
+                            }
+                            disabled={isSyncing}
+                            aria-label={`Sync ${document.filename}`}
+                            title="Sync to vector index"
+                          >
+                            <Play className="h-4 w-4" aria-hidden="true" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => void deleteDocument(document.id)}
+                            disabled={isDeleting}
+                            aria-label={`Delete ${document.filename}`}
+                            className="text-danger hover:bg-danger/10 hover:text-danger"
+                          >
+                            <Trash2 className="h-4 w-4" aria-hidden="true" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </DataTableShell>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </DataPanel>
     </div>
   )
 }

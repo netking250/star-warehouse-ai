@@ -5,8 +5,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import {
   AlertTriangle,
-  TrendingUp,
-  TrendingDown,
   Activity,
   Clock,
   Shield,
@@ -27,6 +25,8 @@ import {
   useHallucinationRate,
 } from '@/hooks/useMetricsDashboard'
 import { GrafanaPanelGrid } from '../components/GrafanaPanelGrid'
+import { FilterBar, PageHeader, StatusBadge } from '../components/AdminPrimitives'
+import { useTheme } from '@/components/theme/useTheme'
 
 type TimeRange = '24h' | '7d' | '30d'
 type ViewMode = 'grafana' | 'legacy'
@@ -45,13 +45,11 @@ function SummaryCard({
   value,
   description,
   icon: Icon,
-  trend,
 }: {
   title: string
   value: string | number
   description: string
   icon: React.ElementType
-  trend?: 'up' | 'down' | 'neutral'
 }) {
   return (
     <Card>
@@ -60,12 +58,8 @@ function SummaryCard({
         <Icon className="h-4 w-4 text-muted-foreground" />
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
-        <div className="flex items-center text-xs text-muted-foreground">
-          {trend === 'up' && <TrendingUp className="mr-1 h-3 w-3 text-green-500" />}
-          {trend === 'down' && <TrendingDown className="mr-1 h-3 w-3 text-red-500" />}
-          {description}
-        </div>
+        <div className="numeric text-2xl font-semibold tracking-[-0.035em]">{value}</div>
+        <div className="mt-1 text-xs text-muted-foreground">{description}</div>
       </CardContent>
     </Card>
   )
@@ -126,19 +120,19 @@ function AlertsPanel({
                 key={index}
                 className={`flex items-start gap-3 rounded-lg border p-3 ${
                   alert.severity === 'high'
-                    ? 'border-red-200 bg-red-50'
+                    ? 'border-danger/20 bg-danger/[0.06]'
                     : alert.severity === 'medium'
-                      ? 'border-yellow-200 bg-yellow-50'
-                      : 'border-blue-200 bg-blue-50'
+                      ? 'border-warning/20 bg-warning/[0.06]'
+                      : 'border-info/20 bg-info/[0.06]'
                 }`}
               >
                 <AlertTriangle
                   className={`h-4 w-4 mt-0.5 ${
                     alert.severity === 'high'
-                      ? 'text-red-500'
+                      ? 'text-danger'
                       : alert.severity === 'medium'
-                        ? 'text-yellow-500'
-                        : 'text-blue-500'
+                        ? 'text-warning'
+                        : 'text-info'
                   }`}
                 />
                 <div className="flex-1">
@@ -158,7 +152,7 @@ function AlertsPanel({
           </div>
         ) : (
           <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
-            <Shield className="h-4 w-4 mr-2 text-green-500" />
+            <Shield className="mr-2 h-4 w-4 text-success" />
             暂无告警
           </div>
         )}
@@ -200,9 +194,9 @@ function IntentAccuracyCard({
                   <span className="text-muted-foreground">{trend.total} 次</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="h-2 w-24 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-2 w-24 overflow-hidden rounded-full bg-muted">
                     <div
-                      className="h-full rounded-full bg-green-500"
+                      className="h-full rounded-full bg-success"
                       style={{ width: `${(trend.accuracy ?? 0) * 100}%` }}
                     />
                   </div>
@@ -255,9 +249,9 @@ function TransferReasonsCard({
                     {reason.count} ({reason.percentage}%)
                   </span>
                 </div>
-                <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
                   <div
-                    className="h-full rounded-full bg-orange-500"
+                    className="h-full rounded-full bg-warning"
                     style={{ width: `${reason.percentage}%` }}
                   />
                 </div>
@@ -532,8 +526,7 @@ function LegacyMetricsView({ timeRange }: { timeRange: TimeRange }) {
                   : '-'
               }
               description="近24小时"
-              icon={TrendingUp}
-              trend={summary.avg_confidence_24h && summary.avg_confidence_24h > 0.7 ? 'up' : 'down'}
+              icon={BarChart3}
             />
             <SummaryCard
               title="转接率"
@@ -543,10 +536,7 @@ function LegacyMetricsView({ timeRange }: { timeRange: TimeRange }) {
                   : '-'
               }
               description="近24小时"
-              icon={TrendingDown}
-              trend={
-                summary.transfer_rate_24h != null && summary.transfer_rate_24h > 0.3 ? 'down' : 'up'
-              }
+              icon={Activity}
             />
             <SummaryCard
               title="平均延迟"
@@ -611,6 +601,7 @@ function LegacyMetricsView({ timeRange }: { timeRange: TimeRange }) {
 export function MetricsPage() {
   const [timeRange, setTimeRange] = useState<TimeRange>('24h')
   const [viewMode, setViewMode] = useState<ViewMode>('grafana')
+  const { theme } = useTheme()
   const config = timeRangeConfig[timeRange]
 
   const {
@@ -620,27 +611,36 @@ export function MetricsPage() {
   } = useDashboardAlerts(config.hours)
 
   return (
-    <div className="space-y-6 p-4 overflow-auto">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">生产监控看板</h1>
-          <p className="text-muted-foreground">实时监控系统核心指标和性能趋势</p>
+    <div className="space-y-7">
+      <PageHeader
+        eyebrow="Observability"
+        title="Runtime metrics"
+        description="Inspect real system performance, quality, retrieval, transfer, and token signals at operational density."
+        status={
+          <StatusBadge tone={alerts?.length ? 'warning' : 'success'}>
+            {alerts?.length ?? 0} active alerts
+          </StatusBadge>
+        }
+      />
+
+      <FilterBar>
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+          <label htmlFor="metrics-range" className="text-sm font-medium">
+            Time range
+          </label>
+          <select
+            id="metrics-range"
+            value={timeRange}
+            onChange={(e) => setTimeRange(e.target.value as TimeRange)}
+            className="h-9 w-[160px] rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            <option value="24h">最近24小时</option>
+            <option value="7d">最近7天</option>
+            <option value="30d">最近30天</option>
+          </select>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-            <select
-              value={timeRange}
-              onChange={(e) => setTimeRange(e.target.value as TimeRange)}
-              className="h-9 w-[160px] rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            >
-              <option value="24h">最近24小时</option>
-              <option value="7d">最近7天</option>
-              <option value="30d">最近30天</option>
-            </select>
-          </div>
-        </div>
-      </div>
+      </FilterBar>
 
       <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)} className="w-full">
         <TabsList className="w-full sm:w-auto">
@@ -665,12 +665,12 @@ export function MetricsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground">
-                <p>开发模式: 启用 Grafana 匿名访问</p>
-                <p>环境变量: VITE_GRAFANA_URL (默认: http://localhost:3000)</p>
+                <p>Development mode: Grafana anonymous access may be enabled.</p>
+                <p>Endpoint: VITE_GRAFANA_URL (default: http://localhost:3000)</p>
               </CardContent>
             </Card>
           </div>
-          <GrafanaPanelGrid timeRangeFrom={config.grafanaFrom} timeRangeTo="now" theme="light" />
+          <GrafanaPanelGrid timeRangeFrom={config.grafanaFrom} timeRangeTo="now" theme={theme} />
         </TabsContent>
 
         <TabsContent value="legacy">
