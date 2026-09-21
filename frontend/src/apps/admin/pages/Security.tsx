@@ -1,8 +1,6 @@
 import { useState } from 'react'
 import { ShieldCheck, UserRound } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAuthStore } from '@/stores/auth'
 import { hasCapability } from '@/lib/authorization'
 import { getConsoleErrorMessage } from '@/lib/console-errors'
@@ -17,6 +15,14 @@ import {
   ConsolePageSkeleton,
 } from '../components/ConsoleState'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import {
+  adminTableClassName,
+  DataPanel,
+  DataTableShell,
+  PageHeader,
+  SectionHeader,
+  StatusBadge,
+} from '../components/AdminPrimitives'
 
 const BASE_ROLES = [
   'identity_manager',
@@ -81,20 +87,12 @@ export function Security(): React.ReactElement {
 
   return (
     <div className="space-y-7">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-600">
-          Security & access
-        </p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
-          Tenant membership authority
-        </h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-          Review current local membership state for tenant{' '}
-          <span className="font-medium text-slate-700">{user?.tenant_id ?? 'current'}</span>.
-          Capabilities are shown from the server response; the backend remains authoritative for
-          every action.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Security & access"
+        title="Tenant membership authority"
+        description={`Review identity, role, and effective capability state for tenant ${user?.tenant_id ?? 'current'}. The backend remains authoritative for every action.`}
+        status={<StatusBadge tone="success">Sensitive values protected</StatusBadge>}
+      />
 
       {!canRead ? (
         <ConsoleEmptyState
@@ -104,25 +102,18 @@ export function Security(): React.ReactElement {
       ) : memberships.error ? (
         <ConsoleErrorState error={memberships.error} onRetry={() => void memberships.refetch()} />
       ) : (
-        <Card>
-          <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <ShieldCheck className="h-5 w-5 text-indigo-600" aria-hidden="true" />
-                Current memberships
-              </CardTitle>
-              <p className="mt-1 text-sm text-slate-500">
-                No passwords, tokens, session secrets, or identity-provider credentials are
-                displayed.
-              </p>
-            </div>
-            <Badge variant="outline">{memberships.data?.length ?? 0} members</Badge>
-          </CardHeader>
-          <CardContent>
+        <DataPanel className="p-5">
+          <SectionHeader
+            title="Current memberships"
+            description="No passwords, tokens, session secrets, or identity-provider credentials are displayed."
+            icon={ShieldCheck}
+            action={<StatusBadge>{memberships.data?.length ?? 0} members</StatusBadge>}
+          />
+          <div className="mt-5">
             {memberships.data?.length ? (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[760px] text-left text-sm">
-                  <thead className="border-b text-xs uppercase tracking-wide text-slate-500">
+              <DataTableShell>
+                <table className={`${adminTableClassName} min-w-[760px]`}>
+                  <thead>
                     <tr>
                       <th className="px-3 py-3">Identity</th>
                       <th className="px-3 py-3">Status</th>
@@ -139,12 +130,12 @@ export function Security(): React.ReactElement {
                         <tr key={membership.user_id} className="border-b last:border-0">
                           <td className="px-3 py-4">
                             <div className="flex items-center gap-3">
-                              <div className="grid h-9 w-9 place-items-center rounded-xl bg-slate-100 text-slate-600">
+                              <div className="grid h-9 w-9 place-items-center rounded-md border border-border-subtle bg-muted text-muted-foreground">
                                 <UserRound className="h-4 w-4" aria-hidden="true" />
                               </div>
                               <div>
-                                <p className="font-medium text-slate-800">{membership.username}</p>
-                                <p className="text-xs text-slate-500">
+                                <p className="font-medium text-foreground">{membership.username}</p>
+                                <p className="text-xs text-muted-foreground">
                                   User #{membership.user_id}
                                   {isSelf ? ' · current session' : ''}
                                 </p>
@@ -152,9 +143,9 @@ export function Security(): React.ReactElement {
                             </div>
                           </td>
                           <td className="px-3 py-4">
-                            <Badge variant={membership.active ? 'secondary' : 'outline'}>
+                            <StatusBadge tone={membership.active ? 'success' : 'neutral'}>
                               {membership.active ? 'Active' : 'Disabled'}
-                            </Badge>
+                            </StatusBadge>
                           </td>
                           <td className="px-3 py-4">
                             <select
@@ -187,16 +178,12 @@ export function Security(): React.ReactElement {
                                 .filter((scope) => !scope.includes(':'))
                                 .slice(0, 8)
                                 .map((scope) => (
-                                  <Badge
-                                    key={scope}
-                                    variant="outline"
-                                    className="font-mono text-[10px]"
-                                  >
+                                  <StatusBadge key={scope} className="font-mono text-[10px]">
                                     {scope}
-                                  </Badge>
+                                  </StatusBadge>
                                 ))}
                               {membership.scopes.filter((scope) => !scope.includes(':')).length >
-                                8 && <Badge variant="outline">+ more</Badge>}
+                                8 && <StatusBadge>+ more</StatusBadge>}
                             </div>
                           </td>
                           <td className="px-3 py-4 text-right">
@@ -218,7 +205,7 @@ export function Security(): React.ReactElement {
                                 {membership.active ? 'Disable' : 'Enable'}
                               </Button>
                             ) : (
-                              <span className="text-xs text-slate-400">
+                              <span className="text-xs text-muted-foreground">
                                 {isSelf ? 'Self-change blocked' : 'Read only'}
                               </span>
                             )}
@@ -228,21 +215,21 @@ export function Security(): React.ReactElement {
                     })}
                   </tbody>
                 </table>
-              </div>
+              </DataTableShell>
             ) : (
               <ConsoleEmptyState
                 title="No memberships found"
                 description="The current tenant has no membership records returned by the authorization API."
               />
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </DataPanel>
       )}
 
       {successMessage && (
         <p
           role="status"
-          className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+          className="rounded-md border border-success/20 bg-success/10 px-4 py-3 text-sm text-success"
         >
           {successMessage}
         </p>
@@ -250,7 +237,7 @@ export function Security(): React.ReactElement {
       {mutationError && (
         <p
           role="alert"
-          className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+          className="rounded-md border border-danger/20 bg-danger/10 px-4 py-3 text-sm text-danger"
         >
           {getConsoleErrorMessage(mutationError)}
         </p>

@@ -7,9 +7,7 @@ import {
   ShieldAlert,
   Users,
 } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAuthStore } from '@/stores/auth'
 import { hasAnyCapability, hasCapability } from '@/lib/authorization'
 import {
@@ -24,49 +22,17 @@ import {
   ConsoleErrorState,
   ConsolePageSkeleton,
 } from '../components/ConsoleState'
+import {
+  DataPanel,
+  MetricCard,
+  PageHeader,
+  SectionHeader,
+  StatusBadge,
+} from '../components/AdminPrimitives'
 
 function formatDate(value: string | null | undefined): string {
   if (!value) return '—'
   return new Date(value).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
-}
-
-function MetricCard({
-  label,
-  value,
-  detail,
-  icon: Icon,
-  tone = 'indigo',
-}: {
-  label: string
-  value: string | number
-  detail: string
-  icon: typeof Activity
-  tone?: 'indigo' | 'amber' | 'emerald' | 'rose'
-}): React.ReactElement {
-  const toneClasses = {
-    indigo: 'bg-indigo-50 text-indigo-700',
-    amber: 'bg-amber-50 text-amber-700',
-    emerald: 'bg-emerald-50 text-emerald-700',
-    rose: 'bg-rose-50 text-rose-700',
-  }
-  return (
-    <Card className="border-slate-200/80 shadow-sm">
-      <CardContent className="p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-[0.12em] text-slate-500">
-              {label}
-            </p>
-            <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">{value}</p>
-            <p className="mt-1 text-xs text-slate-500">{detail}</p>
-          </div>
-          <div className={`grid h-10 w-10 place-items-center rounded-xl ${toneClasses[tone]}`}>
-            <Icon className="h-5 w-5" aria-hidden="true" />
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
 }
 
 export function Overview(): React.ReactElement {
@@ -108,8 +74,8 @@ export function Overview(): React.ReactElement {
   const firstError = sources.find((query) => query.error)?.error
   if (firstError) {
     return (
-      <div className="space-y-6">
-        <PageIntro />
+      <div className="space-y-7">
+        <OverviewHeader />
         <ConsoleErrorState
           error={firstError}
           onRetry={() => void Promise.all(sources.map((query) => query.refetch()))}
@@ -127,7 +93,7 @@ export function Overview(): React.ReactElement {
 
   return (
     <div className="space-y-7">
-      <PageIntro />
+      <OverviewHeader />
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard
@@ -145,7 +111,7 @@ export function Overview(): React.ReactElement {
               : 'Requires reviews.read'
           }
           icon={ClipboardCheck}
-          tone="amber"
+          tone="warning"
         />
         <MetricCard
           label="Active alerts"
@@ -156,57 +122,56 @@ export function Overview(): React.ReactElement {
               : 'Requires operations.read'
           }
           icon={ShieldAlert}
-          tone={criticalAlerts ? 'rose' : 'emerald'}
+          tone={criticalAlerts ? 'danger' : 'success'}
         />
         <MetricCard
           label="Pending approvals"
           value={canApprove ? (pendingApprovals ?? 0) : '—'}
           detail={canApprove ? 'Sensitive operations only' : 'Requires compliance.read'}
           icon={Users}
-          tone="indigo"
+          tone="info"
         />
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
-        <Card className="border-slate-200/80 shadow-sm">
-          <CardHeader className="flex-row items-start justify-between space-y-0">
-            <div>
-              <CardTitle className="text-lg">Attention queue</CardTitle>
-              <p className="mt-1 text-sm text-slate-500">
-                Only current backend states are shown here.
-              </p>
-            </div>
-            <Button type="button" variant="outline" size="sm" asChild>
-              <Link to="/operations">
-                Open operations <ArrowRight className="h-4 w-4" aria-hidden="true" />
-              </Link>
-            </Button>
-          </CardHeader>
-          <CardContent>
+        <DataPanel className="p-5">
+          <SectionHeader
+            title="Work requiring attention"
+            description="Current backend states, ordered for operator review."
+            icon={ShieldAlert}
+            action={
+              <Button type="button" variant="outline" size="sm" asChild>
+                <Link to="/operations">
+                  Open operations <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </Link>
+              </Button>
+            }
+          />
+          <div className="mt-5">
             {canOperate && alerts.data && alerts.data.length > 0 ? (
               <div className="space-y-3">
                 {alerts.data.slice(0, 5).map((alert) => (
                   <div
                     key={alert.id}
-                    className="flex items-start justify-between gap-4 rounded-xl border border-slate-200 p-3"
+                    className="flex items-start justify-between gap-4 rounded-md border border-border-subtle bg-surface-elevated/55 p-3"
                   >
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <Badge variant={alert.severity === 'P0' ? 'destructive' : 'secondary'}>
+                        <StatusBadge tone={alert.severity === 'P0' ? 'danger' : 'warning'}>
                           {alert.severity}
-                        </Badge>
-                        <p className="truncate text-sm font-medium text-slate-800">{alert.name}</p>
+                        </StatusBadge>
+                        <p className="truncate text-sm font-medium text-foreground">{alert.name}</p>
                       </div>
-                      <p className="mt-1 text-sm text-slate-600">{alert.message}</p>
+                      <p className="mt-1 text-sm text-muted-foreground">{alert.message}</p>
                     </div>
-                    <time className="shrink-0 text-xs text-slate-400">
+                    <time className="numeric shrink-0 text-xs text-muted-foreground">
                       {formatDate(alert.fired_at)}
                     </time>
                   </div>
                 ))}
               </div>
             ) : canReview && taskStats.data && taskStats.data.total > 0 ? (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+              <div className="rounded-md border border-warning/20 bg-warning/10 p-4 text-sm text-foreground">
                 {taskStats.data.total} review items are waiting for an authorized operator.
               </div>
             ) : (
@@ -215,17 +180,16 @@ export function Overview(): React.ReactElement {
                 description="The supported operational sources are currently clear."
               />
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </DataPanel>
 
-        <Card className="border-slate-200/80 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg">Access-aware next steps</CardTitle>
-            <p className="mt-1 text-sm text-slate-500">
-              Navigate only to surfaces your current session can use.
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-3">
+        <DataPanel className="p-5">
+          <SectionHeader
+            title="Access-aware next steps"
+            description="Available control-plane actions for this session."
+            icon={CheckCircle2}
+          />
+          <div className="mt-5 space-y-2">
             {canSeeIdentity && (
               <QuickLink
                 href="/security"
@@ -251,36 +215,25 @@ export function Overview(): React.ReactElement {
               />
             )}
             {!canSeeIdentity && !canApprove && !canOperate && (
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-muted-foreground">
                 No additional console links are available for this session.
               </p>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </DataPanel>
       </div>
     </div>
   )
 }
 
-function PageIntro(): React.ReactElement {
+function OverviewHeader(): React.ReactElement {
   return (
-    <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-600">
-          Command center
-        </p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
-          Operational overview
-        </h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-          A quiet, evidence-first view of supported system state. Counts are sourced from existing
-          APIs and show “—” when this session cannot read a domain.
-        </p>
-      </div>
-      <Badge variant="outline" className="w-fit border-emerald-200 bg-emerald-50 text-emerald-700">
-        Server-authoritative session
-      </Badge>
-    </div>
+    <PageHeader
+      eyebrow="Command center"
+      title="Operational overview"
+      description="See what is happening, what needs attention, and whether the AI service is healthy. Every value comes from an existing backend source."
+      status={<StatusBadge tone="success">Server-authoritative session</StatusBadge>}
+    />
   )
 }
 
@@ -299,20 +252,20 @@ function QuickLink({
     <Button
       type="button"
       variant="ghost"
-      className="h-auto w-full justify-between rounded-xl border border-slate-200 p-3 text-left hover:bg-slate-50"
+      className="h-auto w-full justify-between rounded-md border border-border-subtle bg-surface-elevated/35 p-3 text-left hover:bg-muted/45"
       asChild
     >
       <Link to={href}>
         <span className="flex items-center gap-3">
-          <span className="grid h-9 w-9 place-items-center rounded-lg bg-slate-100 text-slate-600">
+          <span className="grid h-9 w-9 place-items-center rounded-md bg-muted text-muted-foreground">
             <Icon className="h-4 w-4" aria-hidden="true" />
           </span>
           <span>
-            <span className="block text-sm font-medium text-slate-800">{label}</span>
-            <span className="mt-0.5 block text-xs text-slate-500">{detail}</span>
+            <span className="block text-sm font-medium text-foreground">{label}</span>
+            <span className="mt-0.5 block text-xs text-muted-foreground">{detail}</span>
           </span>
         </span>
-        <ArrowRight className="h-4 w-4 text-slate-400" aria-hidden="true" />
+        <ArrowRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
       </Link>
     </Button>
   )

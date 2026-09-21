@@ -1,8 +1,6 @@
 import { useState } from 'react'
-import { MessageSquare, RefreshCw, ShieldAlert } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
+import { Activity, Clock, Gauge, MessageSquare, Radio, RefreshCw, ShieldAlert } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { useAuthStore } from '@/stores/auth'
 import { hasCapability } from '@/lib/authorization'
@@ -21,6 +19,16 @@ import {
   ConsolePageSkeleton,
 } from '../components/ConsoleState'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import {
+  adminTableClassName,
+  DataPanel,
+  DataTableShell,
+  FilterBar,
+  MetricCard,
+  PageHeader,
+  SectionHeader,
+  StatusBadge,
+} from '../components/AdminPrimitives'
 
 type OperationsTab = 'status' | 'reviews' | 'conversations'
 
@@ -98,27 +106,25 @@ export function Operations(): React.ReactElement {
 
   return (
     <div className="space-y-7">
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-600">
-            Operations
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
-            Control room
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-            Inspect supported operational state, review safe metadata, and take only
-            backend-supported actions.
-          </p>
-        </div>
-        <Button type="button" variant="outline" onClick={refresh} disabled={isLoading}>
-          <RefreshCw className="h-4 w-4" aria-hidden="true" />
-          Refresh
-        </Button>
-      </div>
+      <PageHeader
+        eyebrow="Operations"
+        title="Control room"
+        description="Track runtime posture, review queues, active alerts, and conversation execution using safe operational metadata."
+        status={
+          <StatusBadge tone="success" pulse>
+            Live operational surface
+          </StatusBadge>
+        }
+        actions={
+          <Button type="button" variant="outline" onClick={refresh} disabled={isLoading}>
+            <RefreshCw className="h-4 w-4" aria-hidden="true" />
+            Refresh
+          </Button>
+        }
+      />
 
       <div
-        className="flex flex-wrap gap-2 border-b border-slate-200 pb-3"
+        className="flex w-fit max-w-full flex-wrap gap-1 rounded-md border border-border-subtle bg-muted/55 p-1"
         role="tablist"
         aria-label="Operations views"
       >
@@ -185,7 +191,7 @@ export function Operations(): React.ReactElement {
       {decisionMutation.error && (
         <p
           role="alert"
-          className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+          className="rounded-md border border-danger/20 bg-danger/10 px-4 py-3 text-sm text-danger"
         >
           {getConsoleErrorMessage(decisionMutation.error)}
         </p>
@@ -225,7 +231,7 @@ function TabButton({
       role="tab"
       aria-selected={active}
       onClick={onClick}
-      className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${active ? 'bg-slate-950 text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'}`}
+      className={`rounded-sm px-3 py-2 text-sm font-medium transition-colors ${active ? 'bg-surface-elevated text-foreground shadow-sm' : 'text-muted-foreground hover:bg-surface/70 hover:text-foreground'}`}
     >
       {label}
     </button>
@@ -242,40 +248,51 @@ function StatusPanel({
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatusMetric label="Sessions · 24h" value={summary?.total_sessions_24h ?? '—'} />
-        <StatusMetric
+        <MetricCard
+          label="Sessions · 24h"
+          value={summary?.total_sessions_24h ?? '—'}
+          detail="Existing backend metric"
+          icon={Activity}
+        />
+        <MetricCard
           label="Average latency"
           value={
             summary?.avg_latency_ms_24h == null
               ? '—'
               : `${summary.avg_latency_ms_24h.toFixed(0)} ms`
           }
+          detail="Existing backend metric"
+          icon={Clock}
         />
-        <StatusMetric
+        <MetricCard
           label="Transfer rate"
           value={
             summary?.transfer_rate_24h == null
               ? '—'
               : `${(summary.transfer_rate_24h * 100).toFixed(1)}%`
           }
+          detail="Existing backend metric"
+          icon={Radio}
         />
-        <StatusMetric
+        <MetricCard
           label="Containment"
           value={
             summary?.containment_rate_24h == null
               ? '—'
               : `${(summary.containment_rate_24h * 100).toFixed(1)}%`
           }
+          detail="Existing backend metric"
+          icon={Gauge}
+          tone="success"
         />
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <ShieldAlert className="h-5 w-5 text-amber-600" aria-hidden="true" />
-            Active alerts
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+      <DataPanel className="p-5">
+        <SectionHeader
+          title="Active alerts"
+          description="Current alert events from the operational endpoint."
+          icon={ShieldAlert}
+        />
+        <div className="mt-5">
           {alerts.length === 0 ? (
             <ConsoleEmptyState
               title="No active alerts"
@@ -286,43 +303,27 @@ function StatusPanel({
               {alerts.map((alert) => (
                 <div
                   key={alert.id}
-                  className="flex items-start justify-between gap-4 rounded-xl border p-4"
+                  className="flex items-start justify-between gap-4 rounded-md border border-border-subtle bg-surface-elevated/45 p-4"
                 >
                   <div>
                     <div className="flex items-center gap-2">
-                      <Badge variant={alert.severity === 'P0' ? 'destructive' : 'secondary'}>
+                      <StatusBadge tone={alert.severity === 'P0' ? 'danger' : 'warning'}>
                         {alert.severity}
-                      </Badge>
+                      </StatusBadge>
                       <span className="font-medium">{alert.name}</span>
                     </div>
-                    <p className="mt-2 text-sm text-slate-600">{alert.message}</p>
+                    <p className="mt-2 text-sm text-muted-foreground">{alert.message}</p>
                   </div>
-                  <time className="text-xs text-slate-400">{formatDate(alert.fired_at)}</time>
+                  <time className="numeric text-xs text-muted-foreground">
+                    {formatDate(alert.fired_at)}
+                  </time>
                 </div>
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </DataPanel>
     </div>
-  )
-}
-
-function StatusMetric({
-  label,
-  value,
-}: {
-  label: string
-  value: string | number
-}): React.ReactElement {
-  return (
-    <Card>
-      <CardContent className="p-5">
-        <p className="text-xs font-medium uppercase tracking-[0.12em] text-slate-500">{label}</p>
-        <p className="mt-3 text-2xl font-semibold text-slate-950">{value}</p>
-        <p className="mt-1 text-xs text-slate-500">Existing backend metric</p>
-      </CardContent>
-    </Card>
   )
 }
 
@@ -344,15 +345,14 @@ function ReviewPanel({
   isMutating: boolean
 }): React.ReactElement {
   return (
-    <Card>
-      <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <CardTitle className="text-lg">Review queue</CardTitle>
-          <p className="mt-1 text-sm text-slate-500">
-            Safe metadata only; customer content and order snapshots are intentionally omitted.
-          </p>
-        </div>
-        <label className="text-sm text-slate-600">
+    <DataPanel className="p-5">
+      <SectionHeader
+        title="Review queue"
+        description="Safe metadata only; customer content and order snapshots are intentionally omitted."
+        icon={ShieldAlert}
+      />
+      <FilterBar className="mt-5">
+        <label className="text-sm text-muted-foreground">
           Risk filter
           <select
             aria-label="Risk filter"
@@ -370,22 +370,22 @@ function ReviewPanel({
             <option value="LOW">Low</option>
           </select>
         </label>
-      </CardHeader>
-      <CardContent>
-        <div className="mb-4 flex flex-wrap gap-2 text-xs text-slate-500">
-          <Badge variant="secondary">Total {stats?.total ?? 0}</Badge>
-          <Badge variant="outline">High risk {stats?.risk_tasks ?? 0}</Badge>
-          <Badge variant="outline">Confidence {stats?.confidence_tasks ?? 0}</Badge>
+        <div className="flex flex-wrap gap-2 sm:ml-auto">
+          <StatusBadge>Total {stats?.total ?? 0}</StatusBadge>
+          <StatusBadge tone="danger">High risk {stats?.risk_tasks ?? 0}</StatusBadge>
+          <StatusBadge tone="info">Confidence {stats?.confidence_tasks ?? 0}</StatusBadge>
         </div>
+      </FilterBar>
+      <div className="mt-5">
         {tasks.length === 0 ? (
           <ConsoleEmptyState
             title="The review queue is empty"
             description="No pending review items match the current filter."
           />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b text-xs uppercase tracking-wide text-slate-500">
+          <DataTableShell>
+            <table className={adminTableClassName}>
+              <thead>
                 <tr>
                   <th className="px-3 py-3">Risk</th>
                   <th className="px-3 py-3">Trigger</th>
@@ -398,13 +398,21 @@ function ReviewPanel({
                 {tasks.map((task) => (
                   <tr key={task.audit_log_id} className="border-b last:border-0">
                     <td className="px-3 py-3">
-                      <Badge variant={task.risk_level === 'HIGH' ? 'destructive' : 'secondary'}>
+                      <StatusBadge
+                        tone={
+                          task.risk_level === 'HIGH'
+                            ? 'danger'
+                            : task.risk_level === 'MEDIUM'
+                              ? 'warning'
+                              : 'neutral'
+                        }
+                      >
                         {task.risk_level}
-                      </Badge>
+                      </StatusBadge>
                     </td>
-                    <td className="px-3 py-3 font-medium text-slate-800">{task.trigger_reason}</td>
-                    <td className="px-3 py-3 text-slate-500">User #{task.user_id}</td>
-                    <td className="px-3 py-3 text-slate-500">{formatDate(task.created_at)}</td>
+                    <td className="font-medium text-foreground">{task.trigger_reason}</td>
+                    <td className="text-muted-foreground">User #{task.user_id}</td>
+                    <td className="numeric text-muted-foreground">{formatDate(task.created_at)}</td>
                     <td className="px-3 py-3 text-right">
                       {canDecide ? (
                         <div className="flex justify-end gap-2">
@@ -427,17 +435,17 @@ function ReviewPanel({
                           </Button>
                         </div>
                       ) : (
-                        <span className="text-xs text-slate-400">Read only</span>
+                        <span className="text-xs text-muted-foreground">Read only</span>
                       )}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
+          </DataTableShell>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </DataPanel>
   )
 }
 
@@ -463,48 +471,43 @@ function ConversationPanel({
   onNext: () => void
 }): React.ReactElement {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <MessageSquare className="h-5 w-5 text-indigo-600" aria-hidden="true" />
-          Conversation metadata
-        </CardTitle>
-        <p className="mt-1 text-sm text-slate-500">
-          Read-only operational metadata from the existing paginated conversation API. Message
-          content is not loaded.
-        </p>
-      </CardHeader>
-      <CardContent>
-        <div className="mb-5 grid gap-3 md:grid-cols-2">
-          <label className="text-xs font-medium uppercase tracking-wide text-slate-500">
-            User reference
-            <Input
-              className="mt-1"
-              inputMode="numeric"
-              value={userFilter}
-              onChange={(event) => onUserFilterChange(event.target.value)}
-              placeholder="Filter by user ID"
-            />
-          </label>
-          <label className="text-xs font-medium uppercase tracking-wide text-slate-500">
-            Intent category
-            <Input
-              className="mt-1"
-              value={intentFilter}
-              onChange={(event) => onIntentFilterChange(event.target.value)}
-              placeholder="Filter by existing category"
-            />
-          </label>
-        </div>
+    <DataPanel className="p-5">
+      <SectionHeader
+        title="Conversation metadata"
+        description="Read-only operational metadata from the existing paginated conversation API. Message content is not loaded."
+        icon={MessageSquare}
+      />
+      <FilterBar className="mt-5 grid md:grid-cols-2">
+        <label className="text-caption uppercase text-muted-foreground">
+          User reference
+          <Input
+            className="mt-1"
+            inputMode="numeric"
+            value={userFilter}
+            onChange={(event) => onUserFilterChange(event.target.value)}
+            placeholder="Filter by user ID"
+          />
+        </label>
+        <label className="text-caption uppercase text-muted-foreground">
+          Intent category
+          <Input
+            className="mt-1"
+            value={intentFilter}
+            onChange={(event) => onIntentFilterChange(event.target.value)}
+            placeholder="Filter by existing category"
+          />
+        </label>
+      </FilterBar>
+      <div className="mt-5">
         {threads.length === 0 ? (
           <ConsoleEmptyState
             title="No conversations found"
             description="The current filters returned no conversation metadata."
           />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b text-xs uppercase tracking-wide text-slate-500">
+          <DataTableShell>
+            <table className={adminTableClassName}>
+              <thead>
                 <tr>
                   <th className="px-3 py-3">Conversation</th>
                   <th className="px-3 py-3">User reference</th>
@@ -516,23 +519,23 @@ function ConversationPanel({
               <tbody>
                 {threads.map((thread) => (
                   <tr key={thread.thread_id} className="border-b last:border-0">
-                    <td className="px-3 py-3 font-mono text-xs text-slate-700">
-                      {thread.thread_id}
-                    </td>
-                    <td className="px-3 py-3 text-slate-500">
+                    <td className="font-mono text-xs text-foreground">{thread.thread_id}</td>
+                    <td className="text-muted-foreground">
                       {thread.user_id == null ? '—' : `User #${thread.user_id}`}
                     </td>
-                    <td className="px-3 py-3 text-slate-700">{thread.message_count}</td>
-                    <td className="px-3 py-3 text-slate-500">{thread.intent_category ?? '—'}</td>
-                    <td className="px-3 py-3 text-slate-500">{formatDate(thread.last_updated)}</td>
+                    <td className="numeric text-foreground">{thread.message_count}</td>
+                    <td className="text-muted-foreground">{thread.intent_category ?? '—'}</td>
+                    <td className="numeric text-muted-foreground">
+                      {formatDate(thread.last_updated)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
+          </DataTableShell>
         )}
-        <div className="mt-5 flex items-center justify-between border-t pt-4">
-          <p className="text-xs text-slate-500">
+        <div className="mt-5 flex items-center justify-between border-t border-border-subtle pt-4">
+          <p className="numeric text-xs text-muted-foreground">
             Showing {total === 0 ? 0 : offset + 1}–{Math.min(offset + 20, total)} of {total}
           </p>
           <div className="flex gap-2">
@@ -556,7 +559,7 @@ function ConversationPanel({
             </Button>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </DataPanel>
   )
 }

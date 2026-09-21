@@ -2,20 +2,39 @@
 schema_version: 1
 project: Star Warehouse AI
 phase: V1_1_ENTERPRISE_VISUAL_UPGRADE
-current_task: UI-01
+current_task: UI-02
 current_status: AWAITING_ACCEPTANCE
 execution_stage: EXTERNAL_ACCEPTANCE_PENDING
-last_accepted_task: P-UAT-03
-next_task: UI-01 external acceptance
+last_accepted_task: UI-01
+next_task: UI-02 external acceptance
 acceptance_owner: external
 maintenance_task: M02
 maintenance_status: PASS
 ---
 
-# UI-01 Current State
+# UI-02 Current State
+
+UI-01 was externally accepted `PASS_WITH_NOTES` at
+`5c70565db2985fa943314a3f69d72948ec65dee8`. UI-02 is
+`AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` on the same
+`feat/ui-v1.1-enterprise-visual` integration branch. All eight active Admin routes now use one
+operational PageHeader, metric, status, panel, filter, table, and state language on the accepted
+Light/Dark foundation. The temporary UI-01 legacy Admin theme bridge is removed.
+
+Clean install, Prettier, ESLint, 58 unit tests, production build, and all 9 Playwright tests pass.
+The UI-02 visual test reviewed all eight routes in Light and Dark at 1440px plus Overview,
+Operations, and Knowledge at 1024px; it reports no browser console errors or unexpected HTTP
+4xx/5xx. Screenshots remain in ignored Playwright output. No API, authorization, session, tenant,
+Agent/RAG, backend, business behavior, runtime dependency, customer redesign, fake data, PR, or
+merge was introduced. UI-03 has not started.
+
+The active plan is
+[`docs/exec-plans/active/UI-02.md`](../exec-plans/active/UI-02.md).
+
+# UI-01 Accepted State
 
 CR-UI-01 establishes the approved `V1.1 / FROZEN — Enterprise Visual Experience Upgrade` baseline.
-UI-01 is `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` on
+UI-01 is externally accepted `PASS_WITH_NOTES` on
 `feat/ui-v1.1-enterprise-visual`, based on protected main
 `0a502933dd3502c97bfff72f66bad89a84735d08`.
 
@@ -28,11 +47,7 @@ dependency, backend change, migration, or fake product data was added.
 
 Focused theme/opening tests, the full frontend unit suite, lint, format, production build, and
 Playwright Customer/Admin smoke pass. Browser screenshots cover both themes and the opening frame;
-they remain under ignored Playwright output only. UI-02 and UI-03 have not started. External
-acceptance is required before either follow-up stage.
-
-The active plan is
-[`docs/exec-plans/active/UI-01.md`](../exec-plans/active/UI-01.md).
+they remain under ignored Playwright output only. UI-03 has not started.
 
 # P-UAT-03-PR-FIX Current State
 
