@@ -27,6 +27,7 @@ Customer-facing chat SPA. Vite multi-page entry via `index.html`, served by Fast
 | Message list      | `@frontend/src/apps/customer/components/ChatMessageList.tsx`         | Message rendering                                                                                                 |
 | Chat input        | `@frontend/src/apps/customer/components/ChatInput.tsx`               | User input box                                                                                                    |
 | User feedback     | `@frontend/src/apps/customer/components/FeedbackWidget.tsx`          | User feedback widget for chat messages (thumbs up/down, rating)                                                   |
+| Visual E2E        | `@frontend/e2e/customer-visual-regression.spec.ts`                   | Customer login/chat Light, Dark, responsive, truthfulness, notification, and feedback matrix                      |
 | Shared UI         | `@frontend/src/components/ui/`                                       | shadcn/ui components (Button, Input, ScrollArea, etc.)                                                            |
 | Brand UI          | `@frontend/src/components/brand/StarWarehouseLogo.tsx`               | Shared 星仓 AI mark; reuse instead of duplicating logos                                                           |
 | Visual foundation | `@frontend/src/components/theme/`, `@frontend/src/components/shell/` | Shared theme preference, opening experience, ambient background, and shell primitives                             |
@@ -73,6 +74,7 @@ General frontend rules are defined in the root `AGENTS.md`. Customer-specific co
 - **Hook tests**: Use Vitest + `@testing-library/react` to test `hooks/useChat.ts`. Mock SSE stream data and event callbacks.
 - **E2E tests**: Use Playwright to cover the main chat flow (send message, receive SSE streaming response, error display).
 - **Component tests**: Verify message rendering and loading state in `ChatMessageList.tsx`, input validation and submission behavior in `ChatInput.tsx`.
+- **Visual regression**: Keep screenshots in ignored Playwright artifacts and assert runtime errors, failed responses, theme persistence, and horizontal overflow in the Customer visual matrix.
 
 ## Conventions
 

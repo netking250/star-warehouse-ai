@@ -1,4 +1,4 @@
-import { ArrowUp, Loader2, Paperclip, ShieldCheck, Square } from 'lucide-react'
+import { ArrowUp, Loader2, Square } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 
@@ -28,34 +28,30 @@ export function ChatInput({
   }
 
   return (
-    <div className="relative z-20 shrink-0 bg-gradient-to-t from-background via-background/95 to-transparent px-4 pb-4 pt-3 sm:px-8 sm:pb-6">
-      <div className="mx-auto max-w-4xl">
-        <div className="glass-panel flex items-end gap-2 rounded-2xl border p-2 shadow-lg transition focus-within:ring-2 focus-within:ring-ring/35">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="mb-0.5 shrink-0 rounded-xl text-muted-foreground hover:bg-muted hover:text-primary"
-            aria-label="添加附件"
-            disabled
-            title="附件能力将在知识增强版本开放"
-          >
-            <Paperclip className="h-4 w-4" />
-          </Button>
+    <div className="relative z-20 shrink-0 bg-gradient-to-t from-background via-background/98 via-70% to-transparent px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-5 sm:px-8 sm:pb-6">
+      <div className="mx-auto max-w-[52rem]">
+        <div className="glass-panel flex items-end gap-2 rounded-[var(--radius-xl)] border p-2 shadow-lg transition-[border-color,box-shadow,background-color] duration-200 focus-within:border-primary/30 focus-within:shadow-[var(--shadow-lg)] focus-within:ring-2 focus-within:ring-ring/25">
           <Textarea
             value={value}
             onChange={(event) => onChange(event.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={placeholder || '输入消息...'}
             disabled={isLoading}
-            className="max-h-[180px] min-h-[46px] flex-1 resize-none border-0 bg-transparent px-1 py-3 text-sm shadow-none focus-visible:ring-0"
+            aria-label="消息输入"
+            className="max-h-[180px] min-h-[48px] flex-1 resize-none border-0 bg-transparent px-3 py-3 text-[15px] leading-6 shadow-none focus-visible:ring-0"
             rows={1}
           />
           <Button
+            type="button"
             onClick={isLoading ? onCancel : onSend}
             disabled={!isLoading && !value.trim()}
-            aria-label="发送消息"
-            className="mb-0.5 h-10 w-10 shrink-0 rounded-xl bg-[image:var(--gradient-primary)] p-0 shadow-md"
+            aria-label={isLoading ? '停止生成' : '发送消息'}
+            title={isLoading ? '停止生成' : '发送消息'}
+            className={`mb-0.5 h-10 w-10 shrink-0 rounded-[var(--radius-md)] p-0 shadow-md ${
+              isLoading
+                ? 'border border-danger/20 bg-danger/10 text-danger hover:bg-danger/15'
+                : 'bg-[image:var(--gradient-primary)]'
+            }`}
           >
             {isLoading ? (
               onCancel ? (
@@ -68,10 +64,9 @@ export function ChatInput({
             )}
           </Button>
         </div>
-        <div className="mt-2 flex items-center justify-center gap-1.5 text-[10px] text-muted-foreground sm:text-xs">
-          <ShieldCheck className="h-3 w-3 text-success" />
-          星仓 AI 可能会出错，重要操作请核对确认 · Enter 发送
-        </div>
+        <p className="mt-2 text-center text-[10px] leading-4 text-muted-foreground sm:text-xs">
+          星仓 AI 可能会出错，重要信息请核对确认 · Enter 发送，Shift + Enter 换行
+        </p>
       </div>
     </div>
   )
