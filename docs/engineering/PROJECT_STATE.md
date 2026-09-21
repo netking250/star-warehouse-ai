@@ -2,21 +2,45 @@
 schema_version: 1
 project: Star Warehouse AI
 phase: V1_1_ENTERPRISE_VISUAL_UPGRADE
-current_task: UI-03
+current_task: UI-04
 current_status: AWAITING_ACCEPTANCE
 execution_stage: EXTERNAL_ACCEPTANCE_PENDING
-last_accepted_task: UI-02
-next_task: UI-03 external acceptance
+last_accepted_task: UI-03
+next_task: UI-04 external acceptance
 acceptance_owner: external
 maintenance_task: M02
 maintenance_status: PASS
 ---
 
-# UI-03 Current State
+# UI-04 Current State
+
+UI-03 was externally accepted `PASS_WITH_NOTES` at
+`e92a24d551b10c3268524776f4e6261661fb65e5`. UI-04 is
+`AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` on
+`feat/ui-v1.1-enterprise-visual`, starting from a clean worktree at the accepted UI-03 head.
+
+The final audit found and corrected two concrete accessibility defects: Light-theme semantic status
+text did not consistently meet WCAG AA contrast, and the custom Admin/Customer mobile drawers did
+not provide modal focus management, Escape close, or focus return. The shared Sheet primitive now
+owns both drawers, and a token-level regression test covers critical Light/Dark contrast pairs.
+
+Clean install, Prettier, ESLint, 16 unit files / 63 tests, the 1930-module production build, and all
+14 Playwright tests pass. The final visual matrix covers every Admin route at 1440, 1280, and 1024,
+the Customer experience at 1440, 1280, 1024, 390, and 360, both themes, opening, responsive drawers,
+and the accepted functional smoke paths. Visual suites report zero console errors, page errors, and
+unexpected HTTP 4xx/5xx. The required ignored evidence and reviewed contact sheet are under
+`frontend/test-results/ui-v1.1-final/`.
+
+No unsupported claim, dead active control, horizontal overflow, runtime dependency, backend,
+migration, workflow, provider/model, API/auth contract, Agent/RAG, or business-behavior change was
+introduced. No PR or merge was created. The active plan is
+[`docs/exec-plans/active/UI-04.md`](../exec-plans/active/UI-04.md).
+
+# UI-03 Accepted State
 
 UI-02 was externally accepted `PASS_WITH_NOTES` at
-`d1500077432fd6dab1719a027298fb5973b0f146`. UI-03 is
-`AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` on the same
+`d1500077432fd6dab1719a027298fb5973b0f146`. UI-03 is externally accepted
+`PASS_WITH_NOTES` at `e92a24d551b10c3268524776f4e6261661fb65e5` on the same
 `feat/ui-v1.1-enterprise-visual` integration branch. Its scope is limited to the Customer login,
 authenticated chat shell, conversation presentation, feedback, notification, and responsive visual
 experience on the accepted UI-01 foundation.
@@ -33,8 +57,8 @@ Prettier, ESLint, 15 unit files / 62 tests, the 1929-module production build, an
 tests pass. The Customer matrix covers Light/Dark login, empty chat, active/long conversation,
 expanded feedback, 1280/1024 layouts, and 390/360px mobile states without console errors,
 unexpected HTTP 4xx/5xx, or horizontal overflow. No runtime dependency, backend, PR, or merge was
-introduced. The active plan is
-[`docs/exec-plans/active/UI-03.md`](../exec-plans/active/UI-03.md).
+introduced. The completed plan is
+[`docs/exec-plans/completed/UI-03.md`](../exec-plans/completed/UI-03.md).
 
 # UI-02 Accepted State
 

@@ -3769,3 +3769,40 @@ Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
   4xx/5xx, horizontal overflow, or significant visual clash with the accepted Admin system was
   observed. Screenshots remain under ignored `frontend/test-results/`.
 - UI-03 is awaiting external acceptance. UI-04 remains not started; no PR or merge was created.
+
+## UI-03 external acceptance and UI-04 final cross-app acceptance audit
+
+Started: 2026-09-21
+
+Finished: 2026-09-21
+
+Status: `AWAITING_ACCEPTANCE`
+
+Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
+
+- UI-03 was externally accepted `PASS_WITH_NOTES` at
+  `e92a24d551b10c3268524776f4e6261661fb65e5`; its plan moved to completed. Recovery confirmed the
+  exact accepted branch head and a clean starting worktree before UI-04 changes.
+- The final visual, theme, motion, blur, gradient, typography, spacing, component, responsive,
+  accessibility, truthfulness, dead-control, empty/loading/error, performance, dependency, and
+  scope audits found two concrete defects. Light status text tokens were below AA contrast, and both
+  custom mobile drawers lacked modal focus management, Escape close, and focus return.
+- Light success, warning, danger, and info tokens now meet the new critical-pair `>= 4.5:1` test.
+  Admin and Customer mobile navigation reuse the existing Radix-backed Sheet with named dialog
+  semantics and localized close labels. No page redesign, new feature, or behavior change was made.
+- `npm --prefix frontend ci`, Prettier, ESLint, 16 unit files / 63 tests, the 1930-module production
+  build, and all 14 Playwright tests passed. The final browser matrix covers all Admin routes at
+  1440/1280/1024 and Customer at 1440/1280/1024/390/360, opening, themes, login/logout,
+  initialization, send/stream/cancel/feedback, navigation, approval, 401/403, responsive drawers,
+  and document-overflow checks.
+- Visual suites recorded zero console errors, page errors, and unexpected HTTP 4xx/5xx. The build
+  emits 63.08 kB CSS and 50.56/176.03/329.16 kB JS chunks; the largest gzip chunk is 103.08 kB.
+  Only existing React-SWC/Vite migration warnings remain. No Lighthouse score is claimed.
+- The required deterministic `01` through `15` screenshots and labeled contact sheet are ignored at
+  `frontend/test-results/ui-v1.1-final/`. The contact sheet was reviewed at original resolution and
+  shows one coherent, restrained product with designed Light/Dark themes, premium Customer spacing,
+  enterprise Admin density, and no secret or credential exposure.
+- Package and lockfile runtime dependency deltas are empty. No backend application code, migration,
+  CI workflow, provider/model, API/auth contract, Agent/RAG, or business behavior changed. No full
+  backend suite or Bailian benchmark ran. No PR or merge was created; external acceptance remains
+  required.

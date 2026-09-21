@@ -1,4 +1,19 @@
-import { expect, test, type Page, type TestInfo } from '@playwright/test'
+import { mkdir } from 'node:fs/promises'
+import path from 'node:path'
+import { expect, test, type Page, type Route, type TestInfo } from '@playwright/test'
+
+const finalEvidenceDirectory = path.resolve(process.cwd(), 'test-results', 'ui-v1.1-final')
+const finalEvidenceNames: Readonly<Record<string, string>> = {
+  'overview-light.png': '07-admin-overview-light.png',
+  'overview-dark.png': '08-admin-overview-dark.png',
+  'operations-dark.png': '09-admin-operations-dark.png',
+  'ai-runtime-light.png': '10-admin-ai-light.png',
+  'security-dark.png': '11-admin-security-dark.png',
+  'compliance-light.png': '12-admin-compliance-light.png',
+  'knowledge-dark.png': '13-admin-knowledge-dark.png',
+  'feedback-light.png': '14-admin-feedback-light.png',
+  'metrics-dark.png': '15-admin-metrics-dark.png',
+}
 
 const routes = [
   { path: '/', name: 'overview', heading: 'Operational overview' },
@@ -52,14 +67,16 @@ function installBrowserStubs(page: Page): Promise<void> {
 }
 
 async function stubAdminData(page: Page): Promise<void> {
-  await page.route('http://localhost:3000/**', (route) => {
+  const fulfillGrafana = (route: Route) => {
     const dark = new URL(route.request().url()).searchParams.get('theme') === 'dark'
     return route.fulfill({
       status: 200,
       contentType: 'text/html',
       body: `<style>html,body{margin:0;min-height:100%;font:14px system-ui;background:${dark ? '#111827' : '#f8fafc'};color:${dark ? '#cbd5e1' : '#475569'}}main{padding:24px}</style><main>Grafana fixture</main>`,
     })
-  })
+  }
+  await page.route('http://localhost:3000/**', fulfillGrafana)
+  await page.route('**/grafana/**', fulfillGrafana)
   await page.route('**/api/v1/me', (route) =>
     route.fulfill({
       status: 200,
@@ -271,12 +288,21 @@ async function capture(page: Page, testInfo: TestInfo, name: string): Promise<vo
   if (viewport) await page.mouse.move(viewport.width - 4, viewport.height - 4)
   await page.waitForTimeout(250)
   await page.screenshot({ path: testInfo.outputPath(name), fullPage: true })
+  const finalEvidenceName = finalEvidenceNames[name]
+  if (finalEvidenceName) {
+    await mkdir(finalEvidenceDirectory, { recursive: true })
+    await page.screenshot({
+      path: path.join(finalEvidenceDirectory, finalEvidenceName),
+      fullPage: true,
+    })
+  }
 }
 
 test('all active Admin routes share the enterprise visual system in both themes', async ({
   page,
 }, testInfo) => {
   const consoleErrors: string[] = []
+  const pageErrors: string[] = []
   const failedResponses: string[] = []
   page.on('console', (message) => {
     if (message.type() === 'error') consoleErrors.push(message.text())
@@ -284,6 +310,7 @@ test('all active Admin routes share the enterprise visual system in both themes'
   page.on('response', (response) => {
     if (response.status() >= 400) failedResponses.push(`${response.status()} ${response.url()}`)
   })
+  page.on('pageerror', (error) => pageErrors.push(error.message))
 
   await installBrowserStubs(page)
   await stubAdminData(page)
@@ -309,13 +336,18 @@ test('all active Admin routes share the enterprise visual system in both themes'
   await page.reload()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
 
-  await page.setViewportSize({ width: 1024, height: 900 })
-  for (const route of routes.filter(({ name }) =>
-    ['overview', 'operations', 'knowledge'].includes(name)
-  )) {
-    await page.goto(`/admin.html#${route.path}`)
-    await expect(page.getByRole('heading', { name: route.heading })).toBeVisible()
-    await capture(page, testInfo, `${route.name}-1024-dark.png`)
+  for (const viewport of [
+    { width: 1280, height: 900 },
+    { width: 1024, height: 768 },
+  ]) {
+    await page.setViewportSize(viewport)
+    for (const route of routes) {
+      await page.goto(`/admin.html#${route.path}`)
+      await expect(page.getByRole('heading', { name: route.heading })).toBeVisible()
+      expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
+        false
+      )
+    }
   }
 
   await page.setViewportSize({ width: 390, height: 844 })
@@ -329,5 +361,22 @@ test('all active Admin routes share the enterprise visual system in both themes'
   await capture(page, testInfo, 'admin-mobile-dark.png')
 
   expect(consoleErrors).toEqual([])
+  expect(pageErrors).toEqual([])
   expect(failedResponses).toEqual([])
+})
+
+test('Admin mobile navigation is a focus-managed drawer', async ({ page }) => {
+  await installBrowserStubs(page)
+  await stubAdminData(page)
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/admin.html#/')
+
+  const trigger = page.getByRole('button', { name: 'Open navigation' })
+  await trigger.click()
+  const drawer = page.getByRole('dialog', { name: 'Enterprise console navigation' })
+  await expect(drawer).toBeVisible()
+
+  await page.keyboard.press('Escape')
+  await expect(drawer).toHaveCount(0)
+  await expect(trigger).toBeFocused()
 })

@@ -21,13 +21,13 @@
     --secondary-foreground: 0.265 0.035 258;
     --accent: 0.64 0.19 286;
     --accent-foreground: 0.985 0.005 255;
-    --success: 0.59 0.145 158;
+    --success: 0.52 0.145 158;
     --success-foreground: 0.985 0.005 158;
-    --warning: 0.72 0.16 73;
-    --warning-foreground: 0.25 0.05 73;
-    --danger: 0.59 0.205 25;
+    --warning: 0.55 0.16 73;
+    --warning-foreground: 0.985 0.005 73;
+    --danger: 0.57 0.205 25;
     --danger-foreground: 0.985 0.005 25;
-    --info: 0.61 0.16 237;
+    --info: 0.53 0.16 237;
     --info-foreground: 0.985 0.005 237;
     --focus-ring: 0.62 0.19 263;
     --shadow-sm: 0 1px 2px rgb(15 23 42 / 0.05), 0 1px 8px rgb(30 41 59 / 0.035);

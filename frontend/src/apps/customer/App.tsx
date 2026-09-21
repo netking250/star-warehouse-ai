@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { BrandMark, StarWarehouseLogo } from '@/components/brand/StarWarehouseLogo'
 import { AppBackground } from '@/components/shell/AppShell'
 import { ThemeToggle } from '@/components/theme/ThemeToggle'
@@ -286,187 +287,181 @@ const App: FC = () => {
     )
   }
 
-  return (
-    <main className="relative flex h-[100dvh] overflow-hidden bg-background text-foreground">
-      <AppBackground />
-      {sidebarOpen && (
-        <button
-          type="button"
-          className="fixed inset-0 z-30 bg-foreground/25 backdrop-blur-sm lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-          aria-label="关闭菜单"
-        />
-      )}
+  const renderSidebarContent = (): React.ReactElement => (
+    <>
+      <div className="flex h-[72px] items-center justify-between border-b border-border-subtle px-5">
+        <StarWarehouseLogo />
+      </div>
 
-      <aside
-        aria-label="客户服务导航"
-        className={`fixed inset-y-0 left-0 z-40 flex w-[min(19rem,88vw)] flex-col border-r border-border-subtle bg-surface-elevated/94 text-foreground shadow-lg backdrop-blur-xl transition-transform duration-300 lg:static lg:w-[18rem] lg:translate-x-0 lg:shadow-none ${
-          sidebarOpen ? 'visible translate-x-0' : 'invisible -translate-x-full lg:visible'
-        }`}
-      >
-        <div className="flex h-[72px] items-center justify-between border-b border-border-subtle px-5">
-          <StarWarehouseLogo />
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-muted-foreground hover:bg-muted hover:text-foreground lg:hidden"
-            onClick={() => setSidebarOpen(false)}
-            aria-label="关闭菜单"
-          >
-            <X className="h-5 w-5" />
-          </Button>
-        </div>
+      <div className="flex-1 overflow-y-auto px-4 py-5">
+        <Button
+          onClick={handleNewConversation}
+          className="h-11 w-full justify-start rounded-[var(--radius-md)] border border-primary/15 bg-primary/10 text-primary shadow-none hover:bg-primary/15"
+          data-testid="new-conversation-button"
+        >
+          <Plus className="h-4 w-4" />
+          开启新对话
+        </Button>
 
-        <div className="flex-1 overflow-y-auto px-4 py-5">
-          <Button
-            onClick={handleNewConversation}
-            className="h-11 w-full justify-start rounded-[var(--radius-md)] border border-primary/15 bg-primary/10 text-primary shadow-none hover:bg-primary/15"
-            data-testid="new-conversation-button"
-          >
-            <Plus className="h-4 w-4" />
-            开启新对话
-          </Button>
-
-          <nav className="mt-8" aria-label="常用服务">
-            <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-              常用服务
-            </p>
-            <div className="mt-3 space-y-1">
-              {QUICK_TASKS.map(({ label, prompt, icon: Icon }) => (
-                <button
-                  type="button"
-                  key={label}
-                  onClick={() => handleQuickTask(prompt)}
-                  disabled={isLoading}
-                  className="group flex min-h-10 w-full items-center gap-3 rounded-[var(--radius-md)] px-3 py-2.5 text-left text-sm text-muted-foreground transition-[background-color,color] duration-150 hover:bg-primary/8 hover:text-foreground disabled:opacity-50"
-                >
-                  <Icon className="h-4 w-4 text-muted-foreground transition group-hover:text-primary" />
-                  <span className="flex-1">{label}</span>
-                  <ChevronRight className="h-3.5 w-3.5 opacity-0 transition group-hover:opacity-100" />
-                </button>
-              ))}
-            </div>
-          </nav>
-
-          <div className="mt-8 rounded-[var(--radius-lg)] border border-border-subtle bg-surface/72 p-4">
-            <div className="flex items-center gap-2 text-xs font-medium text-foreground">
-              <BellRing className="h-4 w-4" />
-              服务连接
-            </div>
-            <div className="mt-3 flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">
-                {isConnected ? '智能服务已连接' : '正在建立服务连接'}
-              </span>
-              <span
-                className={`h-2 w-2 rounded-full ${isConnected ? 'bg-success' : 'bg-muted-foreground/45'}`}
-                aria-hidden="true"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="border-t border-border-subtle p-4">
-          <div className="flex items-center gap-3 rounded-[var(--radius-md)] px-2 py-2">
-            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-[var(--radius-md)] bg-primary/10 text-sm font-semibold text-primary">
-              {accountInitial}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">{displayName}</p>
-              <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{accountLabel}</p>
-            </div>
-          </div>
-        </div>
-      </aside>
-
-      <section className="relative z-10 flex min-w-0 flex-1 flex-col">
-        <header className="glass-panel z-20 flex h-[72px] shrink-0 items-center justify-between border-b px-3 sm:px-6">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="lg:hidden"
-              onClick={() => setSidebarOpen(true)}
-              aria-label="打开菜单"
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
-            <div>
-              <h1 className="text-sm font-semibold tracking-[-0.015em] sm:text-base">
-                星仓 AI 服务助手
-              </h1>
-              <p className="mt-1 hidden text-xs text-muted-foreground sm:block">
-                订单、物流、售后与企业知识
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1">
-            <ThemeToggle />
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground hover:text-foreground"
-              data-testid="logout-button"
-              aria-label="退出登录"
-              title="退出登录"
-              onClick={() => void logout()}
-            >
-              <LogOut className="h-4 w-4" />
-              <span className="hidden sm:inline">退出</span>
-            </Button>
-          </div>
-        </header>
-
-        <ChatMessageList
-          messages={messages}
-          isLoading={isLoading}
-          ref={scrollRef}
-          onFeedback={handleFeedback}
-          onQuickTask={handleQuickTask}
-        />
-        <ChatInput
-          value={input}
-          onChange={setInput}
-          onSend={handleSend}
-          onCancel={() => void cancelGeneration()}
-          isLoading={isLoading}
-          placeholder="告诉星仓 AI，您需要什么帮助..."
-        />
-      </section>
-
-      <div
-        className="fixed left-3 right-3 top-3 z-50 flex flex-col gap-2 sm:left-auto sm:right-6 sm:top-20 sm:w-[22rem]"
-        aria-live="polite"
-        aria-label="服务通知"
-      >
-        {toasts.map((toast) => (
-          <div
-            key={toast.id}
-            role="status"
-            className="glass-panel page-enter w-full rounded-[var(--radius-lg)] border px-4 py-3 shadow-lg"
-          >
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 grid h-8 w-8 place-items-center rounded-xl bg-primary/10 text-primary">
-                <Clock3 className="h-4 w-4" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-foreground">{toast.title}</p>
-                <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{toast.message}</p>
-              </div>
-              <Button
+        <nav className="mt-8" aria-label="常用服务">
+          <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            常用服务
+          </p>
+          <div className="mt-3 space-y-1">
+            {QUICK_TASKS.map(({ label, prompt, icon: Icon }) => (
+              <button
                 type="button"
-                variant="ghost"
-                size="icon"
-                className="-mr-2 -mt-1 h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
-                onClick={() => setToasts((prev) => prev.filter((item) => item.id !== toast.id))}
-                aria-label="关闭通知"
+                key={label}
+                onClick={() => handleQuickTask(prompt)}
+                disabled={isLoading}
+                className="group flex min-h-10 w-full items-center gap-3 rounded-[var(--radius-md)] px-3 py-2.5 text-left text-sm text-muted-foreground transition-[background-color,color] duration-150 hover:bg-primary/8 hover:text-foreground disabled:opacity-50"
               >
-                <X className="h-4 w-4" />
+                <Icon className="h-4 w-4 text-muted-foreground transition group-hover:text-primary" />
+                <span className="flex-1">{label}</span>
+                <ChevronRight className="h-3.5 w-3.5 opacity-0 transition group-hover:opacity-100" />
+              </button>
+            ))}
+          </div>
+        </nav>
+
+        <div className="mt-8 rounded-[var(--radius-lg)] border border-border-subtle bg-surface/72 p-4">
+          <div className="flex items-center gap-2 text-xs font-medium text-foreground">
+            <BellRing className="h-4 w-4" />
+            服务连接
+          </div>
+          <div className="mt-3 flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">
+              {isConnected ? '智能服务已连接' : '正在建立服务连接'}
+            </span>
+            <span
+              className={`h-2 w-2 rounded-full ${isConnected ? 'bg-success' : 'bg-muted-foreground/45'}`}
+              aria-hidden="true"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="border-t border-border-subtle p-4">
+        <div className="flex items-center gap-3 rounded-[var(--radius-md)] px-2 py-2">
+          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-[var(--radius-md)] bg-primary/10 text-sm font-semibold text-primary">
+            {accountInitial}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium">{displayName}</p>
+            <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{accountLabel}</p>
+          </div>
+        </div>
+      </div>
+    </>
+  )
+
+  return (
+    <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+      <main className="relative flex h-[100dvh] overflow-hidden bg-background text-foreground">
+        <AppBackground />
+
+        <aside
+          aria-label="客户服务导航"
+          className="hidden w-[18rem] shrink-0 flex-col border-r border-border-subtle bg-surface-elevated/94 text-foreground lg:flex"
+        >
+          {renderSidebarContent()}
+        </aside>
+
+        <SheetContent
+          aria-describedby={undefined}
+          closeLabel="关闭菜单"
+          className="glass-panel left-0 right-auto flex w-[min(19rem,88vw)] flex-col gap-0 border-l-0 border-r border-border-subtle bg-surface-elevated/94 p-0 text-foreground shadow-lg data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left sm:max-w-[19rem] lg:hidden"
+        >
+          <SheetTitle className="sr-only">客户服务导航</SheetTitle>
+          {renderSidebarContent()}
+        </SheetContent>
+
+        <section className="relative z-10 flex min-w-0 flex-1 flex-col">
+          <header className="glass-panel z-20 flex h-[72px] shrink-0 items-center justify-between border-b px-3 sm:px-6">
+            <div className="flex items-center gap-3">
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="lg:hidden" aria-label="打开菜单">
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </SheetTrigger>
+              <div>
+                <h1 className="text-sm font-semibold tracking-[-0.015em] sm:text-base">
+                  星仓 AI 服务助手
+                </h1>
+                <p className="mt-1 hidden text-xs text-muted-foreground sm:block">
+                  订单、物流、售后与企业知识
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1">
+              <ThemeToggle />
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground hover:text-foreground"
+                data-testid="logout-button"
+                aria-label="退出登录"
+                title="退出登录"
+                onClick={() => void logout()}
+              >
+                <LogOut className="h-4 w-4" />
+                <span className="hidden sm:inline">退出</span>
               </Button>
             </div>
-          </div>
-        ))}
-      </div>
-    </main>
+          </header>
+
+          <ChatMessageList
+            messages={messages}
+            isLoading={isLoading}
+            ref={scrollRef}
+            onFeedback={handleFeedback}
+            onQuickTask={handleQuickTask}
+          />
+          <ChatInput
+            value={input}
+            onChange={setInput}
+            onSend={handleSend}
+            onCancel={() => void cancelGeneration()}
+            isLoading={isLoading}
+            placeholder="告诉星仓 AI，您需要什么帮助..."
+          />
+        </section>
+
+        <div
+          className="fixed left-3 right-3 top-3 z-50 flex flex-col gap-2 sm:left-auto sm:right-6 sm:top-20 sm:w-[22rem]"
+          aria-live="polite"
+          aria-label="服务通知"
+        >
+          {toasts.map((toast) => (
+            <div
+              key={toast.id}
+              role="status"
+              className="glass-panel page-enter w-full rounded-[var(--radius-lg)] border px-4 py-3 shadow-lg"
+            >
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 grid h-8 w-8 place-items-center rounded-xl bg-primary/10 text-primary">
+                  <Clock3 className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-foreground">{toast.title}</p>
+                  <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{toast.message}</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="-mr-2 -mt-1 h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+                  onClick={() => setToasts((prev) => prev.filter((item) => item.id !== toast.id))}
+                  aria-label="关闭通知"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </main>
+    </Sheet>
   )
 }
 

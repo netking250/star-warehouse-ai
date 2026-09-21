@@ -65,18 +65,21 @@ verification, and external acceptance before the next stage starts.
 | --- | --- | --- |
 | UI-01 | Design system, adaptive theme, global shells, and opening experience | PASS_WITH_NOTES |
 | UI-02 | Admin page visual redesign | PASS_WITH_NOTES |
-| UI-03 | Customer chat visual redesign | AWAITING_ACCEPTANCE |
-| UI-04 | Cross-app visual, accessibility, and performance acceptance | NOT_STARTED |
+| UI-03 | Customer chat visual redesign | PASS_WITH_NOTES |
+| UI-04 | Cross-app visual, accessibility, and performance acceptance | AWAITING_ACCEPTANCE |
 
 UI-01 provides shared semantic tokens, early light/dark resolution, manual persisted preference,
 the abstract Star Warehouse AI identity, CSS-only ambient/opening motion, and unified Admin/Customer
 shells. Existing application contracts and business behavior remain unchanged. UI-01 was externally
 accepted `PASS_WITH_NOTES`; UI-02 is also externally accepted `PASS_WITH_NOTES` at
-`d1500077432fd6dab1719a027298fb5973b0f146`. UI-03 now provides the refined Customer login and
-conversational experience without changing application contracts or business behavior. Its clean
-install, 62 unit tests, production build, and 12 Playwright tests pass, and it is awaiting external
-acceptance. UI-04 has not started. The active plan is
-[`docs/exec-plans/active/UI-03.md`](../exec-plans/active/UI-03.md).
+`d1500077432fd6dab1719a027298fb5973b0f146`. UI-03 is externally accepted `PASS_WITH_NOTES` at
+`e92a24d551b10c3268524776f4e6261661fb65e5`; it provides the refined Customer login and
+conversational experience without changing application contracts or business behavior. UI-04 has
+completed the final cross-app visual, accessibility, performance, responsive, and functional audit.
+Focused Light-theme contrast and mobile-drawer accessibility corrections pass 63 unit and 14
+Playwright tests; the required ignored screenshot set and contact sheet were reviewed. UI-04 now
+awaits external acceptance. The active plan is
+[`docs/exec-plans/active/UI-04.md`](../exec-plans/active/UI-04.md).
 
 P-UAT-03-PR-FIX is awaiting external acceptance on PR #13 from head
 `98e64fb6e6a385105874be610be8a962ae2bd7ee` after P-UAT-03A-FINAL-RETEST was externally reported

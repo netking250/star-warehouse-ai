@@ -1,4 +1,8 @@
+import { mkdir } from 'node:fs/promises'
+import path from 'node:path'
 import { expect, test, type Page, type TestInfo } from '@playwright/test'
+
+const finalEvidenceDirectory = path.resolve(process.cwd(), 'test-results', 'ui-v1.1-final')
 
 const adminSession = {
   user_id: 7,
@@ -11,8 +15,13 @@ const adminSession = {
   session_id: 'visual-e2e-session',
 }
 
-function observeRuntime(page: Page): { consoleErrors: string[]; failedResponses: string[] } {
+function observeRuntime(page: Page): {
+  consoleErrors: string[]
+  pageErrors: string[]
+  failedResponses: string[]
+} {
   const consoleErrors: string[] = []
+  const pageErrors: string[] = []
   const failedResponses: string[] = []
   page.on('console', (message) => {
     if (message.type() === 'error') consoleErrors.push(message.text())
@@ -22,11 +31,24 @@ function observeRuntime(page: Page): { consoleErrors: string[]; failedResponses:
       failedResponses.push(`${response.status()} ${response.url()}`)
     }
   })
-  return { consoleErrors, failedResponses }
+  page.on('pageerror', (error) => pageErrors.push(error.message))
+  return { consoleErrors, pageErrors, failedResponses }
 }
 
-async function saveScreenshot(page: Page, testInfo: TestInfo, name: string): Promise<void> {
+async function saveScreenshot(
+  page: Page,
+  testInfo: TestInfo,
+  name: string,
+  finalEvidenceName?: string
+): Promise<void> {
   await page.screenshot({ path: testInfo.outputPath(name), fullPage: true })
+  if (finalEvidenceName) {
+    await mkdir(finalEvidenceDirectory, { recursive: true })
+    await page.screenshot({
+      path: path.join(finalEvidenceDirectory, finalEvidenceName),
+      fullPage: true,
+    })
+  }
 }
 
 async function stubAdminReads(page: Page): Promise<void> {
@@ -99,7 +121,7 @@ test('customer shell renders both themes and preserves the choice without replay
   await page.goto('/')
   await expect(page.getByTestId('opening-experience')).toBeVisible()
   await page.waitForTimeout(1100)
-  await saveScreenshot(page, testInfo, 'opening-frame.png')
+  await saveScreenshot(page, testInfo, 'opening-frame.png', '01-opening.png')
   await expect(page.getByTestId('opening-experience')).toBeHidden({ timeout: 7000 })
   await expect(page.locator('#customer-username')).toBeVisible()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
@@ -117,6 +139,7 @@ test('customer shell renders both themes and preserves the choice without replay
   await saveScreenshot(page, testInfo, 'customer-mobile-dark.png')
 
   expect(runtime.consoleErrors).toEqual([])
+  expect(runtime.pageErrors).toEqual([])
   expect(runtime.failedResponses).toEqual([])
 })
 
@@ -178,5 +201,6 @@ test('admin shell renders both themes and keeps primary navigation operational',
   await expect(page.getByRole('tab', { name: 'System status' })).toBeVisible()
 
   expect(runtime.consoleErrors).toEqual([])
+  expect(runtime.pageErrors).toEqual([])
   expect(runtime.failedResponses).toEqual([])
 })
