@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { AlertTriangle, Send, ThumbsDown, ThumbsUp, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { ThumbsUp, ThumbsDown, Send, X, AlertTriangle } from 'lucide-react'
+import { Textarea } from '@/components/ui/textarea'
 
 export type FeedbackCategory = 'accuracy' | 'helpfulness' | 'tone' | 'speed' | 'other'
 
@@ -38,7 +38,7 @@ export function FeedbackWidget({
   onSubmit,
   onCancel,
   autoTrigger = false,
-}: FeedbackWidgetProps) {
+}: FeedbackWidgetProps): React.ReactElement {
   const [selectedSentiment, setSelectedSentiment] = useState<'up' | 'down' | null>(
     initialSentiment ?? null
   )
@@ -80,19 +80,20 @@ export function FeedbackWidget({
   const isLowConfidence = confidenceScore !== undefined && confidenceScore < 0.6
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex max-w-xl flex-col gap-2">
       {isLowConfidence && (
-        <div className="flex items-center gap-1.5 text-xs text-warning">
-          <AlertTriangle className="h-3 w-3" />
-          <span>此回复置信度较低，请帮助我们改进</span>
+        <div className="flex items-start gap-2 rounded-[var(--radius-md)] bg-warning/8 px-3 py-2 text-xs leading-5 text-warning">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>此回复置信度较低，可帮助我们改进。</span>
         </div>
       )}
 
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1" aria-label="回复反馈">
+        <span className="mr-1 text-[11px] text-muted-foreground">此回复是否有帮助？</span>
         <Button
           variant="ghost"
           size="icon"
-          className={`h-7 w-7 ${
+          className={`h-8 w-8 rounded-[var(--radius-sm)] ${
             selectedSentiment === 'up'
               ? 'bg-primary/10 text-primary hover:bg-primary/15'
               : 'text-muted-foreground hover:text-foreground'
@@ -106,7 +107,7 @@ export function FeedbackWidget({
         <Button
           variant="ghost"
           size="icon"
-          className={`h-7 w-7 ${
+          className={`h-8 w-8 rounded-[var(--radius-sm)] ${
             selectedSentiment === 'down'
               ? 'bg-danger/10 text-danger hover:bg-danger/15'
               : 'text-muted-foreground hover:text-foreground'
@@ -120,10 +121,12 @@ export function FeedbackWidget({
       </div>
 
       {isExpanded && selectedSentiment && (
-        <div className="animate-in fade-in slide-in-from-top-1 flex flex-col gap-3 rounded-lg border border-border-subtle bg-surface-elevated p-3 duration-200">
+        <div className="animate-in fade-in slide-in-from-top-1 flex flex-col gap-3 rounded-[var(--radius-lg)] border border-border-subtle bg-surface-elevated p-3 shadow-md duration-200 sm:gap-4 sm:p-4">
           <div className="space-y-2">
-            <Label className="text-xs font-medium text-foreground">反馈类别（可选）</Label>
-            <div className="flex flex-wrap gap-2">
+            <Label className="text-xs font-medium text-foreground">
+              希望我们改进什么？（可选）
+            </Label>
+            <div className="flex flex-wrap gap-1.5 sm:gap-2">
               {CATEGORIES.map((cat) => (
                 <button
                   key={cat.value}
@@ -131,7 +134,7 @@ export function FeedbackWidget({
                   onClick={() =>
                     setSelectedCategory(selectedCategory === cat.value ? null : cat.value)
                   }
-                  className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
+                  className={`min-h-7 rounded-[var(--radius-sm)] border px-2.5 py-1 text-xs transition-colors ${
                     selectedCategory === cat.value
                       ? 'border-primary/30 bg-primary/10 text-primary'
                       : 'border-border-subtle bg-surface text-muted-foreground hover:border-border'
@@ -154,26 +157,26 @@ export function FeedbackWidget({
             <Textarea
               id={`feedback-comment-${messageId}`}
               value={comment}
-              onChange={(e) => setComment(e.target.value)}
+              onChange={(event) => setComment(event.target.value)}
               placeholder="请描述您的问题或建议..."
-              className="min-h-[60px] text-xs resize-none"
+              className="min-h-16 resize-none bg-surface text-xs leading-5 sm:min-h-20"
               maxLength={500}
             />
             <div className="text-right text-xs text-muted-foreground">{comment.length}/500</div>
           </div>
 
           <div className="flex items-center justify-end gap-2">
-            <Button variant="ghost" size="sm" onClick={handleCancel} className="h-7 text-xs">
-              <X className="h-3 w-3 mr-1" />
+            <Button variant="ghost" size="sm" onClick={handleCancel} className="text-xs">
+              <X className="mr-1 h-3 w-3" />
               取消
             </Button>
             <Button
               size="sm"
               onClick={handleSubmit}
-              className="h-7 text-xs"
+              className="text-xs"
               disabled={!selectedSentiment}
             >
-              <Send className="h-3 w-3 mr-1" />
+              <Send className="mr-1 h-3 w-3" />
               提交反馈
             </Button>
           </div>

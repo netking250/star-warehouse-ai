@@ -3730,3 +3730,42 @@ Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
   contrast, overflow, and continuity and remain in ignored `frontend/test-results/`; the matrix
   reported no console errors or unexpected HTTP 4xx/5xx.
 - UI-02 remains for external acceptance. No PR or merge was created, and UI-03 was not started.
+
+## UI-02 external acceptance and UI-03 execution
+
+Started: 2026-09-21
+
+Finished: 2026-09-21
+
+Status: `AWAITING_ACCEPTANCE`
+
+Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
+
+- UI-02 was externally accepted `PASS_WITH_NOTES` at
+  `d1500077432fd6dab1719a027298fb5973b0f146`; its plan moved to completed without changing the
+  accepted Admin implementation.
+- Recovery confirmed a clean, synchronized `feat/ui-v1.1-enterprise-visual` worktree at the exact
+  accepted UI-02 head.
+- UI-03 is limited to the Customer visual experience and preserves authentication, session, CSRF,
+  SSE, WebSocket, conversation, feedback, tenant, Agent/RAG, and business behavior.
+- UI-04 remains not started. No branch, PR, merge, or dependency change was introduced at task
+  start.
+- Refined the Customer login, lightweight session restoration, authenticated shell, honest session
+  identity and connection status, welcome workspace, user/assistant message hierarchy, streaming
+  state, composer, feedback, and stacked WebSocket notifications on the accepted V1.1 foundation.
+- Removed unsupported `7x24`, latency, traceability, enterprise-encryption, VIP, static service-
+  health, answer-safety, and completion-analysis claims. Removed the inert Help action and disabled
+  future attachment advertisement. No fake history, customer tier, service event, or business data
+  was added.
+- Authentication, cookie session, CSRF, SSE, WebSocket, thread identity, new-conversation reset,
+  cancellation, feedback, tenant, Agent/RAG, and business contracts are unchanged. No backend,
+  migration, workflow, API, Admin redesign, package dependency, UI-04, PR, or merge change exists.
+- `npm --prefix frontend ci`, Prettier, ESLint, 15 unit files / 62 tests, the 1929-module production
+  build, and all 12 Playwright tests passed. Customer E2E covers login/logout, initialization,
+  empty state, quick task, send/completion, positive and expanded negative feedback, reset, real
+  status-toast data, theme persistence, and responsive drawer/composer behavior.
+- Screenshots were reviewed in Light and Dark at 1440, 1280, 1024, 390, and 360px for login, empty,
+  active, long-answer, feedback, sidebar, and composer states. No console errors, unexpected HTTP
+  4xx/5xx, horizontal overflow, or significant visual clash with the accepted Admin system was
+  observed. Screenshots remain under ignored `frontend/test-results/`.
+- UI-03 is awaiting external acceptance. UI-04 remains not started; no PR or merge was created.

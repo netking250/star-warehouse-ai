@@ -1,19 +1,16 @@
 import { forwardRef } from 'react'
 import {
-  Bot,
-  CheckCircle2,
   Loader2,
   PackageSearch,
   ReceiptText,
-  ShieldCheck,
   Sparkles,
   ThumbsDown,
   ThumbsUp,
   Truck,
   User,
 } from 'lucide-react'
+import { BrandMark } from '@/components/brand/StarWarehouseLogo'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import type { Message } from '@/types'
 import { FeedbackWidget } from './FeedbackWidget'
@@ -33,155 +30,151 @@ interface ChatMessageListProps {
 
 const WELCOME_TASKS = [
   {
-    title: '查订单',
-    description: '快速了解订单状态',
+    title: '查询我的订单',
+    description: '查看近期订单与当前状态',
     icon: PackageSearch,
-    prompt: '查询我的最近订单',
+    prompt: '帮我查询一下最近的订单状态',
   },
   {
-    title: '看物流',
-    description: '获取最新物流进度',
+    title: '物流到哪了',
+    description: '了解订单的最新物流进度',
     icon: Truck,
-    prompt: '我的订单物流到哪里了？',
+    prompt: '帮我查询一下订单的物流进度',
   },
   {
-    title: '退换货',
-    description: '了解政策并发起申请',
+    title: '退换货政策',
+    description: '了解办理条件与服务边界',
     icon: ReceiptText,
-    prompt: '我想了解退换货政策',
+    prompt: '请介绍一下退换货政策和办理条件',
+  },
+  {
+    title: '商品选购建议',
+    description: '根据真实需求梳理选择方向',
+    icon: Sparkles,
+    prompt: '我想选购商品，请根据我的需求给一些建议',
   },
 ]
+
+function AssistantIdentity(): React.ReactElement {
+  return (
+    <div className="brand-mark-shell grid h-8 w-8 shrink-0 place-items-center rounded-[var(--radius-md)]">
+      <BrandMark className="h-6 w-6" />
+    </div>
+  )
+}
 
 /** Render the active customer conversation and its service states. */
 export const ChatMessageList = forwardRef<HTMLDivElement, ChatMessageListProps>(
   ({ messages, isLoading, onFeedback, onQuickTask }, ref) => {
-    let assistantMessageCount = 0
+    const conversationMessages = messages.filter((message) => message.id !== 'welcome')
+    let assistantMessageCount = messages.some((message) => message.id === 'welcome') ? 1 : 0
 
     return (
       <ScrollArea className="relative z-10 flex-1" ref={ref}>
-        <div className="mx-auto w-full max-w-4xl px-4 pb-10 pt-8 sm:px-8 sm:pt-12">
-          {messages.length === 1 && (
-            <section className="mb-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
-              <div className="mb-5 flex items-center gap-3">
-                <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[image:var(--gradient-primary)] text-primary-foreground shadow-md">
-                  <Sparkles className="h-5 w-5" />
+        <div className="mx-auto w-full max-w-[56rem] px-4 pb-10 pt-6 sm:px-8 sm:pb-14 sm:pt-10">
+          {conversationMessages.length === 0 && (
+            <section className="page-enter mx-auto flex min-h-[min(58vh,35rem)] max-w-[48rem] flex-col justify-center py-8 sm:py-12">
+              <div className="mb-7 flex items-center gap-4">
+                <div className="brand-mark-shell grid h-14 w-14 shrink-0 place-items-center rounded-[var(--radius-lg)]">
+                  <BrandMark className="h-11 w-11" />
                 </div>
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-                    智能服务已就绪
+                  <p className="text-caption uppercase tracking-[0.18em] text-primary">
+                    星仓 AI · 智能服务
                   </p>
-                  <h2 className="mt-1 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-                    今天想先处理什么？
+                  <h2 className="mt-1.5 text-2xl font-semibold tracking-[-0.035em] text-foreground sm:text-[2rem]">
+                    今天需要处理什么？
                   </h2>
                 </div>
               </div>
-              <div className="grid gap-3 sm:grid-cols-3">
+              <p className="max-w-xl text-sm leading-7 text-muted-foreground sm:text-[15px]">
+                我可以协助查询订单与物流、说明售后政策，并结合企业知识梳理商品选择。
+              </p>
+              <div className="mt-7 grid gap-3 sm:grid-cols-2">
                 {WELCOME_TASKS.map(({ title, description, icon: Icon, prompt }) => (
                   <button
                     key={title}
                     type="button"
                     onClick={() => onQuickTask?.(prompt)}
-                    className="group rounded-2xl border border-border-subtle bg-surface/88 p-4 text-left shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:bg-surface-elevated hover:shadow-md"
+                    disabled={isLoading}
+                    className="group flex min-h-24 items-start gap-3 rounded-[var(--radius-lg)] border border-border-subtle bg-surface/72 p-4 text-left shadow-sm transition-[transform,border-color,background-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:bg-surface-elevated hover:shadow-md disabled:pointer-events-none disabled:opacity-50"
                   >
-                    <div className="grid h-9 w-9 place-items-center rounded-xl bg-muted text-muted-foreground transition group-hover:bg-primary/10 group-hover:text-primary">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[var(--radius-md)] bg-primary/8 text-primary transition-colors group-hover:bg-primary/12">
                       <Icon className="h-4 w-4" />
-                    </div>
-                    <p className="mt-4 text-sm font-semibold text-foreground">{title}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+                    </span>
+                    <span>
+                      <span className="block text-sm font-semibold text-foreground">{title}</span>
+                      <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                        {description}
+                      </span>
+                    </span>
                   </button>
                 ))}
               </div>
             </section>
           )}
 
-          <div className="space-y-7">
-            {messages.map((message) => {
+          <div className="space-y-8" aria-live="polite" aria-busy={isLoading}>
+            {conversationMessages.map((message) => {
               const isAssistant = message.role === 'assistant'
               const currentMessageIndex = isAssistant ? assistantMessageCount++ : -1
+
+              if (!isAssistant) {
+                return (
+                  <article key={message.id} className="flex justify-end gap-3">
+                    <div className="flex max-w-[88%] flex-col items-end gap-2 sm:max-w-[72%]">
+                      <span className="text-caption text-muted-foreground">你</span>
+                      <div className="whitespace-pre-wrap break-words rounded-[var(--radius-lg)] rounded-tr-[0.35rem] bg-primary px-4 py-3 text-[14px] leading-7 text-primary-foreground shadow-sm sm:px-5">
+                        {message.content}
+                      </div>
+                    </div>
+                    <Avatar className="mt-6 h-8 w-8 shrink-0 border border-border-subtle bg-surface-elevated shadow-sm">
+                      <AvatarFallback className="bg-transparent">
+                        <User className="h-3.5 w-3.5 text-muted-foreground" />
+                      </AvatarFallback>
+                    </Avatar>
+                  </article>
+                )
+              }
 
               return (
                 <article
                   key={message.id}
-                  className={`flex gap-3 sm:gap-4 ${message.role === 'user' ? 'flex-row-reverse' : ''}`}
+                  className="grid grid-cols-[2rem_minmax(0,1fr)] gap-3 sm:gap-4"
                 >
-                  <Avatar
-                    className={`h-9 w-9 shrink-0 border shadow-sm ${
-                      message.role === 'user'
-                        ? 'border-border-subtle bg-surface-elevated'
-                        : 'border-primary/15 bg-[image:var(--gradient-primary)] text-primary-foreground'
-                    }`}
-                  >
-                    <AvatarFallback className="bg-transparent">
-                      {message.role === 'user' ? (
-                        <User className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <Bot className="h-4 w-4" />
-                      )}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex max-w-[86%] flex-col gap-2 sm:max-w-[78%]">
-                    <div
-                      className={`flex items-center gap-2 ${message.role === 'user' ? 'justify-end' : ''}`}
-                    >
-                      <span className="text-xs font-medium text-muted-foreground">
-                        {message.role === 'user' ? '你' : '星仓 AI'}
-                      </span>
-                      {isAssistant && (
-                        <span className="inline-flex items-center gap-1 text-[10px] text-success">
-                          <ShieldCheck className="h-3 w-3" /> 安全响应
+                  <AssistantIdentity />
+                  <div className="min-w-0 max-w-[46rem]">
+                    <div className="mb-2 flex items-center gap-2">
+                      <span className="text-xs font-semibold text-foreground">星仓 AI</span>
+                      <span className="text-caption text-muted-foreground">AI 回复</span>
+                    </div>
+                    <div className="border-l-2 border-primary/20 bg-gradient-to-r from-primary/[0.045] to-transparent py-1 pl-4 pr-1 text-[15px] leading-7 text-foreground sm:pl-5 sm:text-[15.5px] sm:leading-8">
+                      {message.isStreaming && !message.content ? (
+                        <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                          <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                          正在整理信息…
                         </span>
+                      ) : (
+                        <span className="whitespace-pre-wrap break-words">{message.content}</span>
                       )}
-                    </div>
-                    <div
-                      className={`whitespace-pre-wrap rounded-2xl px-4 py-3 text-[14px] leading-7 shadow-sm sm:px-5 ${
-                        message.role === 'user'
-                          ? 'rounded-tr-md bg-[image:var(--gradient-primary)] text-primary-foreground'
-                          : 'rounded-tl-md border border-border-subtle bg-surface-elevated text-foreground'
-                      }`}
-                    >
-                      {message.content}
-                      {message.isStreaming && (
-                        <span className="ml-1 inline-block h-4 w-1.5 animate-pulse rounded-full bg-primary" />
+                      {message.isStreaming && message.content && (
+                        <span
+                          className="ml-1 inline-block h-4 w-0.5 animate-pulse rounded-full bg-primary align-middle"
+                          aria-hidden="true"
+                        />
                       )}
                     </div>
 
-                    {isAssistant && !message.isStreaming && message.id !== 'welcome' && (
-                      <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                        <CheckCircle2 className="h-3 w-3 text-success" />
-                        已完成本次智能分析
-                      </div>
-                    )}
-
-                    {isAssistant && !message.isStreaming && onFeedback && (
-                      <div className="flex flex-col gap-1">
+                    {!message.isStreaming && onFeedback && (
+                      <div className="mt-3">
                         {message.feedbackSentiment ? (
-                          <div className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className={`h-7 w-7 ${
-                                message.feedbackSentiment === 'up'
-                                  ? 'bg-primary/10 text-primary'
-                                  : 'text-muted-foreground'
-                              }`}
-                              disabled
-                              aria-label="已点赞"
-                            >
-                              <ThumbsUp className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className={`h-7 w-7 ${
-                                message.feedbackSentiment === 'down'
-                                  ? 'bg-danger/10 text-danger'
-                                  : 'text-muted-foreground'
-                              }`}
-                              disabled
-                              aria-label="已点踩"
-                            >
-                              <ThumbsDown className="h-3 w-3" />
-                            </Button>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span>感谢你的反馈</span>
+                            {message.feedbackSentiment === 'up' ? (
+                              <ThumbsUp className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+                            ) : (
+                              <ThumbsDown className="h-3.5 w-3.5 text-danger" aria-hidden="true" />
+                            )}
                           </div>
                         ) : (
                           <FeedbackWidget
@@ -201,20 +194,6 @@ export const ChatMessageList = forwardRef<HTMLDivElement, ChatMessageListProps>(
                 </article>
               )
             })}
-
-            {isLoading && messages[messages.length - 1]?.role === 'user' && (
-              <div className="flex gap-4">
-                <Avatar className="h-9 w-9 border border-primary/15 bg-[image:var(--gradient-primary)] text-primary-foreground">
-                  <AvatarFallback className="bg-transparent">
-                    <Bot className="h-4 w-4" />
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex items-center gap-2 rounded-2xl rounded-tl-md border border-border-subtle bg-surface-elevated px-4 py-3 shadow-sm">
-                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                  <span className="text-sm text-muted-foreground">正在理解并连接相关服务...</span>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </ScrollArea>

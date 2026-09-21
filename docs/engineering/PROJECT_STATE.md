@@ -2,21 +2,45 @@
 schema_version: 1
 project: Star Warehouse AI
 phase: V1_1_ENTERPRISE_VISUAL_UPGRADE
-current_task: UI-02
+current_task: UI-03
 current_status: AWAITING_ACCEPTANCE
 execution_stage: EXTERNAL_ACCEPTANCE_PENDING
-last_accepted_task: UI-01
-next_task: UI-02 external acceptance
+last_accepted_task: UI-02
+next_task: UI-03 external acceptance
 acceptance_owner: external
 maintenance_task: M02
 maintenance_status: PASS
 ---
 
-# UI-02 Current State
+# UI-03 Current State
+
+UI-02 was externally accepted `PASS_WITH_NOTES` at
+`d1500077432fd6dab1719a027298fb5973b0f146`. UI-03 is
+`AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` on the same
+`feat/ui-v1.1-enterprise-visual` integration branch. Its scope is limited to the Customer login,
+authenticated chat shell, conversation presentation, feedback, notification, and responsive visual
+experience on the accepted UI-01 foundation.
+
+The Customer login, non-blank session initialization, navigation, welcome state, message hierarchy,
+streaming presentation, composer, feedback, notifications, and mobile drawer now use one calm,
+premium conversational language. Unsupported availability, latency, traceability, encryption,
+VIP, health, and answer-safety claims were removed. Real session identity and WebSocket connection
+state are shown where available; unfinished attachment and inert help controls are absent.
+
+Authentication, cookie session, CSRF, SSE, WebSocket, thread identity, cancellation, feedback API,
+tenant boundaries, Agent/RAG behavior, and all business workflows remain unchanged. Clean install,
+Prettier, ESLint, 15 unit files / 62 tests, the 1929-module production build, and all 12 Playwright
+tests pass. The Customer matrix covers Light/Dark login, empty chat, active/long conversation,
+expanded feedback, 1280/1024 layouts, and 390/360px mobile states without console errors,
+unexpected HTTP 4xx/5xx, or horizontal overflow. No runtime dependency, backend, PR, or merge was
+introduced. The active plan is
+[`docs/exec-plans/active/UI-03.md`](../exec-plans/active/UI-03.md).
+
+# UI-02 Accepted State
 
 UI-01 was externally accepted `PASS_WITH_NOTES` at
-`5c70565db2985fa943314a3f69d72948ec65dee8`. UI-02 is
-`AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` on the same
+`5c70565db2985fa943314a3f69d72948ec65dee8`. UI-02 is externally accepted
+`PASS_WITH_NOTES` at `d1500077432fd6dab1719a027298fb5973b0f146` on the same
 `feat/ui-v1.1-enterprise-visual` integration branch. All eight active Admin routes now use one
 operational PageHeader, metric, status, panel, filter, table, and state language on the accepted
 Light/Dark foundation. The temporary UI-01 legacy Admin theme bridge is removed.
@@ -26,10 +50,10 @@ The UI-02 visual test reviewed all eight routes in Light and Dark at 1440px plus
 Operations, and Knowledge at 1024px; it reports no browser console errors or unexpected HTTP
 4xx/5xx. Screenshots remain in ignored Playwright output. No API, authorization, session, tenant,
 Agent/RAG, backend, business behavior, runtime dependency, customer redesign, fake data, PR, or
-merge was introduced. UI-03 has not started.
+merge was introduced.
 
-The active plan is
-[`docs/exec-plans/active/UI-02.md`](../exec-plans/active/UI-02.md).
+The completed plan is
+[`docs/exec-plans/completed/UI-02.md`](../exec-plans/completed/UI-02.md).
 
 # UI-01 Accepted State
 
@@ -47,7 +71,7 @@ dependency, backend change, migration, or fake product data was added.
 
 Focused theme/opening tests, the full frontend unit suite, lint, format, production build, and
 Playwright Customer/Admin smoke pass. Browser screenshots cover both themes and the opening frame;
-they remain under ignored Playwright output only. UI-03 has not started.
+they remain under ignored Playwright output only. Subsequent V1.1 task state is recorded above.
 
 # P-UAT-03-PR-FIX Current State
 

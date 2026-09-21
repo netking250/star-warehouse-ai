@@ -64,16 +64,19 @@ verification, and external acceptance before the next stage starts.
 | Task | Name | Status |
 | --- | --- | --- |
 | UI-01 | Design system, adaptive theme, global shells, and opening experience | PASS_WITH_NOTES |
-| UI-02 | Admin page visual redesign | AWAITING_ACCEPTANCE |
-| UI-03 | Customer chat visual redesign | NOT_STARTED |
+| UI-02 | Admin page visual redesign | PASS_WITH_NOTES |
+| UI-03 | Customer chat visual redesign | AWAITING_ACCEPTANCE |
+| UI-04 | Cross-app visual, accessibility, and performance acceptance | NOT_STARTED |
 
 UI-01 provides shared semantic tokens, early light/dark resolution, manual persisted preference,
 the abstract Star Warehouse AI identity, CSS-only ambient/opening motion, and unified Admin/Customer
 shells. Existing application contracts and business behavior remain unchanged. UI-01 was externally
-accepted `PASS_WITH_NOTES`; UI-02 now applies that foundation to all active Admin routes and is
-awaiting external acceptance after frontend and visual verification. UI-03 remains gated on UI-02
-external acceptance. The active plan is
-[`docs/exec-plans/active/UI-02.md`](../exec-plans/active/UI-02.md).
+accepted `PASS_WITH_NOTES`; UI-02 is also externally accepted `PASS_WITH_NOTES` at
+`d1500077432fd6dab1719a027298fb5973b0f146`. UI-03 now provides the refined Customer login and
+conversational experience without changing application contracts or business behavior. Its clean
+install, 62 unit tests, production build, and 12 Playwright tests pass, and it is awaiting external
+acceptance. UI-04 has not started. The active plan is
+[`docs/exec-plans/active/UI-03.md`](../exec-plans/active/UI-03.md).
 
 P-UAT-03-PR-FIX is awaiting external acceptance on PR #13 from head
 `98e64fb6e6a385105874be610be8a962ae2bd7ee` after P-UAT-03A-FINAL-RETEST was externally reported
