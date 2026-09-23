@@ -1,29 +1,38 @@
-"""Tests for idempotent vector-data initialization."""
+"""Tests for legacy bootstrap compatibility wrappers."""
 
-from types import SimpleNamespace
+from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
 
-from scripts.initialize_vector_data import _tenant_data_exists
+from scripts import initialize_vector_data, seed_data, seed_product_catalog
 
 
 @pytest.mark.asyncio
-async def test_tenant_data_exists_false_when_collection_is_missing():
-    client = AsyncMock()
-    client.collection_exists.return_value = False
+async def test_initialize_vector_data_delegates_to_canonical_bootstrap(monkeypatch) -> None:
+    bootstrap = AsyncMock()
+    monkeypatch.setattr(initialize_vector_data, "bootstrap_main", bootstrap)
 
-    assert not await _tenant_data_exists(client, "development_knowledge_chunks")
-    client.count.assert_not_awaited()
+    await initialize_vector_data.main()
+
+    bootstrap.assert_awaited_once_with(Path("data"))
 
 
 @pytest.mark.asyncio
-async def test_tenant_data_exists_counts_only_active_tenant():
-    client = AsyncMock()
-    client.collection_exists.return_value = True
-    client.count.return_value = SimpleNamespace(count=3)
+async def test_seed_data_delegates_to_canonical_bootstrap(monkeypatch) -> None:
+    bootstrap = AsyncMock()
+    monkeypatch.setattr(seed_data, "bootstrap_main", bootstrap)
 
-    assert await _tenant_data_exists(client, "development_knowledge_chunks")
-    count_filter = client.count.await_args.kwargs["count_filter"]
-    assert count_filter.must[0].key == "tenant_id"
-    assert count_filter.must[0].match.value == "default"
+    await seed_data.seed_data()
+
+    bootstrap.assert_awaited_once_with(Path("data"))
+
+
+@pytest.mark.asyncio
+async def test_seed_product_catalog_delegates_to_canonical_bootstrap(monkeypatch) -> None:
+    bootstrap = AsyncMock()
+    monkeypatch.setattr(seed_product_catalog, "bootstrap_main", bootstrap)
+
+    await seed_product_catalog.main()
+
+    bootstrap.assert_awaited_once_with(Path("data"))

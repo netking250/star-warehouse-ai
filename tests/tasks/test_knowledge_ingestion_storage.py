@@ -64,3 +64,32 @@ async def test_ingestion_resolves_object_key_through_canonical_store(monkeypatch
     payload = qdrant.points[0].payload
     assert payload is not None
     assert payload["content"] == "STAR_WAREHOUSE_KB_WORKER_READ"
+
+
+@pytest.mark.asyncio
+async def test_ingestion_rejects_zero_dense_vectors_before_replacing_index(monkeypatch):
+    """Provider degradation must not overwrite a real tenant index with zero vectors."""
+    store = _FakeStore()
+    qdrant = _FakeQdrant()
+    monkeypatch.setattr("app.tasks.knowledge_tasks.get_knowledge_object_store", lambda: store)
+    monkeypatch.setattr("app.tasks.knowledge_tasks.QdrantKnowledgeClient", lambda **_kwargs: qdrant)
+
+    async def zero_dense(texts: list[str]) -> list[list[float]]:
+        return [[0.0, 0.0] for _ in texts]
+
+    async def fake_sparse(_embedder, texts: list[str]) -> list[models.SparseVector]:
+        return [models.SparseVector(indices=[0], values=[1.0]) for _ in texts]
+
+    monkeypatch.setattr("app.tasks.knowledge_tasks._embed_dense", zero_dense)
+    monkeypatch.setattr("app.tasks.knowledge_tasks._embed_sparse", fake_sparse)
+    monkeypatch.setattr("app.tasks.knowledge_tasks.SparseTextEmbedder", lambda: object())
+
+    with tenant_scope("default"), pytest.raises(RuntimeError, match="all-zero dense vector"):
+        await ingest_knowledge_document(
+            document_id=42,
+            object_key="tenant/default/zero-vector.txt",
+            source_name="zero-vector.txt",
+        )
+
+    assert qdrant.deleted == []
+    assert qdrant.points == []

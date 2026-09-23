@@ -7,7 +7,7 @@ import logging
 import re
 from dataclasses import dataclass
 
-from sqlalchemy import text
+from sqlalchemy import URL, text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.core.config import settings
@@ -156,5 +156,72 @@ async def provision_configured_database_logins() -> None:
     )
 
 
+def _login_database_url(login: DatabaseLogin) -> str:
+    """Build a verification URL without exposing credentials in logs."""
+    return URL.create(
+        drivername="postgresql+asyncpg",
+        username=login.username,
+        password=login.password,
+        host=settings.POSTGRES_SERVER,
+        port=settings.POSTGRES_PORT,
+        database=settings.POSTGRES_DB,
+    ).render_as_string(hide_password=False)
+
+
+async def verify_database_logins(*, logins: tuple[DatabaseLogin, ...]) -> None:
+    """Verify each configured login can assume only its expected capability."""
+    for login in logins:
+        _validate_login(login)
+        if not _ROLE_PATTERN.fullmatch(login.capability_role):
+            raise ValueError("PostgreSQL capability role contains unsupported characters")
+        engine = create_async_engine(_login_database_url(login), pool_pre_ping=True)
+        try:
+            async with engine.connect() as connection:
+                session_user = await connection.scalar(text("SELECT session_user"))
+                if session_user != login.username:
+                    raise RuntimeError("PostgreSQL login verification returned an unexpected user")
+                await connection.exec_driver_sql(f'SET ROLE "{login.capability_role}"')
+                current_user = await connection.scalar(text("SELECT current_user"))
+                if current_user != login.capability_role:
+                    raise RuntimeError(
+                        "PostgreSQL login could not assume its expected capability role"
+                    )
+        finally:
+            await engine.dispose()
+        logger.info(
+            "PostgreSQL login role verified",
+            extra={
+                "database_login": login.username,
+                "database_capability": login.capability_role,
+            },
+        )
+
+
+async def provision_and_verify_configured_database_logins() -> None:
+    """Provision configured database logins and prove both can connect safely."""
+    if settings.POSTGRES_RUNTIME_USER is None or settings.POSTGRES_RUNTIME_PASSWORD is None:
+        raise ValueError("Configured runtime PostgreSQL credentials are required")
+    if settings.POSTGRES_MAINTENANCE_USER is None or settings.POSTGRES_MAINTENANCE_PASSWORD is None:
+        raise ValueError("Configured maintenance PostgreSQL credentials are required")
+    logins = (
+        DatabaseLogin(
+            username=settings.POSTGRES_RUNTIME_USER,
+            password=settings.POSTGRES_RUNTIME_PASSWORD.get_secret_value(),
+            capability_role=RUNTIME_CAPABILITY_ROLE,
+        ),
+        DatabaseLogin(
+            username=settings.POSTGRES_MAINTENANCE_USER,
+            password=settings.POSTGRES_MAINTENANCE_PASSWORD.get_secret_value(),
+            capability_role=MAINTENANCE_CAPABILITY_ROLE,
+        ),
+    )
+    await provision_database_logins(
+        admin_database_url=settings.MIGRATION_DATABASE_URL,
+        runtime_login=logins[0],
+        maintenance_login=logins[1],
+    )
+    await verify_database_logins(logins=logins)
+
+
 if __name__ == "__main__":
-    asyncio.run(provision_configured_database_logins())
+    asyncio.run(provision_and_verify_configured_database_logins())

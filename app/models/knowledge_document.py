@@ -17,7 +17,11 @@ class KnowledgeDocument(TenantScopedModel, table=True):
     doc_size_bytes: int | None = Field(default=None, description="文件大小（字节）")
     sync_status: str = Field(default="pending", description="同步状态: pending/running/done/failed")
     sync_message: str | None = Field(default=None, description="同步结果信息")
-    last_synced_at: datetime | None = Field(default=None, description="上次同步时间")
+    last_synced_at: datetime | None = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), nullable=True),
+        description="上次同步时间",
+    )
     created_at: datetime = Field(
         default_factory=utc_now,
         sa_column=Column(

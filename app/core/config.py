@@ -77,6 +77,14 @@ class Settings(BaseSettings):
     API_V1_STR: str
     ENVIRONMENT: str = "development"
     LOCAL_BOOTSTRAP_TENANT_ID: str = "default"
+    LOCAL_BOOTSTRAP_ENABLED: bool = False
+    LOCAL_BOOTSTRAP_TENANT_NAME: str = ""
+    LOCAL_BOOTSTRAP_CUSTOMER_USERNAME: str = ""
+    LOCAL_BOOTSTRAP_CUSTOMER_PASSWORD: SecretStr = SecretStr("")
+    LOCAL_BOOTSTRAP_CUSTOMER_EMAIL: str = ""
+    LOCAL_BOOTSTRAP_ADMIN_USERNAME: str = ""
+    LOCAL_BOOTSTRAP_ADMIN_PASSWORD: SecretStr = SecretStr("")
+    LOCAL_BOOTSTRAP_ADMIN_EMAIL: str = ""
 
     # Database
     POSTGRES_SERVER: str
@@ -194,13 +202,13 @@ class Settings(BaseSettings):
             )
         )
 
-    # Legacy embedding endpoint plus Dynamic Model Gateway provider configuration
+    # Legacy compatibility endpoint plus Dynamic Model Gateway provider configuration
     OPENAI_BASE_URL: str
     OPENAI_API_KEY: SecretStr
     DASHSCOPE_API_KEY: SecretStr
     LLM_MODEL: str = "qwen-plus"
     MODEL_OPENAI_BASE_URL: str = "https://api.openai.com/v1"
-    MODEL_DASHSCOPE_BASE_URL: str = "https://dashscope.aliyuncs.com/compatible-api/v1"
+    MODEL_DASHSCOPE_BASE_URL: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
     MODEL_GATEWAY_DEFAULT_TIMEOUT_SECONDS: float = Field(default=30.0, gt=0, le=300)
     MODEL_ROUTES: dict[str, ModelRouteSettings] = Field(default_factory=default_model_routes)
     # T14 model failure policy. These are trusted server-side bounds; request payloads cannot
@@ -222,6 +230,8 @@ class Settings(BaseSettings):
     MODEL_FAILURE_RETRY_INVALID_RESPONSE: bool = False
     RUN_REAL_LLM_TESTS: bool = False
     REAL_LLM_TEST_ROUTE: str = "default_chat"
+    EMBEDDING_BASE_URL: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    EMBEDDING_API_KEY: SecretStr = SecretStr("")
     EMBEDDING_MODEL: str = "text-embedding-v3"
     EMBEDDING_DIM: int = 1024
 

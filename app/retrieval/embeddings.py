@@ -119,9 +119,10 @@ class QwenEmbeddings:
 
 
 def create_embedding_model() -> QwenEmbeddings:
+    configured_key = settings.EMBEDDING_API_KEY.get_secret_value()
     return QwenEmbeddings(
-        base_url=settings.OPENAI_BASE_URL,
-        api_key=settings.OPENAI_API_KEY.get_secret_value(),
+        base_url=settings.EMBEDDING_BASE_URL,
+        api_key=configured_key or settings.DASHSCOPE_API_KEY.get_secret_value(),
         model=settings.EMBEDDING_MODEL,
         dimensions=settings.EMBEDDING_DIM,
     )

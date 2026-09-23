@@ -22,14 +22,14 @@ Core infrastructure and cross-cutting concerns: configuration, security, databas
 |------|------|-------|
 | Cache | `@app/core/cache.py` | `CacheManager` with 7 cache types (intent, profile, retrieval, facts, preferences, summaries, vector_search) + Redis connection pooling + circuit breaker + Prometheus metrics |
 | Branding | `@app/core/branding.py` | Canonical product identity, service slug, version, and v5 legacy-name normalization |
-| Configuration | `@app/core/config.py` | `Settings` with nested `ConfidenceSettings`, bounded outbox settings, and generic OIDC provider settings; single source of truth for env vars. Uses `_create_settings()` factory to avoid top-level instantiation errors during static analysis |
+| Configuration | `@app/core/config.py` | `Settings` with local-bootstrap identity, dedicated embedding endpoint/key, nested `ConfidenceSettings`, bounded outbox settings, and generic OIDC provider settings; single source of truth for env vars. Uses `_create_settings()` factory to avoid top-level instantiation errors during static analysis |
 | Security | `@app/core/security.py` | JWT authentication adapters, current-membership resolution, HTTP/WS policy dependencies, and token/session revocation |
 | Browser session | `@app/core/browser_session.py` | Host-only auth cookie, signed session-bound CSRF, and exact trusted-origin validation |
 | Tenancy | `@app/core/tenancy.py` | Fail-closed tenant context plus Redis, Qdrant, and storage namespace primitives |
 | Tenant resolver | `@app/core/tenant_resolver.py` | Tenant existence/status validation for request and worker boundaries |
 | Database | `@app/core/database.py` | Async/sync session makers, application tenant guards, and centralized transaction-local RLS binding |
 | PostgreSQL RLS | `@app/core/rls.py` | Canonical `app.current_tenant_id`, fixed capability roles, and fail-closed transaction binding |
-| Database role provisioning | `@app/core/database_roles.py` | Creates/hardens configured login roles from secrets and grants non-login runtime/maintenance capabilities |
+| Database role provisioning | `@app/core/database_roles.py` | Creates/hardens configured login roles from secrets, grants non-login runtime/maintenance capabilities, and verifies both logins can connect/assume only their expected capability |
 | Redis | `@app/core/redis.py` | Redis client creation and connection pooling |
 | LLM compatibility factory | `@app/core/llm_factory.py` | Legacy names returning the canonical gateway-backed client; never constructs provider SDK objects |
 | Structured logging | `@app/core/structured_logging.py` | `JsonFormatter` with trace_id/span_id/correlation_id support, Filebeat/Fluentd integration |

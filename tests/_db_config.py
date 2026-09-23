@@ -47,7 +47,7 @@ def _configure_test_database() -> None:
     elif not original_db:
         os.environ["POSTGRES_DB"] = "test_star_warehouse_ai"
 
-    os.environ.setdefault("RERANK_BASE_URL", "https://dashscope.aliyuncs.com/compatible-api/v1")
+    os.environ.setdefault("RERANK_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
 
 
 def _configure_test_services() -> None:

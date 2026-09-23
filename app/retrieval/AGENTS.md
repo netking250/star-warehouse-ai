@@ -21,7 +21,7 @@ Hybrid RAG retrieval system combining dense embeddings, sparse embeddings (BM25)
 | Role | File | Notes |
 |------|------|-------|
 | Hybrid retriever | `@app/retrieval/retriever.py` | `HybridRetriever` combining dense + sparse + reranker |
-| Embeddings | `@app/retrieval/embeddings.py` | Dense embedding model creation and caching |
+| Embeddings | `@app/retrieval/embeddings.py` | Dense embedding model creation using `EMBEDDING_BASE_URL` and a dedicated key with DashScope-key fallback |
 | Sparse embedder | `@app/retrieval/sparse_embedder.py` | Sparse/BM25 embedding generation |
 | Reranker | `@app/retrieval/reranker.py` | Cross-encoder reranking for result refinement |
 | Query rewriter | `@app/retrieval/rewriter.py` | LLM-based query rewriting and expansion |
