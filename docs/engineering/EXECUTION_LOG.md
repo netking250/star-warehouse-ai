@@ -3860,3 +3860,28 @@ Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
   the independent persisted adapter smoke remains the exact order/logistics proof. No key, response
   body, real PII, or customer data was printed or transmitted. No PR, push, merge, public deployment,
   or production data ingestion occurred; external acceptance remains required.
+
+## V1.2-INTEGRATION-PR-FIX local closeout
+
+Started: 2026-09-23
+
+Status: `AWAITING_ACCEPTANCE`
+
+Execution Stage: `HOSTED_CHECKS_PENDING`
+
+- Fetched origin and verified `origin/main` remains
+  `0a502933dd3502c97bfff72f66bad89a84735d08`. PR #15 was open at accepted head
+  `f4471fcf76ab1e14d9d0aa3a8cb69a1b3ffadb4a`; the starting worktree was clean.
+- Backend quality's old expected head `e9f0a1b2c3d4` was stale after the accepted additive
+  `f0a1b2c3d4e5` migration. CI now expects the exact current revision while retaining the
+  exactly-one-head check. No migration file changed.
+- The bootstrap integration test previously counted global shared tables. A test-transaction
+  unrelated user reproduced the failure (`3` versus `2`), then scoped assertions passed for
+  the bootstrap accounts, orders, refund, audit, complaint, agent configs, routing rules, and
+  deterministic outbox context. Production bootstrap and application code remain unchanged.
+- Local checks passed: `uv lock --check`, exact `f0a1b2c3d4e5 (head)`, 12 migration tests,
+  7 bootstrap tests, Ruff, format, and ty. Bounded related tests passed `48` with the bootstrap
+  regression last. One separate Redis-dependent tenant API fixture errored on local hostname
+  resolution in the initial run; a bounded rerun deselected that case (`48 passed, 1 deselected`).
+- One fix commit, normal push, and all new-head hosted checks remain the next gate. The PR must
+  stay open and unmerged for external acceptance; this record does not mark the work `PASS`.

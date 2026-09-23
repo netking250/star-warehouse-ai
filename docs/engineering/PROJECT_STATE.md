@@ -2,15 +2,36 @@
 schema_version: 1
 project: Star Warehouse AI
 phase: V1_2_PROJECT_CONSOLIDATION
-current_task: V1.2-BOOTSTRAP-01
+current_task: V1.2-INTEGRATION-PR-FIX
 current_status: AWAITING_ACCEPTANCE
-execution_stage: EXTERNAL_ACCEPTANCE_PENDING
+execution_stage: HOSTED_CHECKS_PENDING
 last_accepted_task: UI-04
-next_task: V1.2-BOOTSTRAP-01 external acceptance
+next_task: V1.2-INTEGRATION-PR-FIX hosted verification and external acceptance
 acceptance_owner: external
 maintenance_task: M02
 maintenance_status: PASS
 ---
+
+# V1.2-INTEGRATION-PR-FIX Current State
+
+PR #15 remains open at accepted implementation head `f4471fcf76ab1e14d9d0aa3a8cb69a1b3ffadb4a`.
+The fetched `origin/main` is the required `0a502933dd3502c97bfff72f66bad89a84735d08`;
+the starting worktree is clean. Hosted Backend quality expects the prior Alembic revision despite
+the accepted additive head `f0a1b2c3d4e5`. Hosted Backend tests found the local-bootstrap test
+counting all shared-table users (`148`) instead of its two named accounts. This fix is limited to
+the CI assertion, bootstrap integration test, and execution-state records. V1.2-BOOTSTRAP-01
+remains awaiting external acceptance.
+
+The fix now retains CI's single-head guard and expects `f0a1b2c3d4e5`. The test reproduces the
+old failure with an unrelated user, then verifies only bootstrap-owned accounts, four stable order
+SNs, the related refund/audit/complaint, the accepted agent/routing sets, and the audit-linked
+outbox idempotency context. Local migration-chain (`12`), bootstrap (`7`), and bounded related
+(`48`, with one Redis-dependent case deselected after a local host-resolution setup error) checks
+pass. Lockfile, Alembic heads, Ruff, format, and ty pass. New-head hosted checks and external
+acceptance remain pending; PR #15 must stay open and unmerged.
+
+The active fix plan is
+[`docs/exec-plans/active/V1.2-INTEGRATION-PR-FIX.md`](../exec-plans/active/V1.2-INTEGRATION-PR-FIX.md).
 
 # V1.2-BOOTSTRAP-01 Current State
 
