@@ -1,4 +1,8 @@
-# Final Pull Request Body Draft (Prepared; Do Not Submit Yet)
+# Historical T21 Pull Request Body Draft (Never Submitted)
+
+This draft preserves its pre-merge wording as historical evidence. The accepted
+state is [Final Acceptance](FINAL_ACCEPTANCE.md); PR #15 and trusted-main
+publication have completed.
 
 > Local T21 implementation evidence is complete and the branch is ready for external acceptance.
 > Hosted PR checks, trusted GHCR publication, provenance attestation, and merge remain pending.

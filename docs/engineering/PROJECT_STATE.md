@@ -1,18 +1,45 @@
 ---
 schema_version: 1
 project: Star Warehouse AI
-phase: V1_2_PROJECT_CONSOLIDATION
-current_task: V1.2-INTEGRATION-PR-FIX
-current_status: AWAITING_ACCEPTANCE
-execution_stage: HOSTED_CHECKS_PENDING
-last_accepted_task: UI-04
-next_task: V1.2-INTEGRATION-PR-FIX hosted verification and external acceptance
+phase: PROJECT_COMPLETE
+current_task: NONE
+current_status: PASS_WITH_NOTES
+execution_stage: CLOSED
+last_accepted_task: V1.2-MERGE
+next_task: NONE
+canonical_main: f852a8f2ce0f82fa6157d8bd72b0d1a1f8a1da40
 acceptance_owner: external
 maintenance_task: M02
 maintenance_status: PASS
 ---
 
-# V1.2-INTEGRATION-PR-FIX Current State
+# Final Accepted Project State (2026-09-23)
+
+PR #15 merged through protected rebase at `2026-09-23T09:37:32Z`. Canonical main is
+`f852a8f2ce0f82fa6157d8bd72b0d1a1f8a1da40`; its single Alembic head is
+`f0a1b2c3d4e5`. Engineering hardening (T21), P-UAT-03, UI V1.1, V1.2 bootstrap,
+the PR repair, and trusted-main integration are externally accepted. The canonical
+reviewer summary is [Final Acceptance](FINAL_ACCEPTANCE.md); remaining debt is in
+[Known Limitations](KNOWN_LIMITATIONS.md). PROJECT-CLOSEOUT-01 is a documentation-only
+reconciliation awaiting external acceptance and does not reopen the product lifecycle.
+
+Trusted main recorded 1,957 backend tests collected, 1,920 passed, zero failed/errors,
+37 skipped, and 81.85% coverage; 63/63 frontend unit tests passed. Playwright succeeded
+with 13 first-attempt passes and one retry after transient browser-console 502 responses.
+Docker smoke covered build, migration, roles, API, and health; the accepted disposable
+V1.2 verification separately covered full persisted business-data bootstrap. The
+immutable GHCR image digest and SLSA provenance subject both equal
+`sha256:fcdf1953843618d23509f32aa5c0e805e97fd5439d5fc384989cbf4fff9429d1`.
+The current blocking image policy found zero CRITICAL findings, with 81 HIGH findings
+remaining. No live production or AWS deployment occurred.
+
+# Historical Task Snapshots
+
+The dated snapshots below preserve the status and evidence at the time each stage
+ran. Their pending/open statements are historical; the final accepted state above
+and the [Roadmap](ROADMAP.md) task table are authoritative now.
+
+## V1.2-INTEGRATION-PR-FIX Historical Snapshot
 
 PR #15 remains open at accepted implementation head `f4471fcf76ab1e14d9d0aa3a8cb69a1b3ffadb4a`.
 The fetched `origin/main` is the required `0a502933dd3502c97bfff72f66bad89a84735d08`;
@@ -31,9 +58,9 @@ pass. Lockfile, Alembic heads, Ruff, format, and ty pass. New-head hosted checks
 acceptance remain pending; PR #15 must stay open and unmerged.
 
 The active fix plan is
-[`docs/exec-plans/active/V1.2-INTEGRATION-PR-FIX.md`](../exec-plans/active/V1.2-INTEGRATION-PR-FIX.md).
+[`docs/exec-plans/completed/V1.2-INTEGRATION-PR-FIX.md`](../exec-plans/completed/V1.2-INTEGRATION-PR-FIX.md).
 
-# V1.2-BOOTSTRAP-01 Current State
+## V1.2-BOOTSTRAP-01 Historical Snapshot
 
 CR-PROJECT-02 establishes the V1.2 project-bootstrap and documentation-consolidation baseline on
 `chore/v1.2-bootstrap-docs` from the externally accepted UI-04 head
@@ -61,7 +88,7 @@ Alembic head, and the pinned gitleaks scan pass. The accepted UI components and 
 unchanged; only the Vite development proxy gained a configurable target for non-default API ports.
 
 The active plan is
-[`docs/exec-plans/active/V1.2-BOOTSTRAP-01.md`](../exec-plans/active/V1.2-BOOTSTRAP-01.md).
+[`docs/exec-plans/completed/V1.2-BOOTSTRAP-01.md`](../exec-plans/completed/V1.2-BOOTSTRAP-01.md).
 
 # UI-04 Accepted State
 
@@ -147,7 +174,7 @@ Focused theme/opening tests, the full frontend unit suite, lint, format, product
 Playwright Customer/Admin smoke pass. Browser screenshots cover both themes and the opening frame;
 they remain under ignored Playwright output only. Subsequent V1.1 task state is recorded above.
 
-# P-UAT-03-PR-FIX Current State
+# P-UAT-03-PR-FIX Historical Snapshot
 
 P-UAT-03-PR-FIX is `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` on
 `fix/uat03-runtime-side-effects` from PR #13
@@ -177,9 +204,9 @@ The single focused commit, normal push, and new-head hosted PR checks remain the
 boundary; PR #13 must remain open and unmerged.
 
 The active plan is
-[`docs/exec-plans/active/P-UAT-03-PR-FIX.md`](../exec-plans/active/P-UAT-03-PR-FIX.md).
+[`docs/exec-plans/completed/P-UAT-03-PR-FIX.md`](../exec-plans/completed/P-UAT-03-PR-FIX.md).
 
-# P-UAT-03-FINAL-FIX Current State
+# P-UAT-03-FINAL-FIX Historical Snapshot
 
 P-UAT-03-FINAL-FIX is `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` on
 `fix/uat03-runtime-side-effects` from the accepted local head
@@ -209,9 +236,9 @@ only under the OS temporary UAT artifact directory. The final 30-case retest was
 push, merge, migration, or production authentication change was made.
 
 The active plan is
-[`docs/exec-plans/active/P-UAT-03-FINAL-FIX.md`](../exec-plans/active/P-UAT-03-FINAL-FIX.md).
+[`docs/exec-plans/completed/P-UAT-03-FINAL-FIX.md`](../exec-plans/completed/P-UAT-03-FINAL-FIX.md).
 
-# P-UAT-03-FIX-4B Current State
+# P-UAT-03-FIX-4B Historical Snapshot
 
 P-UAT-03-FIX-4B is `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` on
 `fix/uat03-runtime-side-effects` from head
@@ -246,9 +273,9 @@ complaint created a new ticket; policy conversations created zero complaints, re
 No recursion, terminal provider error, migration, PR, push, merge, or full P-UAT-03A run occurred.
 
 The active plan is
-[`docs/exec-plans/active/P-UAT-03-FIX-4B.md`](../exec-plans/active/P-UAT-03-FIX-4B.md).
+[`docs/exec-plans/completed/P-UAT-03-FIX-4B.md`](../exec-plans/completed/P-UAT-03-FIX-4B.md).
 
-# P-UAT-03-FIX-4 Current State
+# P-UAT-03-FIX-4 Historical Snapshot
 
 P-UAT-03-FIX-4 is `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` on
 `fix/uat03-runtime-side-effects`, based on the externally accepted FIX-3 head
@@ -279,9 +306,9 @@ tool/complaint/graph routing is outside FIX-4. No unauthorized refund, audit, or
 mutation occurred in these controls.
 
 The active plan is
-[`docs/exec-plans/active/P-UAT-03-FIX-4.md`](../exec-plans/active/P-UAT-03-FIX-4.md).
+[`docs/exec-plans/completed/P-UAT-03-FIX-4.md`](../exec-plans/completed/P-UAT-03-FIX-4.md).
 
-# P-UAT-03-FIX-3 Current State
+# P-UAT-03-FIX-3 Historical Snapshot
 
 P-UAT-03-FIX-3 is `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` on
 `fix/uat03-runtime-side-effects`, based on the externally accepted FIX-2 head
@@ -297,9 +324,9 @@ routes. No router, agent, tool, service, eligibility, risk threshold, approval, 
 or schema implementation was changed. The real Bailian seven-case mini-suite and focused tests
 passed; exact database/outbox/payment evidence is recorded in the active plan.
 
-The active plan is [`docs/exec-plans/active/P-UAT-03-FIX-3.md`](../exec-plans/active/P-UAT-03-FIX-3.md).
+The active plan is [`docs/exec-plans/completed/P-UAT-03-FIX-3.md`](../exec-plans/completed/P-UAT-03-FIX-3.md).
 
-# P-UAT-03-FIX-2 Current State
+# P-UAT-03-FIX-2 Historical Snapshot
 
 P-UAT-03-FIX-2 is `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` on
 `fix/uat03-runtime-side-effects`, based on
@@ -317,9 +344,9 @@ graph, tool, or schema change was made. Focused tests, static checks, and the re
 mini-suite are recorded in the active plan. P-UAT-03-FIX-1 and P-UAT-03-FIX-1B are externally
 accepted prerequisites for this focused stage.
 
-The active plan is [`docs/exec-plans/active/P-UAT-03-FIX-2.md`](../exec-plans/active/P-UAT-03-FIX-2.md).
+The active plan is [`docs/exec-plans/completed/P-UAT-03-FIX-2.md`](../exec-plans/completed/P-UAT-03-FIX-2.md).
 
-# P-UAT-03-FIX-1B Current State
+# P-UAT-03-FIX-1B Historical Snapshot
 
 P-UAT-03-FIX-1B is externally accepted `PASS` on
 `fix/uat03-runtime-side-effects`, based on accepted main
@@ -364,7 +391,7 @@ row, source object, and tenant-scoped point; it did not reappear in retrieval or
 context while Aurora remained Top-1. Browser proof shows the synchronized admin list and a completed
 customer chat with zero console errors or HTTP 4xx/5xx in the clean capture. Screenshots are OS-temp
 only. The active plan is
-[`docs/exec-plans/active/P-UAT-02-FIX.md`](../exec-plans/active/P-UAT-02-FIX.md).
+[`docs/exec-plans/completed/P-UAT-02-FIX.md`](../exec-plans/completed/P-UAT-02-FIX.md).
 
 Recovery confirmed branch `fix/knowledge-worker-storage`, accepted head
 `dc2e08ec7ce14daf4d07e8cbcfe8b76b763877e7`, and a clean worktree before task-state documentation.
@@ -407,7 +434,7 @@ on `feat/t14-t21-enterprise-hardening`. Its deterministic evaluation, final loca
 gates, architecture/portfolio/evidence/interview documentation, and final PR body are prepared.
 Hosted PR, publication, attestation, cloud, and production evidence remain outside this stage. It
 does not create the PR, merge `main`, or publish a release. The active plan is
-[`docs/exec-plans/active/T21.md`](../exec-plans/active/T21.md).
+[`docs/exec-plans/completed/T21.md`](../exec-plans/completed/T21.md).
 
 ## T21 Final Integration Evidence
 
@@ -952,7 +979,7 @@ Celery fresh-process import deadline sensitivity. Repair these only if final int
 blocked, they become materially worse, or explicit test-hardening work is scheduled. They remain
 unresolved and do not block T15.
 
-# Current Architecture Baseline
+# Historical Architecture Baseline
 
 The authoritative frozen choices are recorded in [`DECISIONS.md`](DECISIONS.md). In summary:
 
@@ -1252,7 +1279,7 @@ The complete concise mapping is in [`ARCHITECTURE_GUARDRAILS.md`](../architectur
 - Full backend regression and coverage remain pending and are intentionally assigned to the final
   T09 verification stage.
 
-# Current Blockers
+# Historical Blockers
 
 - M02 has no current repository-history ambiguity. The protected-main PR, required checks, linear
   merge, remote verification, and post-merge cleanup are complete and externally accepted.

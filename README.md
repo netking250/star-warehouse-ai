@@ -2,7 +2,7 @@
 
 **星仓 AI 智能客服** is an enterprise-style, multi-tenant AI customer-service and agent platform. It combines a customer conversation application with an operator console, persisted commerce workflows, retrieval-augmented knowledge, approval boundaries, evaluation, and operational controls.
 
-The repository package version is `5.0.0`. **V1.2 / Project Bootstrap & Documentation Consolidation** is the current change baseline; it is not a new semantic package release. The project is a validated engineering portfolio and reference implementation, not a claim of live production operation.
+The repository package version is `5.0.0`. **V1.2 / Project Bootstrap & Documentation Consolidation** is the accepted change baseline on main; it is not a new semantic package release. See the [final acceptance baseline](docs/engineering/FINAL_ACCEPTANCE.md). The project is a validated engineering portfolio and reference implementation, not a claim of live production operation.
 
 ## What It Is
 
@@ -209,7 +209,7 @@ Production-style releases require an immutable image digest. The repository neve
 Evidence is scoped rather than generalized:
 
 - P-UAT-03A final product-quality evidence passed **30/30 on the frozen synthetic Bailian UAT corpus**. This is not production-customer evidence or a broad model benchmark.
-- Hosted regression evidence covers the recorded PR repair scope; historical proof remains in the engineering ledger.
+- Accepted main passed 1,920 backend tests with zero failures/errors and 81.85% coverage; frontend unit tests passed 63/63. Hosted Playwright succeeded with one test requiring a retry.
 - CI produces machine-readable dependency, secret, SBOM, and container-scan artifacts, with trusted-only publication/provenance workflow boundaries.
 - Deterministic provider-free evaluation protects workflow contracts; optional live-provider smoke measures only the configured bounded query.
 

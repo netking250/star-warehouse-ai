@@ -8,7 +8,7 @@ Allowed task statuses are:
 
 `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED`, `NEEDS_EVIDENCE`, `AWAITING_ACCEPTANCE`, `PASS`, `PASS_WITH_NOTES`, `FAIL`.
 
-Codex may set a completed implementation to `AWAITING_ACCEPTANCE` only. `PASS` and `PASS_WITH_NOTES` require an explicit external acceptance instruction.
+Codex may set a completed implementation to `AWAITING_ACCEPTANCE` only. `PASS` and `PASS_WITH_NOTES` require an explicit external acceptance instruction. The accepted final task states below reflect external acceptance through V1.2-MERGE; PROJECT-CLOSEOUT-01 itself still awaits review.
 
 ## Task tree
 
@@ -36,7 +36,7 @@ Codex may set a completed implementation to `AWAITING_ACCEPTANCE` only. `PASS` a
 | T18 | CI/CD + Supply Chain | PASS_WITH_NOTES |
 | T19 | Helm + k3s + AWS Reference | PASS_WITH_NOTES |
 | T20 | Performance + Failure + DR | PASS_WITH_NOTES |
-| T21 | Eval + Portfolio + Interview | IN_PROGRESS |
+| T21 | Eval + Portfolio + Interview | PASS_WITH_NOTES |
 
 ## Post-merge product UAT
 
@@ -44,17 +44,18 @@ Codex may set a completed implementation to `AWAITING_ACCEPTANCE` only. `PASS` a
 | --- | --- | --- |
 | P-UAT-01 | Frontend Product UAT | PASS_WITH_NOTES |
 | P-UAT-02A-FIX | Knowledge Upload / Worker Storage Repair | PASS_WITH_NOTES |
-| P-UAT-02 | Knowledge Base Real E2E | AWAITING_ACCEPTANCE |
-| P-UAT-02-FIX | Summarization Gateway Non-Streaming Semantics | AWAITING_ACCEPTANCE |
+| P-UAT-02 | Knowledge Base Real E2E | PASS_WITH_NOTES |
+| P-UAT-02-FIX | Summarization Gateway Non-Streaming Semantics | PASS_WITH_NOTES |
 | P-UAT-03-FIX-1 | Runtime determinism and complaint side-effect guard | PASS |
 | P-UAT-03-FIX-1B | Explicit complaint end-to-end routing | PASS |
-| P-UAT-03-FIX-2 | Knowledge-policy routing and grounded RAG | AWAITING_ACCEPTANCE |
-| P-UAT-03-FIX-3 | Business-tool routing and refund approval boundary | AWAITING_ACCEPTANCE |
-| P-UAT-03-FIX-4 | Durable multi-turn context and correction handling | AWAITING_ACCEPTANCE |
-| P-UAT-03-FIX-4B | Semantic follow-ups, safety, and transaction-route regression repair | AWAITING_ACCEPTANCE |
-| P-UAT-03-FINAL-FIX | Remaining P-UAT-03A failures and UAT environment repair | AWAITING_ACCEPTANCE |
+| P-UAT-03-FIX-2 | Knowledge-policy routing and grounded RAG | PASS_WITH_NOTES |
+| P-UAT-03-FIX-3 | Business-tool routing and refund approval boundary | PASS |
+| P-UAT-03-FIX-4 | Durable multi-turn context and correction handling | FAIL |
+| P-UAT-03-FIX-4B | Semantic follow-ups, safety, and transaction-route regression repair | PASS |
+| P-UAT-03-FINAL-FIX | Remaining P-UAT-03A failures and UAT environment repair | PASS |
 | P-UAT-03A-FINAL-RETEST | Final 30-case product-quality retest | PASS |
-| P-UAT-03-PR-FIX | PR #13 hosted test and AnyIO critical-CVE repair | AWAITING_ACCEPTANCE |
+| P-UAT-03-PR-FIX | PR #13 hosted test and AnyIO critical-CVE repair | PASS |
+| P-UAT-03 | Frozen synthetic real-provider product UAT, final 30/30 | PASS |
 
 ## V1.1 Enterprise Visual Experience Upgrade
 
@@ -87,15 +88,30 @@ documentation without changing the accepted V1.1 visual baseline.
 
 | Task | Name | Status |
 | --- | --- | --- |
-| V1.2-BOOTSTRAP-01 | Canonical bootstrap, persistent local/UAT data, documentation, and legacy cleanup | AWAITING_ACCEPTANCE |
-| V1.2-INTEGRATION-PR-FIX | PR #15 migration gate and bootstrap test isolation | AWAITING_ACCEPTANCE |
+| V1.2-BOOTSTRAP-01 | Canonical bootstrap, persistent local/UAT data, documentation, and legacy cleanup | PASS_WITH_NOTES |
+| V1.2-INTEGRATION-PR | Initial PR #15 hosted validation | FAIL |
+| V1.2-INTEGRATION-PR-FIX | PR #15 migration gate and bootstrap test isolation | PASS |
+| V1.2-MERGE | Protected PR #15 merge and trusted-main verification | PASS_WITH_NOTES |
+
+PR #15 merged through protected rebase at `2026-09-23T09:37:32Z`. The canonical
+accepted main is `f852a8f2ce0f82fa6157d8bd72b0d1a1f8a1da40`; see
+[Final Acceptance](FINAL_ACCEPTANCE.md). The historical failed attempts above remain
+visible because their later repairs, rather than those attempts, passed.
+P-UAT-03-FIX-4 was superseded by FIX-4B; V1.2-INTEGRATION-PR was repaired by
+V1.2-INTEGRATION-PR-FIX.
+
+## Historical stage notes
+
+The sections below retain each stage's contemporary observations. Statements about
+pending acceptance, open PRs, or absent trusted artifacts describe their original
+time, not the current repository state.
 
 V1.2-BOOTSTRAP-01 completed implementation and local verification. The canonical Docker workflow
 passed from empty disposable volumes, repeated without duplicate records/vectors, and passed again
 after an application-only restart. Focused backend/static/frontend/E2E, tenant/RLS, authentication,
 knowledge, async, documentation-link, and secret-scan gates pass. The task awaits external
 acceptance; Codex has not marked it `PASS`. The active plan is
-[`docs/exec-plans/active/V1.2-BOOTSTRAP-01.md`](../exec-plans/active/V1.2-BOOTSTRAP-01.md).
+[`docs/exec-plans/completed/V1.2-BOOTSTRAP-01.md`](../exec-plans/completed/V1.2-BOOTSTRAP-01.md).
 
 P-UAT-03-PR-FIX is awaiting external acceptance on PR #13 from head
 `98e64fb6e6a385105874be610be8a962ae2bd7ee` after P-UAT-03A-FINAL-RETEST was externally reported
@@ -105,7 +121,7 @@ retaining a deterministic unrelated refund row. The lock resolves only AnyIO fro
 CVE-2026-63374 absent. Product behavior, production authorization, tenant/RLS controls, AI behavior,
 frontend behavior, and CI security policy remain unchanged. Normal push and new-head hosted checks
 are the remaining external acceptance boundary. The active plan is
-[`docs/exec-plans/active/P-UAT-03-PR-FIX.md`](../exec-plans/active/P-UAT-03-PR-FIX.md).
+[`docs/exec-plans/completed/P-UAT-03-PR-FIX.md`](../exec-plans/completed/P-UAT-03-PR-FIX.md).
 
 P-UAT-03-FIX-1 repaired the reproduced recent-summary cache `datetime` serialization blocker and
 added defense-in-depth authorization before complaint-ticket persistence. P-UAT-03-FIX-1B then
@@ -123,7 +139,7 @@ rules and cache/session precedence now send the tested informational English and
 to the existing `policy_agent` and canonical HybridRetriever; transaction controls remain on
 their stateful routes. Real Tenant A evidence and grounded Bailian answers were verified without
 changing retrieval thresholds, models, prompts, tool workflows, or multi-turn memory. The active
-plan is [`docs/exec-plans/active/P-UAT-03-FIX-2.md`](../exec-plans/active/P-UAT-03-FIX-2.md).
+plan is [`docs/exec-plans/completed/P-UAT-03-FIX-2.md`](../exec-plans/completed/P-UAT-03-FIX-2.md).
 
 P-UAT-03-FIX-4 is implemented and awaiting external acceptance. It hydrates bounded completed
 turn pairs from authoritative tenant/user/conversation-scoped PostgreSQL records into each new
@@ -134,7 +150,7 @@ real Bailian D1-D4 run completed without RUN_FAILED/provider errors but did not 
 multi-turn expectations because pre-existing PRODUCT/OTHER routing, safety filtering, and topic
 switch/tool routing failures remained. No complaint/refund mutation occurred in the regression
 controls. The active plan is
-[`docs/exec-plans/active/P-UAT-03-FIX-4.md`](../exec-plans/active/P-UAT-03-FIX-4.md).
+[`docs/exec-plans/completed/P-UAT-03-FIX-4.md`](../exec-plans/completed/P-UAT-03-FIX-4.md).
 
 P-UAT-03-FIX-4B is awaiting external acceptance after repairing the semantic gate rejected in
 FIX-4. It preserves the accepted durable history transport while adding narrow current-intent
@@ -142,7 +158,7 @@ precedence, contextual policy continuation, benign-follow-up safety, and effecti
 checkpoint isolation. Focused deterministic tests, static checks, and the final 17-turn real
 Bailian mini-suite passed. No durable schema, model, retrieval threshold, tool business rule,
 frontend, PR, merge, or full P-UAT-03A change occurred. The active plan is
-[`docs/exec-plans/active/P-UAT-03-FIX-4B.md`](../exec-plans/active/P-UAT-03-FIX-4B.md).
+[`docs/exec-plans/completed/P-UAT-03-FIX-4B.md`](../exec-plans/completed/P-UAT-03-FIX-4B.md).
 
 P-UAT-03-FINAL-FIX is awaiting external acceptance. Narrow routing, complaint-copy, contextual
 retrieval, bounded embedding failure reuse, and disposable UAT identity/session fixes repaired the
@@ -150,7 +166,7 @@ eight preserved P-UAT-03A-RETEST failures. Focused tests/static checks, real Bai
 transaction/audit/outbox verification, controls, and Customer UI manual proof completed. Ownership,
 RLS, model/RAG/approval thresholds, payment-before-approval, and production authentication remain
 unchanged. The final 30-case retest, PR, and merge were not run. The active plan is
-[`docs/exec-plans/active/P-UAT-03-FINAL-FIX.md`](../exec-plans/active/P-UAT-03-FINAL-FIX.md).
+[`docs/exec-plans/completed/P-UAT-03-FINAL-FIX.md`](../exec-plans/completed/P-UAT-03-FINAL-FIX.md).
 
 P-UAT-02-FIX repaired the reproduced chat-runtime blocker where an inherited LangGraph event
 callback caused LangChain to consume the adapter's streaming implementation during an `ainvoke`,
@@ -160,7 +176,7 @@ adapter now pins public `ainvoke` to non-streaming generation while true `astrea
 durable single-terminal semantics passed focused regression. The accepted ingestion/retrieval
 matrix was retained; the blocked Aurora/cross-tenant chat, re-sync, delete, post-delete, and browser
 evidence completed. External acceptance remains required before P-UAT-03. The active plan is
-[`docs/exec-plans/active/P-UAT-02-FIX.md`](../exec-plans/active/P-UAT-02-FIX.md).
+[`docs/exec-plans/completed/P-UAT-02-FIX.md`](../exec-plans/completed/P-UAT-02-FIX.md).
 
 P-UAT-02A-FIX runs on `fix/knowledge-worker-storage` from protected `origin/main` at
 `5d84b034513e79557c6ad9ce9fb819832034352f`. Its scope is the reproduced local/demo source-object
@@ -187,7 +203,7 @@ gates passed. Production S3-compatible storage remains `NOT CURRENTLY ACTIVE`.
   preparation.
 - T21 adds no business module, platform architecture, migration, live provider dependency, live
   cloud deployment, release, pull request, or merge. The active plan is
-  [`docs/exec-plans/active/T21.md`](../exec-plans/active/T21.md).
+  [`docs/exec-plans/completed/T21.md`](../exec-plans/completed/T21.md).
 
 ## T21 Final Local Gate Closeout
 

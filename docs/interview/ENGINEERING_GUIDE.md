@@ -1,7 +1,8 @@
 # Engineering Interview Guide
 
-Use this guide to explain work implemented and tested in this repository. It is not a substitute
-for production operating experience.
+Use this guide to explain work designed, implemented, tested, and validated in
+this repository. The canonical result is [Final Acceptance](../engineering/FINAL_ACCEPTANCE.md).
+It is not a substitute for enterprise production-scale operating experience.
 
 ## Modular monolith and async delivery
 
@@ -35,6 +36,20 @@ duplicate request reuses its authoritative record; a cancelled/completed run rej
 terminal transitions. **Evidence.** T12 lifecycle/recovery tests and T21 cancellation, invalid
 transition, and terminal-uniqueness scenarios.
 
+## Memory, retrieval, and human approval
+
+**Memory.** PostgreSQL is authoritative for durable conversation and structured
+memory; Redis checkpoints are ephemeral and Qdrant projections are derived.
+Tenant/user/conversation scope controls multi-turn hydration. Explain how
+completed turns enter the next run and how failed/partial turns are excluded.
+**RAG.** Knowledge ingestion stores source metadata and indexes tenant-filtered
+Qdrant points; retrieval combines dense/sparse signals. The P-UAT-02 and
+P-UAT-03 repairs tested grounded knowledge-policy routes with real Bailian calls.
+**Refunds.** Authorization and a human approval/audit boundary precede the
+refund side effect; outbox intent follows committed state. Show the
+[refund audit flow](../explanation/architecture/system-flows/refund-audit.md)
+and [P-UAT-03 FIX-3 evidence](../exec-plans/completed/P-UAT-03-FIX-3.md).
+
 ## Model Gateway versus failure policy
 
 **Problem.** Provider SDK differences and transient failure behavior are separate concerns.
@@ -61,17 +76,47 @@ shared API/outbox/worker trace, 27 metric families, three dashboards, and 11 rul
 updates. **Design.** Five attributable PR check families run with read-only defaults. Trusted
 main/version-tag runs own image publication, SBOM, and provenance. Helm uses immutable digests and
 a single pre-install/pre-upgrade migration Job; applications never migrate at startup.
-**Trade-off.** Hosted publication evidence arrives only after the final accepted PR/main flow.
+**Trade-off.** Trusted publication depends on a protected main run and an
+immutable commit tag; it is separate from deployment.
 **Failure mode.** PRs cannot publish; failed migration blocks rollout; backup restore targets must be
 explicitly disposable. **Evidence.** T18 workflow review/scans, T19's 38-resource disposable k3s
 validation, T21's final 42-resource static chart validation, and T20 independent logical restore
-around 665 seconds.
+around 665 seconds. PR #15 merged through protection; accepted main
+`f852a8f2ce0f82fa6157d8bd72b0d1a1f8a1da40` passed the five required
+checks. The main image digest is
+`sha256:fcdf1953843618d23509f32aa5c0e805e97fd5439d5fc384989cbf4fff9429d1`,
+with matching OCI revision and SLSA provenance subject. CycloneDX 1.6 has 255
+components; Python and JavaScript/TypeScript CodeQL succeeded. Image findings
+were zero CRITICAL under policy and 81 HIGH (37 with fixes); frontend dependencies
+had 9 HIGH. AWS remains a reference, not a deployed environment.
+
+## Reproducible local bootstrap and product UAT
+
+**Bootstrap.** `./start_docker.sh` applies Alembic head `f0a1b2c3d4e5`,
+provisions least-privilege roles, reconciles synthetic persisted tenant/users/
+orders/knowledge/async records, and verifies the stack. A disposable fresh run,
+second run without duplication, and restart persistence passed. Hosted Docker
+smoke tests build/migration/roles/API/health only; do not credit it with the
+complete business-data bootstrap.
+
+**Real-model debugging.** P-UAT-03's frozen synthetic Bailian corpus passed
+30/30 first attempt with average usability 4.10/5. The work repaired
+knowledge-policy routing, business-tool routing and refund approval,
+multi-turn continuation, and safe fallback. Discuss how a reproduced failure
+was isolated to a route, state boundary, or provider contract, then checked
+against tenant and side-effect controls. The corpus is bounded UAT, not a
+universal accuracy claim. A later V1.2 real-provider smoke did not prove an
+exact tracking-number answer.
 
 ## Reading the numbers honestly
 
 T20's 14.46 requests/second average and mean 112.39/412.85/604.75 ms p50/p95/p99 describe only the
 bounded disposable profile. The 1,707-request two-minute run is not a long soak. Restore RTO is the
 measured procedure time; RPO is the latest completed logical backup. Neither result establishes
-production capacity, HA, zero RPO, or PITR. See the
+production capacity, HA, zero RPO, or PITR. Accepted main backend collected
+1,957 tests with 1,920 passed, zero failed/errors, 37 skipped, and 81.85%
+coverage. Frontend unit tests passed 63/63; Playwright succeeded with 13
+normal passes and one retry after transient browser-console 502 responses.
+This is not 14/14 first-attempt stability. See the
 [evidence index](../portfolio/EVIDENCE_INDEX.md) and
 [known limitations](../engineering/KNOWN_LIMITATIONS.md) before making broader claims.

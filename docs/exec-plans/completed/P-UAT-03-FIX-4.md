@@ -92,3 +92,7 @@ the current user message. The existing run-specific checkpoint namespace was lef
 
 The implementation is `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING`; Codex does not mark
 this task PASS.
+
+## Final closeout (2026-09-23)
+
+Status: FAIL; superseded by P-UAT-03-FIX-4B. Earlier status and evidence above are preserved as historical observations.

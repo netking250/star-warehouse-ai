@@ -91,3 +91,7 @@ thresholds.
 ## Completion gate
 
 Leave this task at `AWAITING_ACCEPTANCE`. External acceptance owns PASS. No PR or merge.
+
+## Final closeout (2026-09-23)
+
+Status: PASS. Earlier status and evidence above are preserved as historical observations.

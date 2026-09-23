@@ -1,23 +1,32 @@
 # Engineering Evidence Index
 
-| Claim | Stage | Evidence | Limitation |
-| --- | --- | --- | --- |
-| Tenant identity and isolation | T07, T20 | Resolver-bound context, PostgreSQL RLS tests, namespaced Redis/Qdrant/storage; restore validation included tenant checks | Disposable/local evidence; not a public-cloud tenancy certification |
-| Trusted task delivery | T08, T09 | Task envelopes, transactional outbox, concurrent relay, RabbitMQ worker receipts and recovery tests | At-least-once delivery requires idempotent consumers |
-| Secure browser transport | T10, T15 | HttpOnly cookie, session-bound CSRF, exact-origin validation, logout and WebSocket transport tests | No independent penetration test |
-| Conversation correctness | T12 | PostgreSQL-authoritative turn/run lifecycle, cancellation, ordered events, recovery, idempotency tests | No production workload claim |
-| Model routing and failure | T13, T14, T21 | Provider-neutral gateway tests; bounded retry/fallback/degradation tests; 12 provider-free workflow scenarios with 12/12 pass | Mock evaluation is not live-model quality evidence; OpenAI, Celery, and historical chat-stream timing debts remain |
-| Authorization and compliance | T11, T16, T21 | Route inventory, current-state RBAC, approval/separation-of-duties, deterministic denial/approval scenarios | Human operating-process maturity is not certified |
-| Observability | T17 | Shared API/outbox/worker trace; 27 metric families, three dashboards, 11 alert rules | No long production retention or on-call history |
-| CI and supply chain | T18 | Five protected check families; secret/dependency/image scans; 255-component SBOM; trusted publish/attest workflow | Hosted PR, GHCR publication, and attestation proof remain pending; findings remain visible |
-| Kubernetes deployment | T19, T21 | T19 38-resource disposable k3s install/upgrade/rollback plus T21 final 42-resource Helm lint/template/schema/kubeconform/ShellCheck validation | Public VM/DNS/CA and live AWS were not proven |
-| Performance and backpressure | T20 | Three bounded load runs plus 1,707-request two-minute run; explicit pool/backpressure policy | Not capacity planning, HA, or a long soak |
-| Backup and recovery | T20 | Guarded logical backup; independent fresh-target restore around 665 seconds; post-restore tenant and async checks | Latest-backup RPO only; no PITR or object-store runtime recovery |
-| Deterministic workflow evaluation | T21 | Versioned 12-scenario synthetic dataset and non-zero regression command | Objective contracts only; linguistic quality is optional/manual live-model work |
-| Final integration readiness | T21 | Backend aggregate evidence, locked frontend/browser gates, clean-checkout Docker smoke, 126 application HTTP policy routes with 0 unclassified, final 42-resource Helm render, security spot check, and CI graph review | Hosted PR, trusted GHCR publication, attestation, and external cloud proof remain pending |
+Canonical baseline: [Final Acceptance](../engineering/FINAL_ACCEPTANCE.md), accepted
+main `f852a8f2ce0f82fa6157d8bd72b0d1a1f8a1da40`. The [roadmap](../engineering/ROADMAP.md)
+has final task states; the [execution log](../engineering/EXECUTION_LOG.md) and
+[completed plans](../exec-plans/completed/) preserve stage-level commands and results.
 
-Stage-level commands and raw-result summaries remain in
-[PROJECT_STATE](../engineering/PROJECT_STATE.md), the
-[execution log](../engineering/EXECUTION_LOG.md), and completed
-[execution plans](../exec-plans/completed/). These records are evidence of this repository's tests,
-not claims of external certification or production operating history.
+| Reviewer topic | Direct repository evidence | Claim boundary |
+| --- | --- | --- |
+| Architecture | [Decisions](../engineering/DECISIONS.md), [final system view](../explanation/architecture/final-system-view.md), [T21 plan](../exec-plans/completed/T21.md) | Modular-monolith reference implementation |
+| Tenant context and PostgreSQL RLS | [Tenancy design](../architecture/TENANCY.md), [T07 plan](../exec-plans/completed/T07.md) | Implemented and tested; no cloud certification |
+| Identity, auth, browser security | [Identity](../architecture/ENTERPRISE_IDENTITY.md), [authorization](../architecture/AUTHORIZATION.md), [secure session](../architecture/SECURE_BROWSER_SESSION.md) | No independent penetration test |
+| Outbox, RabbitMQ, Celery, idempotency | [Outbox](../explanation/architecture/transactional-outbox.md), [task runtime](../explanation/architecture/task-runtime.md), [reliable Celery](../explanation/architecture/reliable-celery.md) | At-least-once delivery |
+| Durable conversation, memory, multi-turn | [Conversation plan](../exec-plans/completed/T12.md), [memory flow](../explanation/architecture/system-flows/memory-loading.md), [UAT FIX-4B](../exec-plans/completed/P-UAT-03-FIX-4B.md) | Tested scoped state/continuation contracts |
+| Model Gateway and failure policy | [Gateway](../explanation/architecture/model-gateway.md), [T13](../exec-plans/completed/T13.md), [T14](../exec-plans/completed/T14.md) | Bounded retry/fallback/circuit behavior |
+| RAG, retrieval, and knowledge | [Policy RAG flow](../explanation/architecture/system-flows/policy-rag.md), [knowledge sync](../explanation/architecture/system-flows/knowledge-sync.md), [P-UAT-02-FIX](../exec-plans/completed/P-UAT-02-FIX.md) | Real Qdrant local/UAT evidence |
+| Refund approval boundary | [Refund audit flow](../explanation/architecture/system-flows/refund-audit.md), [UAT FIX-3](../exec-plans/completed/P-UAT-03-FIX-3.md) | Human approval required before side effect |
+| Real-provider product UAT | [Final acceptance](../engineering/FINAL_ACCEPTANCE.md#3-product-uat), [execution log](../engineering/EXECUTION_LOG.md) | 30/30 first attempt on frozen synthetic Bailian corpus only |
+| UI V1.1 | [UI-04 plan](../exec-plans/completed/UI-04.md), [roadmap](../engineering/ROADMAP.md#v11-enterprise-visual-experience-upgrade) | Accepted visual/responsive/accessibility evidence |
+| Fresh V1.2 bootstrap | [Bootstrap plan](../exec-plans/completed/V1.2-BOOTSTRAP-01.md), [final acceptance](../engineering/FINAL_ACCEPTANCE.md#5-bootstrap-v12) | Disposable full bootstrap, second run, restart; synthetic data |
+| Main CI and Docker smoke | [CI design](../explanation/architecture/ci-quality.md), [final acceptance](../engineering/FINAL_ACCEPTANCE.md#6-hosted-ci) | 1,920 backend pass, 63 unit pass, one Playwright retry; Docker smoke excludes business bootstrap |
+| Container security and dependency debt | [Supply-chain guide](../how-to-guides/ci-supply-chain.md), [known limitations](../engineering/KNOWN_LIMITATIONS.md) | Zero CRITICAL under policy; 81 HIGH image findings, 9 frontend HIGH |
+| SBOM, trusted GHCR, SLSA provenance | [Final acceptance](../engineering/FINAL_ACCEPTANCE.md#8-supply-chain), [T18 plan](../exec-plans/completed/T18.md) | CycloneDX 1.6/255 components; provenance subject matches published digest |
+| Observability | [Observability design](../explanation/architecture/observability.md), [T17 plan](../exec-plans/completed/T17.md) | No production retention or on-call history |
+| Helm/k3s and AWS reference | [Deployment design](../explanation/architecture/deployment.md), [k3s guide](../how-to-guides/k3s-deployment.md), [T19 plan](../exec-plans/completed/T19.md) | Disposable k3s validated; AWS reference only |
+| Performance and disaster recovery | [Performance guide](../how-to-guides/performance-resilience.md), [DR runbook](../runbooks/disaster-recovery.md), [T20 plan](../exec-plans/completed/T20.md) | Bounded runs and logical restore; no production SLA/PITR |
+| Limitations and claim scope | [Known limitations](../engineering/KNOWN_LIMITATIONS.md), [case study](CASE_STUDY.md) | No live production, customers, or universal AI-quality claim |
+
+The immutable image digest, SBOM hashes, and provenance match are recorded in
+[Final Acceptance](../engineering/FINAL_ACCEPTANCE.md#8-supply-chain). These are
+repository and hosted-workflow results, not external certification or evidence
+of production-scale operation.

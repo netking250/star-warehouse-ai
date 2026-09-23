@@ -65,3 +65,7 @@
 Implementation, focused verification, disposable-database cleanup, and the focused commit are
 complete. The task is `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING`. Codex does not mark the
 task `PASS`. No PR or merge is authorized.
+
+## Final closeout (2026-09-23)
+
+Status: PASS_WITH_NOTES. Earlier status and evidence above are preserved as historical observations.

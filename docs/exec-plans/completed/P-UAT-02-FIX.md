@@ -105,3 +105,7 @@ recovery claim, PITR work, PR, or merge.
   `SOURCE_UI_NOT_IMPLEMENTED`. Real OpenAI and DashScope remained off. Production object-store
   recovery and PITR were not exercised. The disposable focused-test database was removed.
 - No PR or merge was created. External acceptance is required; Codex does not mark this work `PASS`.
+
+## Final closeout (2026-09-23)
+
+Status: PASS_WITH_NOTES. Earlier status and evidence above are preserved as historical observations.
