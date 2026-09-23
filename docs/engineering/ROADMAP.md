@@ -66,7 +66,7 @@ verification, and external acceptance before the next stage starts.
 | UI-01 | Design system, adaptive theme, global shells, and opening experience | PASS_WITH_NOTES |
 | UI-02 | Admin page visual redesign | PASS_WITH_NOTES |
 | UI-03 | Customer chat visual redesign | PASS_WITH_NOTES |
-| UI-04 | Cross-app visual, accessibility, and performance acceptance | AWAITING_ACCEPTANCE |
+| UI-04 | Cross-app visual, accessibility, and performance acceptance | PASS |
 
 UI-01 provides shared semantic tokens, early light/dark resolution, manual persisted preference,
 the abstract Star Warehouse AI identity, CSS-only ambient/opening motion, and unified Admin/Customer
@@ -77,9 +77,24 @@ accepted `PASS_WITH_NOTES`; UI-02 is also externally accepted `PASS_WITH_NOTES` 
 conversational experience without changing application contracts or business behavior. UI-04 has
 completed the final cross-app visual, accessibility, performance, responsive, and functional audit.
 Focused Light-theme contrast and mobile-drawer accessibility corrections pass 63 unit and 14
-Playwright tests; the required ignored screenshot set and contact sheet were reviewed. UI-04 now
-awaits external acceptance. The active plan is
-[`docs/exec-plans/active/UI-04.md`](../exec-plans/active/UI-04.md).
+Playwright tests; the required ignored screenshot set and contact sheet were reviewed. UI-04 was
+externally accepted at `edfd5577b9ca9ccc3ef6c5ea20b971b1e4c6727e`.
+
+## V1.2 Project Bootstrap and Documentation Consolidation
+
+CR-PROJECT-02 establishes a reproducible local/UAT bootstrap and reviewer-first project
+documentation without changing the accepted V1.1 visual baseline.
+
+| Task | Name | Status |
+| --- | --- | --- |
+| V1.2-BOOTSTRAP-01 | Canonical bootstrap, persistent local/UAT data, documentation, and legacy cleanup | AWAITING_ACCEPTANCE |
+
+V1.2-BOOTSTRAP-01 completed implementation and local verification. The canonical Docker workflow
+passed from empty disposable volumes, repeated without duplicate records/vectors, and passed again
+after an application-only restart. Focused backend/static/frontend/E2E, tenant/RLS, authentication,
+knowledge, async, documentation-link, and secret-scan gates pass. The task awaits external
+acceptance; Codex has not marked it `PASS`. The active plan is
+[`docs/exec-plans/active/V1.2-BOOTSTRAP-01.md`](../exec-plans/active/V1.2-BOOTSTRAP-01.md).
 
 P-UAT-03-PR-FIX is awaiting external acceptance on PR #13 from head
 `98e64fb6e6a385105874be610be8a962ae2bd7ee` after P-UAT-03A-FINAL-RETEST was externally reported
@@ -98,7 +113,7 @@ repaired only explicit complaint routing: the existing deterministic rule now re
 deterministic tests and static checks pass. The real Bailian mini-suite completed both explicit
 complaint forms with one ticket each, while defect and return-policy consultations completed with
 zero ticket deltas. No general routing, RAG, or prompt tuning is included. The active plan is
-[`docs/exec-plans/active/P-UAT-03-FIX-1B.md`](../exec-plans/active/P-UAT-03-FIX-1B.md).
+[`docs/exec-plans/completed/P-UAT-03-FIX-1B.md`](../exec-plans/completed/P-UAT-03-FIX-1B.md).
 
 P-UAT-03-FIX-1 and P-UAT-03-FIX-1B are externally accepted prerequisites for the current stage.
 

@@ -3806,3 +3806,52 @@ Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
   CI workflow, provider/model, API/auth contract, Agent/RAG, or business behavior changed. No full
   backend suite or Bailian benchmark ran. No PR or merge was created; external acceptance remains
   required.
+
+## V1.2-BOOTSTRAP-01 implementation and verification
+
+Started: 2026-09-22
+
+Finished: 2026-09-23
+
+Status: `AWAITING_ACCEPTANCE`
+
+Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
+
+- Created `chore/v1.2-bootstrap-docs` from the exact externally accepted UI-04 head
+  `edfd5577b9ca9ccc3ef6c5ea20b971b1e4c6727e`; accepted UI components and visual behavior remain
+  unchanged.
+- Consolidated local/UAT initialization behind `scripts/bootstrap_local_data.py` and the guarded,
+  idempotent `app.bootstrap` module. Credentials come only from `LOCAL_BOOTSTRAP_*` settings;
+  production and disabled execution are refused; passwords are neither committed nor logged.
+- The canonical Docker startup explicitly isolates its Compose project, starts and health-checks
+  PostgreSQL/Redis/RabbitMQ/Qdrant, migrates to the single Alembic head, provisions and verifies
+  least-privilege database roles, bootstraps persisted business/knowledge data, starts all runtime
+  roles, and runs full-stack verification. Two disposable-only failures exposed project-name and
+  CORS JSON propagation defects; both were fixed and regression-covered without deleting or
+  changing the developer's default volumes.
+- Fresh disposable acceptance on `star-warehouse-v12-accept` reached current/head
+  `f0a1b2c3d4e5`, with database `knowledge_base`, login `star_warehouse_app`, and effective runtime
+  role `star_warehouse_runtime`. Persisted counts were users 2, memberships 2, orders 4, refunds 1,
+  approval/audit 1, complaints 1, agent configs 8, routing rules 11, knowledge documents 3, outbox
+  events 1, and task receipts 1.
+- Qdrant held 7 non-zero tenant-filtered knowledge vectors and 5 product points; known retrieval
+  returned `local-uat/return_policy.md`. Redis remained ephemeral. A harmless transactional outbox
+  event was published through RabbitMQ and completed by Celery with a durable receipt.
+- Customer/admin cookie login, session restoration/logout, customer admin denial, cross-tenant and
+  cross-user order denial, customer/admin application loads, knowledge/operations/AI/security Admin
+  reads, order/logistics reads, and known knowledge retrieval passed.
+- The second bootstrap preserved every count and point total. Restarting API, tenant worker,
+  maintenance worker, scheduler, and relay without deleting volumes preserved PostgreSQL records,
+  knowledge metadata, logins, and Qdrant indexes; the verifier passed again.
+- Static and focused gates passed: Ruff format/check, ty, 140 backend tests, Prettier, ESLint, 16
+  Vitest files / 63 tests, the 1930-module frontend build, 14 Playwright tests, project identity and
+  documentation links, single Alembic head, `git diff --check`, and gitleaks v8.24.2. The full
+  backend suite was not run because production request behavior was not broadly changed and the
+  requested focused plus disposable-stack evidence passed.
+- Removed only the unreferenced destructive `scripts/seed_large_data.py` and unreferenced/unrouted
+  historical Admin `Dashboard.tsx`; compatibility wrappers remain for old seed names. Accepted
+  plans moved to completed, and historical migrations/security/evaluation/UAT evidence was
+  preserved.
+- Real paid-provider chat smoke is `REAL_PROVIDER_SMOKE_NOT_RUN`: external-egress approval was not
+  granted. No key or secret was exposed. No PR, push, merge, public deployment, or production data
+  ingestion occurred; external acceptance remains required.

@@ -1,5 +1,21 @@
 # Changelog
 
+## [Unreleased] - V1.2 Project Bootstrap & Documentation Consolidation
+
+### Changed
+
+- Consolidated local/UAT initialization into one production-guarded, idempotent bootstrap.
+- Added persisted tenant, identity, order, refund/review, complaint, configuration, knowledge, and
+  asynchronous-delivery verification data using the current model/runtime boundaries.
+- Made Alembic, least-privilege PostgreSQL role verification, real knowledge ingestion, and
+  full-stack verification part of the canonical Docker startup.
+- Rewrote the reviewer/developer README, local-development guide, and environment reference from
+  the current architecture and validation evidence.
+- Removed the destructive random bulk seeder and one proven unrouted historical admin page while
+  preserving compatibility wrappers and historical engineering evidence.
+
+This V1.2 label is a change baseline. The package semantic version remains `5.0.0`.
+
 本项目遵循语义化版本。此文件记录面向使用者的重要变化。
 
 ## [5.0.0] - 2026-09-05

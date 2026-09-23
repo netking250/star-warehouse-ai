@@ -1,7 +1,7 @@
 # Known Limitations
 
-This is the canonical final limitation list for the T14-T21 integration branch. A limitation stays
-open until new real evidence exists; wording alone does not close it.
+This is the canonical limitation list for the current accepted baseline. Historical task-specific
+evidence remains in the execution ledger; a limitation stays open until new real evidence exists.
 
 - **OpenAI SDK cold-start timing:** a historical full-suite timing assertion remains sensitive to
   first-process OpenAI SDK import cost.
@@ -13,7 +13,8 @@ open until new real evidence exists; wording alone does not close it.
   demonstrated to be a T21 feature regression and is separate from the OpenAI/Celery timing debts.
 - **Vulnerability baseline:** T18 scan findings remain visible; the repository does not claim zero
   dependency or image vulnerabilities.
-- **Hosted protected-PR proof:** the final hosted PR checks have not yet run.
+- **Current V1.2 hosted proof:** the historical P-UAT repair has hosted regression evidence, but
+  this V1.2 branch has no PR by explicit scope and therefore no branch-specific hosted run.
 - **GHCR publish proof:** trusted hosted publication of the scanned image has not yet been proven.
 - **Attestation proof:** hosted provenance/attestation has not yet been proven.
 - **Public VM, DNS, and public CA:** T19 used a disposable deployment target; a real public VM,
@@ -26,6 +27,6 @@ open until new real evidence exists; wording alone does not close it.
 - **Production capacity:** measured disposable results are not production sizing, availability, HA,
   or capacity claims.
 
-Optional live OpenAI/DashScope evaluation is also outside deterministic T21 acceptance. The offline
-suite verifies objective workflow contracts only and makes no claim about live-model linguistic
-quality.
+Real-provider evaluation is opt-in rather than part of deterministic CI. The accepted Bailian
+30/30 result applies only to its frozen synthetic UAT corpus; provider-free evaluation verifies
+objective workflow contracts and makes no broad live-model linguistic-quality claim.
