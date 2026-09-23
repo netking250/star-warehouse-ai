@@ -1,23 +1,52 @@
 ---
 schema_version: 1
 project: Star Warehouse AI
-phase: V1_1_ENTERPRISE_VISUAL_UPGRADE
-current_task: UI-04
+phase: V1_2_PROJECT_CONSOLIDATION
+current_task: V1.2-BOOTSTRAP-01
 current_status: AWAITING_ACCEPTANCE
 execution_stage: EXTERNAL_ACCEPTANCE_PENDING
-last_accepted_task: UI-03
-next_task: UI-04 external acceptance
+last_accepted_task: UI-04
+next_task: V1.2-BOOTSTRAP-01 external acceptance
 acceptance_owner: external
 maintenance_task: M02
 maintenance_status: PASS
 ---
 
-# UI-04 Current State
+# V1.2-BOOTSTRAP-01 Current State
+
+CR-PROJECT-02 establishes the V1.2 project-bootstrap and documentation-consolidation baseline on
+`chore/v1.2-bootstrap-docs` from the externally accepted UI-04 head
+`edfd5577b9ca9ccc3ef6c5ea20b971b1e4c6727e`. The task is
+`AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING`; only external review may mark it accepted.
+
+`./start_docker.sh` is now the one full-Docker local workflow. It isolates the requested Compose
+project explicitly, starts and health-checks infrastructure, applies the single Alembic head,
+provisions and verifies NO BYPASSRLS runtime/maintenance roles, runs the production-guarded
+canonical bootstrap, starts API/workers/scheduler/outbox, and runs persisted-stack verification.
+The environment-driven local/UAT dataset is idempotent and uses current tenancy, auth, storage,
+knowledge-ingestion, Qdrant, outbox, and Celery paths; no password is stored or logged by Python.
+
+Disposable fresh-state acceptance on `star-warehouse-v12-accept` reached head `f0a1b2c3d4e5`,
+created 2 users/memberships, 4 orders, 1 refund, 1 approval/audit, 1 complaint, 8 agent configs, 11
+routing rules, 3 knowledge documents, 7 non-zero tenant-filtered knowledge points, and 5 product
+points. Customer/admin login, session restoration/logout, admin capability denial for the customer,
+cross-tenant/cross-user isolation, known-source retrieval, Redis connectivity, and one
+outbox-to-Celery receipt passed. A second bootstrap retained identical counts, and an application
+restart without deleting volumes retained the relational records and vector indexes.
+
+Focused verification passed 140 backend tests, 63 frontend unit tests, the production frontend
+build, and 14 Playwright tests. Ruff format/check, ty, project identity/document links, the single
+Alembic head, and the pinned gitleaks scan pass. The accepted UI components and visual behavior are
+unchanged; only the Vite development proxy gained a configurable target for non-default API ports.
+
+The active plan is
+[`docs/exec-plans/active/V1.2-BOOTSTRAP-01.md`](../exec-plans/active/V1.2-BOOTSTRAP-01.md).
+
+# UI-04 Accepted State
 
 UI-03 was externally accepted `PASS_WITH_NOTES` at
-`e92a24d551b10c3268524776f4e6261661fb65e5`. UI-04 is
-`AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING` on
-`feat/ui-v1.1-enterprise-visual`, starting from a clean worktree at the accepted UI-03 head.
+`e92a24d551b10c3268524776f4e6261661fb65e5`. UI-04 is externally accepted at
+`edfd5577b9ca9ccc3ef6c5ea20b971b1e4c6727e` on `feat/ui-v1.1-enterprise-visual`.
 
 The final audit found and corrected two concrete accessibility defects: Light-theme semantic status
 text did not consistently meet WCAG AA contrast, and the custom Admin/Customer mobile drawers did
@@ -33,8 +62,8 @@ unexpected HTTP 4xx/5xx. The required ignored evidence and reviewed contact shee
 
 No unsupported claim, dead active control, horizontal overflow, runtime dependency, backend,
 migration, workflow, provider/model, API/auth contract, Agent/RAG, or business-behavior change was
-introduced. No PR or merge was created. The active plan is
-[`docs/exec-plans/active/UI-04.md`](../exec-plans/active/UI-04.md).
+introduced. No PR or merge was created. The completed plan is
+[`docs/exec-plans/completed/UI-04.md`](../exec-plans/completed/UI-04.md).
 
 # UI-03 Accepted State
 
@@ -288,7 +317,7 @@ forms entered `complaint` and each created exactly one ticket, while the two con
 created none. Same-key replay created no duplicate ticket.
 
 No general intent/RAG/prompt/model/frontend tuning, migration, PR, or merge was performed. The
-active plan is [`docs/exec-plans/active/P-UAT-03-FIX-1B.md`](../exec-plans/active/P-UAT-03-FIX-1B.md).
+completed plan is [`docs/exec-plans/completed/P-UAT-03-FIX-1B.md`](../exec-plans/completed/P-UAT-03-FIX-1B.md).
 External acceptance is required before any next UAT fix stage.
 
 # Historical Prior Objective
@@ -327,7 +356,7 @@ reported `PASS_WITH_NOTES`. The focused post-merge repair owns only the local/de
 upload -> shared source object -> tenant worker -> parse/chunk -> Qdrant path. It must preserve
 the production S3-compatible object-storage target as not currently active and must not claim
 Docker named-volume durability as a production object-store solution. The active plan is
-[`docs/exec-plans/active/P-UAT-02A-FIX.md`](../exec-plans/active/P-UAT-02A-FIX.md).
+[`docs/exec-plans/completed/P-UAT-02A-FIX.md`](../exec-plans/completed/P-UAT-02A-FIX.md).
 
 The pre-fix real-stack reproduction uploaded synthetic document `3` and persisted reference
 `uploads/knowledge/tenant/default/128cfb2edc6340798f54b78077163432.txt`. The API container read

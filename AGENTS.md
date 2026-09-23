@@ -27,6 +27,7 @@ Use the right `AGENTS.md` for the area you're working in:
 - **Memory system** (`@app/memory/**`) → [`app/memory/AGENTS.md`](app/memory/AGENTS.md)
 - **Tools** (`@app/tools/**`) → [`app/tools/AGENTS.md`](app/tools/AGENTS.md)
 - **Business adapters** (`@app/adapters/**`) → [`app/adapters/AGENTS.md`](app/adapters/AGENTS.md)
+- **Local bootstrap** (`@app/bootstrap/**`) → [`app/bootstrap/AGENTS.md`](app/bootstrap/AGENTS.md)
 - **Retrieval** (`@app/retrieval/**`) → [`app/retrieval/AGENTS.md`](app/retrieval/AGENTS.md)
 - **Evaluation** (`@app/evaluation/**`) → [`app/evaluation/AGENTS.md`](app/evaluation/AGENTS.md)
 - **Observability** (`@app/observability/**`) → [`app/observability/AGENTS.md`](app/observability/AGENTS.md)
@@ -77,6 +78,8 @@ For any other area, this root file applies.
     - `@app/tasks/observability_tasks.py` - Post-chat async observability logging.
   - `@app/retrieval/`: Hybrid RAG retrieval (dense + sparse embeddings, reranker, query rewriter, Qdrant client).
     - `@app/retrieval/sparse_embedder.py` - Sparse embedding support (BM25).
+  - `@app/bootstrap/`: Production-guarded, idempotent local/UAT tenant, identity, business,
+    knowledge, and async-smoke data reconciliation.
   - `@app/evaluation/`: Offline evaluation framework (pipeline, adversarial, shadow, metrics, hallucination, containment).
   - `@app/observability/`: OpenTelemetry tracing, execution logging, latency tracking, Prometheus metrics.
     - `@app/observability/metrics.py` - Prometheus custom metrics (counters, histograms, gauges).
@@ -117,8 +120,9 @@ For any other area, this root file applies.
   - `@frontend/src/apps/admin/`: B端管理后台 (dashboard, knowledge base, agent config, feedback, analytics).
   - `@frontend/src/apps/customer/`: C端用户聊天界面 (SSE streaming chat).
 - `@tests/`: Backend test suite (pytest + pytest-asyncio), organized by module.
-- `scripts/`: Seed data, ETL, and utility scripts. `initialize_vector_data.py` idempotently
-  seeds bundled tenant knowledge and product data when their Qdrant collections are empty.
+- `scripts/`: Bootstrap, ETL, verification, and operational utilities.
+  `bootstrap_local_data.py` is the only canonical local/UAT data entry point;
+  `verify_local_stack.py` verifies persisted data, auth, retrieval, and async delivery.
   `check_project_identity.py` enforces canonical v5 metadata, legacy-name allowlists, and local documentation links in CI.
 - `migrations/`: Alembic database migrations.
 - `data/`: Static seed data (policies, products).
@@ -131,8 +135,8 @@ For any other area, this root file applies.
 ### Setup & Run
 
 ```bash
-# Full Docker startup (recommended for WSL; migrates PostgreSQL, initializes tenant vector
-# data when missing, and recreates application containers to refresh bind mounts)
+# Full Docker startup (recommended for WSL; migrates PostgreSQL, provisions/verifies database
+# roles, reconciles persisted local/UAT data and Qdrant indexes, then verifies the running stack)
 ./start_docker.sh
 
 # Validate the canonical Helm chart (requires Helm and kubectl)
