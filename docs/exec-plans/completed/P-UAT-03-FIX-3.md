@@ -64,3 +64,7 @@ Completed:
 The exact disposable test database, temporary Redis container, and container test copy must be
 removed before commit. The task finishes at `AWAITING_ACCEPTANCE / EXTERNAL_ACCEPTANCE_PENDING`;
 Codex does not mark it `PASS`.
+
+## Final closeout (2026-09-23)
+
+Status: PASS. Earlier status and evidence above are preserved as historical observations.

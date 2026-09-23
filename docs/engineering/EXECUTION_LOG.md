@@ -3885,3 +3885,56 @@ Execution Stage: `HOSTED_CHECKS_PENDING`
   resolution in the initial run; a bounded rerun deselected that case (`48 passed, 1 deselected`).
 - One fix commit, normal push, and all new-head hosted checks remain the next gate. The PR must
   stay open and unmerged for external acceptance; this record does not mark the work `PASS`.
+
+## V1.2 final integration, external acceptance, and PROJECT-CLOSEOUT-01
+
+Date: 2026-09-23
+
+- External acceptance closed V1.2-INTEGRATION-PR-FIX as `PASS`. Its fix commit
+  `c2ea39d5ac943dd6bcdc8a49f8a58486076c1e05` preserved production behavior,
+  updated CI's exact migration head, and scoped bootstrap integration assertions
+  to bootstrap-owned records. The historical initial V1.2-INTEGRATION-PR failure
+  remains `FAIL`; the repaired run passed.
+- PR #15, with accepted source head `c2ea39d5ac943dd6bcdc8a49f8a58486076c1e05`,
+  merged through the protected GitHub rebase flow at `2026-09-23T09:37:32Z`.
+  No admin/protection bypass or force push was used. Main moved from
+  `0a502933dd3502c97bfff72f66bad89a84735d08` to
+  `f852a8f2ce0f82fa6157d8bd72b0d1a1f8a1da40`; the accepted PR tree/content
+  was retained. The accepted single Alembic head remains `f0a1b2c3d4e5`.
+- Trusted main CI succeeded: Brand & docs, Backend quality, Backend tests,
+  Frontend, and Docker smoke. Backend quality passed lockfile, one exact Alembic
+  head, Ruff, format, and ty. Backend collected 1,957 tests: 1,920 passed,
+  zero failed, zero errors, 37 skipped, 81.85% coverage; bootstrap idempotency
+  passed. Frontend unit tests passed 63/63. Hosted Playwright succeeded with
+  13 normal passes and one test passing on retry; the first attempt of
+  `customer journey remains functional across premium login, chat, feedback,
+  theme, and mobile states` observed transient browser-console 502 Bad Gateway
+  responses. This is non-blocking technical debt, not 14/14 first-attempt
+  stability. Docker smoke passed build, migration, role provisioning, API, and
+  health; it did not run full business-data bootstrap.
+- Trusted Supply Chain, Python CodeQL, and JavaScript/TypeScript CodeQL succeeded.
+  Secret, dependency, image, critical-policy, and SBOM jobs succeeded. The
+  image had zero CRITICAL under current blocking policy, 81 HIGH, 37 HIGH with
+  known fixes; the frontend dependency scan recorded 9 HIGH.
+  CVE-2026-63374 was absent. No HIGH upgrade was attempted in closeout.
+- Trusted GHCR publication succeeded for
+  `ghcr.io/netking250/star-warehouse-ai:sha-f852a8f2ce0f82fa6157d8bd72b0d1a1f8a1da40`.
+  Published digest and SLSA provenance subject digest both equal
+  `sha256:fcdf1953843618d23509f32aa5c0e805e97fd5439d5fc384989cbf4fff9429d1`;
+  the OCI revision is the main SHA. CycloneDX JSON spec 1.6 has 255 components.
+  SBOM file SHA-256 is
+  `8d9b1a54d1c0154e2356f1100f1cae29e84193bed5ca693cb318714b4474e995`;
+  supply-chain artifact archive SHA-256 is
+  `44cf06693fe65d9656167f3c6fd18a88ff5286c70bc774f058d62d01a502b990`;
+  artifact retention is 14 days. Trusted provenance type is
+  `https://slsa.dev/provenance/v1`. PR trusted publication/provenance were skipped.
+- P-UAT-03's final 30/30 first-attempt result applies only to the frozen
+  synthetic real-provider Bailian corpus; UI V1.1 and the isolated fresh V1.2
+  bootstrap were externally accepted. The latter proved an idempotent second
+  bootstrap and restart persistence. No new Bailian, visual, or bootstrap run
+  was performed for this documentation closeout.
+- No live production deployment, AWS mutation, public VM, DNS, certificate, or
+  real customer data was involved. PROJECT-CLOSEOUT-01 archives finished plans,
+  reconciles current state/roadmap, and establishes FINAL_ACCEPTANCE plus
+  portfolio/interview evidence. The closeout documentation itself awaits
+  external acceptance; it does not change application behavior.

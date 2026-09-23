@@ -17,6 +17,7 @@
 - [Deterministic offline evaluation](./explanation/context-engineering/offline-evaluation.md)
 - [Portfolio case study](./portfolio/CASE_STUDY.md)
 - [Engineering evidence index](./portfolio/EVIDENCE_INDEX.md)
+- [Final acceptance baseline](./engineering/FINAL_ACCEPTANCE.md)
 - [Engineering interview guide](./interview/ENGINEERING_GUIDE.md)
 - [Known limitations](./engineering/KNOWN_LIMITATIONS.md)
 - [管理员后台操作指南](./how-to-guides/admin-operations.md)

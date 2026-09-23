@@ -20,8 +20,8 @@ Plans should cover:
 - Verification commands and real results.
 - Current findings, blockers, and handoff notes.
 
-The current change request is
-[`active/V1.2-BOOTSTRAP-01.md`](active/V1.2-BOOTSTRAP-01.md). Accepted UI-04 and maintenance M02
-plans are archived under `completed/`; historical P-UAT repair plans remain available in their
-recorded acceptance state rather than being deleted. Only genuinely unresolved historical gates
-remain under `active/` alongside the current V1.2 plan.
+The accepted engineering, UAT, UI, and V1.2 implementation plans are archived
+under [`completed/`](completed/), including the superseded failed FIX-4 attempt.
+No implementation plan remains active. The documentation-only
+PROJECT-CLOSEOUT-01 reconciliation awaits external review; it does not reopen
+the accepted product lifecycle.
