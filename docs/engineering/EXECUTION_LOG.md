@@ -3852,6 +3852,11 @@ Execution Stage: `EXTERNAL_ACCEPTANCE_PENDING`
   historical Admin `Dashboard.tsx`; compatibility wrappers remain for old seed names. Accepted
   plans moved to completed, and historical migrations/security/evaluation/UAT evidence was
   preserved.
-- Real paid-provider chat smoke is `REAL_PROVIDER_SMOKE_NOT_RUN`: external-egress approval was not
-  granted. No key or secret was exposed. No PR, push, merge, public deployment, or production data
-  ingestion occurred; external acceptance remains required.
+- After explicit user delegation, the real cookie/CSRF chat path sent bounded synthetic UAT queries
+  to the configured DashScope/Bailian provider. The first return-policy run was cancelled at the
+  45-second deadline after an embedding timeout and returned no answer. The targeted synthetic
+  order retry completed durably (`COMPLETED`, `ORDER -> order_agent`, 95 response characters, no
+  `RUN_FAILED`). It did not echo the expected tracking number, so exact grounding is not claimed;
+  the independent persisted adapter smoke remains the exact order/logistics proof. No key, response
+  body, real PII, or customer data was printed or transmitted. No PR, push, merge, public deployment,
+  or production data ingestion occurred; external acceptance remains required.
