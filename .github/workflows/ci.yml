@@ -48,7 +48,7 @@ jobs:
           uv lock --check
           heads="$(uv run alembic heads)"
           test "$(grep -c ' (head)' <<< "${heads}")" -eq 1
-          grep -q '^e9f0a1b2c3d4 ' <<< "${heads}"
+          grep -q '^f0a1b2c3d4e5 ' <<< "${heads}"
       - name: Ruff lint
         run: uv run ruff check app tests
       - name: Ruff format

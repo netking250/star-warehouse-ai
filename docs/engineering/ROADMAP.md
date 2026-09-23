@@ -88,6 +88,7 @@ documentation without changing the accepted V1.1 visual baseline.
 | Task | Name | Status |
 | --- | --- | --- |
 | V1.2-BOOTSTRAP-01 | Canonical bootstrap, persistent local/UAT data, documentation, and legacy cleanup | AWAITING_ACCEPTANCE |
+| V1.2-INTEGRATION-PR-FIX | PR #15 migration gate and bootstrap test isolation | AWAITING_ACCEPTANCE |
 
 V1.2-BOOTSTRAP-01 completed implementation and local verification. The canonical Docker workflow
 passed from empty disposable volumes, repeated without duplicate records/vectors, and passed again
