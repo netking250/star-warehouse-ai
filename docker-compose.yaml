@@ -9,7 +9,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-knowledge_base}
     # 以下端口映射仅用于本地开发调试，生产环境请移除或限制访问来源
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -27,7 +27,7 @@ services:
     command: redis-server --requirepass ${REDIS_PASSWORD:-devpassword} --loadmodule /opt/redis-stack/lib/redisearch.so --loadmodule /opt/redis-stack/lib/rejson.so
     # 以下端口映射仅用于本地开发调试，生产环境请移除或限制访问来源
     ports:
-      - "127.0.0.1:6379:6379"
+      - "127.0.0.1:${REDIS_HOST_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -45,8 +45,8 @@ services:
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-dev-rabbitmq-password}
     # Development-only mappings. Do not expose AMQP or management ports publicly.
     ports:
-      - "127.0.0.1:5672:5672"
-      - "127.0.0.1:15672:15672"
+      - "127.0.0.1:${RABBITMQ_HOST_PORT:-5672}:5672"
+      - "127.0.0.1:${RABBITMQ_MANAGEMENT_HOST_PORT:-15672}:15672"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
@@ -61,8 +61,8 @@ services:
     restart: unless-stopped
     # 以下端口映射仅用于本地开发调试，生产环境请移除或限制访问来源
     ports:
-      - "127.0.0.1:6333:6333"
-      - "127.0.0.1:6334:6334"
+      - "127.0.0.1:${QDRANT_HTTP_HOST_PORT:-6333}:6333"
+      - "127.0.0.1:${QDRANT_GRPC_HOST_PORT:-6334}:6334"
     volumes:
       - qdrant_storage:/qdrant/storage
     environment:
@@ -88,9 +88,13 @@ services:
       qdrant:
         condition: service_healthy
     env_file:
-      - .env
+      - ${APP_ENV_FILE:-.env}
     environment:
       POSTGRES_SERVER: db
+      POSTGRES_RUNTIME_USER: ${POSTGRES_RUNTIME_USER:-star_warehouse_app}
+      POSTGRES_RUNTIME_PASSWORD: ${POSTGRES_RUNTIME_PASSWORD:-}
+      POSTGRES_MAINTENANCE_USER: ${POSTGRES_MAINTENANCE_USER:-star_warehouse_ops}
+      POSTGRES_MAINTENANCE_PASSWORD: ${POSTGRES_MAINTENANCE_PASSWORD:-}
       DB_CAPABILITY: runtime
       REDIS_HOST: redis
       REDIS_PASSWORD: ${REDIS_PASSWORD:-devpassword}
@@ -120,9 +124,13 @@ services:
       qdrant:
         condition: service_healthy
     env_file:
-      - .env
+      - ${APP_ENV_FILE:-.env}
     environment:
       POSTGRES_SERVER: db
+      POSTGRES_RUNTIME_USER: ${POSTGRES_RUNTIME_USER:-star_warehouse_app}
+      POSTGRES_RUNTIME_PASSWORD: ${POSTGRES_RUNTIME_PASSWORD:-}
+      POSTGRES_MAINTENANCE_USER: ${POSTGRES_MAINTENANCE_USER:-star_warehouse_ops}
+      POSTGRES_MAINTENANCE_PASSWORD: ${POSTGRES_MAINTENANCE_PASSWORD:-}
       DB_CAPABILITY: runtime
       REDIS_HOST: redis
       REDIS_PASSWORD: ${REDIS_PASSWORD:-devpassword}
@@ -145,9 +153,13 @@ services:
       rabbitmq:
         condition: service_healthy
     env_file:
-      - .env
+      - ${APP_ENV_FILE:-.env}
     environment:
       POSTGRES_SERVER: db
+      POSTGRES_RUNTIME_USER: ${POSTGRES_RUNTIME_USER:-star_warehouse_app}
+      POSTGRES_RUNTIME_PASSWORD: ${POSTGRES_RUNTIME_PASSWORD:-}
+      POSTGRES_MAINTENANCE_USER: ${POSTGRES_MAINTENANCE_USER:-star_warehouse_ops}
+      POSTGRES_MAINTENANCE_PASSWORD: ${POSTGRES_MAINTENANCE_PASSWORD:-}
       DB_CAPABILITY: maintenance
       CELERY_BROKER_URL: amqp://${RABBITMQ_USER:-star_warehouse_ai}:${RABBITMQ_PASSWORD:-dev-rabbitmq-password}@rabbitmq:5672//
       LOG_FORMAT: ${LOG_FORMAT:-json}
@@ -171,9 +183,13 @@ services:
       qdrant:
         condition: service_healthy
     env_file:
-      - .env
+      - ${APP_ENV_FILE:-.env}
     environment:
       POSTGRES_SERVER: db
+      POSTGRES_RUNTIME_USER: ${POSTGRES_RUNTIME_USER:-star_warehouse_app}
+      POSTGRES_RUNTIME_PASSWORD: ${POSTGRES_RUNTIME_PASSWORD:-}
+      POSTGRES_MAINTENANCE_USER: ${POSTGRES_MAINTENANCE_USER:-star_warehouse_ops}
+      POSTGRES_MAINTENANCE_PASSWORD: ${POSTGRES_MAINTENANCE_PASSWORD:-}
       DB_CAPABILITY: maintenance
       REDIS_HOST: redis
       REDIS_PASSWORD: ${REDIS_PASSWORD:-devpassword}
@@ -213,7 +229,7 @@ services:
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     # 以下端口映射仅用于本地开发调试，生产环境请移除或限制访问来源
     ports:
-      - "8000:8000"
+      - "127.0.0.1:${APP_HOST_PORT:-8000}:8000"
     depends_on:
       db:
         condition: service_healthy
@@ -226,14 +242,30 @@ services:
       celery_worker:
         condition: service_started
     env_file:
-      - .env
+      - ${APP_ENV_FILE:-.env}
     environment:
       POSTGRES_SERVER: db
+      POSTGRES_RUNTIME_USER: ${POSTGRES_RUNTIME_USER:-star_warehouse_app}
+      POSTGRES_RUNTIME_PASSWORD: ${POSTGRES_RUNTIME_PASSWORD:-}
+      POSTGRES_MAINTENANCE_USER: ${POSTGRES_MAINTENANCE_USER:-star_warehouse_ops}
+      POSTGRES_MAINTENANCE_PASSWORD: ${POSTGRES_MAINTENANCE_PASSWORD:-}
       DB_CAPABILITY: runtime
       REDIS_HOST: redis
       REDIS_PASSWORD: ${REDIS_PASSWORD:-devpassword}
       QDRANT_URL: http://qdrant:6333
       KNOWLEDGE_UPLOAD_DIR: /app/uploads/knowledge
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      LOCAL_BOOTSTRAP_ENABLED: ${LOCAL_BOOTSTRAP_ENABLED:-false}
+      LOCAL_BOOTSTRAP_TENANT_ID: ${LOCAL_BOOTSTRAP_TENANT_ID:-default}
+      LOCAL_BOOTSTRAP_TENANT_NAME: ${LOCAL_BOOTSTRAP_TENANT_NAME:-}
+      LOCAL_BOOTSTRAP_CUSTOMER_USERNAME: ${LOCAL_BOOTSTRAP_CUSTOMER_USERNAME:-}
+      LOCAL_BOOTSTRAP_CUSTOMER_PASSWORD: ${LOCAL_BOOTSTRAP_CUSTOMER_PASSWORD:-}
+      LOCAL_BOOTSTRAP_CUSTOMER_EMAIL: ${LOCAL_BOOTSTRAP_CUSTOMER_EMAIL:-}
+      LOCAL_BOOTSTRAP_ADMIN_USERNAME: ${LOCAL_BOOTSTRAP_ADMIN_USERNAME:-}
+      LOCAL_BOOTSTRAP_ADMIN_PASSWORD: ${LOCAL_BOOTSTRAP_ADMIN_PASSWORD:-}
+      LOCAL_BOOTSTRAP_ADMIN_EMAIL: ${LOCAL_BOOTSTRAP_ADMIN_EMAIL:-}
+      BROWSER_AUTH_COOKIE_SECURE: ${BROWSER_AUTH_COOKIE_SECURE:-false}
+      CORS_ORIGINS: '${CORS_ORIGINS:-["http://localhost:8000","http://localhost:5173"]}'
       CELERY_BROKER_URL: amqp://${RABBITMQ_USER:-star_warehouse_ai}:${RABBITMQ_PASSWORD:-dev-rabbitmq-password}@rabbitmq:5672//
       LOG_FORMAT: ${LOG_FORMAT:-json}
       OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-star-warehouse-ai-api}

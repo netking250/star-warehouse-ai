@@ -8,7 +8,7 @@ from alembic.script import ScriptDirectory
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 VERSIONS_DIR = REPOSITORY_ROOT / "migrations" / "versions"
-CURRENT_HEAD = "e9f0a1b2c3d4"
+CURRENT_HEAD = "f0a1b2c3d4e5"
 
 
 def test_alembic_revision_graph_has_exactly_one_head() -> None:
@@ -153,7 +153,7 @@ def test_durable_conversation_runtime_is_additive_and_protected() -> None:
         encoding="utf-8"
     )
 
-    runtime_revision = script.get_revision(CURRENT_HEAD)
+    runtime_revision = script.get_revision("e9f0a1b2c3d4")
 
     assert runtime_revision.down_revision == "d8e9f0a1b2c3"
     assert "conversation_runs" in source
@@ -162,4 +162,19 @@ def test_durable_conversation_runtime_is_additive_and_protected() -> None:
     assert "ENABLE ROW LEVEL SECURITY" in source
     assert "FORCE ROW LEVEL SECURITY" in source
     assert "WITH CHECK" in source
+    assert script.get_heads() == [CURRENT_HEAD]
+
+
+def test_knowledge_sync_timestamp_timezone_fix_is_incremental() -> None:
+    """Keep the bootstrap timestamp repair additive and downstream of T12."""
+    config = Config(REPOSITORY_ROOT / "alembic.ini")
+    script = ScriptDirectory.from_config(config)
+    source = (
+        VERSIONS_DIR / "f0a1b2c3d4e5_make_knowledge_sync_timestamp_timezone_aware.py"
+    ).read_text(encoding="utf-8")
+
+    timestamp_revision = script.get_revision(CURRENT_HEAD)
+
+    assert timestamp_revision.down_revision == "e9f0a1b2c3d4"
+    assert "last_synced_at AT TIME ZONE 'UTC'" in source
     assert script.get_heads() == [CURRENT_HEAD]

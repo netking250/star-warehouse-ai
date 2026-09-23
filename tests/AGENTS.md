@@ -53,6 +53,7 @@ Backend test suite using pytest + pytest-asyncio with a flat directory structure
 | Evaluation tests | `@tests/test_evaluation_tasks.py`, `@tests/test_online_eval_service.py` | Evaluation system tests |
 | Offline workflow evaluation | `@tests/evaluation/test_offline.py` | Provider-free T21 dataset, metrics, and fail-closed regression command |
 | Knowledge tests | `@tests/test_knowledge_tasks.py`, `@tests/storage/`, `@tests/tasks/test_knowledge_*`, `@tests/services/test_knowledge_service.py` | Source storage, ingestion, terminal failure, and lifecycle tests |
+| Local bootstrap tests | `@tests/bootstrap/`, `@tests/test_initialize_vector_data.py`, `@tests/test_docker_startup.py` | Production guard, persisted idempotency/ownership, legacy wrapper delegation, and canonical Docker startup contract |
 | Notification tests | `@tests/test_notifications_tasks.py` | Notification task tests |
 | Refund task tests | `@tests/test_refund_tasks.py` | Refund workflow task tests |
 | Prompt effect tests | `@tests/test_prompt_effect_tasks.py` | Prompt effect tracking tests |

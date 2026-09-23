@@ -35,6 +35,10 @@ logger = logging.getLogger(__name__)
 BATCH_SIZE = 32
 
 
+class InvalidDenseEmbeddingError(RuntimeError):
+    """Raised when a provider degradation returns a non-searchable dense vector."""
+
+
 class KnowledgeSyncPayload(BaseModel):
     """Identifier required for a tenant-scoped knowledge sync."""
 
@@ -156,6 +160,12 @@ async def ingest_knowledge_document(
                 _embed_dense(batch_texts),
                 _embed_sparse(sparse_embedder, batch_texts),
             )
+            if any(
+                not vector or not any(value != 0.0 for value in vector) for vector in dense_vectors
+            ):
+                raise InvalidDenseEmbeddingError(
+                    "Embedding provider returned an unusable all-zero dense vector"
+                )
             for index, text in enumerate(batch_texts):
                 points.append(
                     models.PointStruct(
